@@ -1,4 +1,5 @@
 import React from "react";
+import Label from "../Label";
 
 interface TextareaProps {
   placeholder?: string; // Placeholder text
@@ -9,6 +10,8 @@ interface TextareaProps {
   disabled?: boolean; // Disabled state
   error?: boolean; // Error state
   hint?: string; // Hint text to display
+  label?: string; // Label text
+  name?: string; // Name attribute
 }
 
 const TextArea: React.FC<TextareaProps> = ({
@@ -20,6 +23,8 @@ const TextArea: React.FC<TextareaProps> = ({
   disabled = false, // Disabled state
   error = false, // Error state
   hint = "", // Default hint text
+  label, // Optional label
+  name, // Optional name
 }) => {
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (onChange) {
@@ -39,8 +44,10 @@ const TextArea: React.FC<TextareaProps> = ({
 
   return (
     <div className="relative">
+      {label && <Label>{label}</Label>}
       <textarea
         placeholder={placeholder}
+        name={name}
         rows={rows}
         value={value}
         onChange={handleChange}
@@ -49,9 +56,8 @@ const TextArea: React.FC<TextareaProps> = ({
       />
       {hint && (
         <p
-          className={`mt-2 text-sm ${
-            error ? "text-error-500" : "text-gray-500 dark:text-gray-400"
-          }`}
+          className={`mt-2 text-sm ${error ? "text-error-500" : "text-gray-500 dark:text-gray-400"
+            }`}
         >
           {hint}
         </p>
