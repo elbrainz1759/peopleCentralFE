@@ -1,5 +1,8 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { leaveService } from "@/services/leave.service";
+import { authService } from "@/services/auth.service";
+import { toast } from "react-hot-toast";
 import {
     Table,
     TableBody,
@@ -81,6 +84,54 @@ const tableData: LeaveRecord[] = [
 ];
 
 export default function LeaveHistoryTable() {
+    const [tableData, setTableData] = useState<LeaveRecord[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchUserLeaves = async () => {
+            const currentUser = authService.getCurrentUser();
+            const staffIdRaw = currentUser?.id || currentUser?.unique_id || 'test-user-001';
+            const staffId = parseInt(staffIdRaw.replace('test-user-', '')) || 1;
+
+            setIsLoading(true);
+            try {
+                const response = await leaveService.getInstance().getUserLeaves(staffId);
+                console.log("Leave History API Response:", response); // Debug log
+                console.log("Leave History Data:", response.data); // Debug log
+                
+                // Handle different response structures
+                const leavesData = response.data || response || [];
+                console.log("Leaves data to map:", leavesData); // Debug log
+                
+                // Check if it's a single object or array
+                const dataArray = Array.isArray(leavesData) ? leavesData : [leavesData];
+                
+                // Map API data to LeaveRecord format
+                const mappedData = dataArray.map((item: any) => ({
+                    id: item.id,
+                    leaveType: item.leave_type_name || `Type ${item.leave_type_id}` || "Other",
+                    startDate: item.durations?.[0]?.start_date ? new Date(item.durations[0].start_date).toLocaleDateString() : "-",
+                    endDate: item.durations?.[0]?.end_date ? new Date(item.durations[0].end_date).toLocaleDateString() : "-",
+                    duration: `${item.total_hours || 0} Hours`,
+                    reason: item.reason,
+                    status: item.status, // Assuming status comes back correctly
+                    appliedOn: item.created_at ? new Date(item.created_at).toLocaleDateString() : "-",
+                    handoverNotes: item.handover_note
+                }));
+                
+                console.log("Mapped data:", mappedData); // Debug log
+                setTableData(mappedData);
+            } catch (error) {
+                console.error("Failed to fetch leaves:", error);
+                toast.error("Could not load your leave history");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchUserLeaves();
+    }, []);
+
     const [filterStatus, setFilterStatus] = useState("All");
     const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
     const [selectedLeave, setSelectedLeave] = useState<LeaveRecord | null>(null);
@@ -181,89 +232,105 @@ export default function LeaveHistoryTable() {
                     </TableHeader>
 
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {filteredData.map((record, index) => (
-                            <TableRow key={record.id} className="">
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    {index + 1}
-                                </TableCell>
-                                <TableCell className="py-3">
-                                    <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                        {record.leaveType}
-                                    </span>
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    <div className="flex flex-col">
-                                        <span>{record.startDate}</span>
-                                        <span className="text-xs text-gray-400">to {record.endDate}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    {record.duration}
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    {record.appliedOn}
-                                </TableCell>
-                                <TableCell className="py-3 text-theme-sm">
-                                    <Badge
-                                        size="sm"
-                                        color={
-                                            record.status === "Approved"
-                                                ? "success"
-                                                : record.status === "Pending"
-                                                    ? "warning"
-                                                    : "error"
-                                        }
-                                    >
-                                        {record.status}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => toggleDropdown(record.id)}
-                                            className="dropdown-toggle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                            style={{ transform: 'rotate(90deg)' }}
-                                        >
-                                            <MoreDotIcon className="w-5 h-5" />
-                                        </button>
-                                        <Dropdown
-                                            isOpen={openDropdownId === record.id}
-                                            onClose={closeDropdown}
-                                            className="w-40 right-0 mt-2 top-full"
-                                        >
-                                            <DropdownItem
-                                                onItemClick={() => {
-                                                    closeDropdown();
-                                                    handleView(record);
-                                                }}
-                                                className="flex gap-2 items-center"
-                                            >
-                                                <EyeIcon className="w-4 h-4" />
-                                                View Details
-                                            </DropdownItem>
-                                            {record.status === "Pending" && (
-                                                <>
-                                                    <DropdownItem
-                                                        onItemClick={() => {
-                                                            closeDropdown();
-                                                            handleEdit(record);
-                                                        }}
-                                                        className="flex gap-2 items-center"
-                                                    >
-                                                        <PencilIcon className="w-4 h-4" />
-                                                        Edit
-                                                    </DropdownItem>
-                                                    <DropdownItem onItemClick={closeDropdown} className="flex gap-2 items-center text-red-500 hover:text-red-700">
-                                                        <TrashBinIcon className="w-4 h-4" />
-                                                        Cancel
-                                                    </DropdownItem>
-                                                </>
-                                            )}
-                                        </Dropdown>
-                                    </div>
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="py-10 text-center text-gray-400">
+                                    Loading your leave history...
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        ) : filteredData.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="py-10 text-center text-gray-400">
+                                    No leave requests found.
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            filteredData.map((record, index) => (
+                                <TableRow key={record.id} className="">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {index + 1}
+                                    </TableCell>
+                                    <TableCell className="py-3">
+                                        <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                                            {record.leaveType}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        <div className="flex flex-col">
+                                            <span>{record.startDate}</span>
+                                            <span className="text-xs text-gray-400">to {record.endDate}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {record.duration}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {record.appliedOn}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-theme-sm">
+                                        <Badge
+                                            size="sm"
+                                            color={
+                                                record.status === "Approved"
+                                                    ? "success"
+                                                    : record.status === "Pending"
+                                                        ? "warning"
+                                                        : record.status === "Rejected"
+                                                            ? "error"
+                                                            : "light"
+                                            }
+                                        >
+                                            {record.status}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => toggleDropdown(record.id)}
+                                                className="dropdown-toggle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                style={{ transform: 'rotate(90deg)' }}
+                                            >
+                                                <MoreDotIcon className="w-5 h-5" />
+                                            </button>
+                                            <Dropdown
+                                                isOpen={openDropdownId === record.id}
+                                                onClose={closeDropdown}
+                                                className="w-40 right-0 mt-2 top-full"
+                                            >
+                                                <DropdownItem
+                                                    onItemClick={() => {
+                                                        closeDropdown();
+                                                        handleView(record);
+                                                    }}
+                                                    className="flex gap-2 items-center"
+                                                >
+                                                    <EyeIcon className="w-4 h-4" />
+                                                    View Details
+                                                </DropdownItem>
+                                                {record.status === "Pending" && (
+                                                    <>
+                                                        <DropdownItem
+                                                            onItemClick={() => {
+                                                                closeDropdown();
+                                                                handleEdit(record);
+                                                            }}
+                                                            className="flex gap-2 items-center"
+                                                        >
+                                                            <PencilIcon className="w-4 h-4" />
+                                                            Edit
+                                                        </DropdownItem>
+                                                        <DropdownItem onItemClick={closeDropdown} className="flex gap-2 items-center text-red-500 hover:text-red-700">
+                                                            <TrashBinIcon className="w-4 h-4" />
+                                                            Cancel
+                                                        </DropdownItem>
+                                                    </>
+                                                )}
+                                            </Dropdown>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
                     </TableBody>
                 </Table>
             </div>

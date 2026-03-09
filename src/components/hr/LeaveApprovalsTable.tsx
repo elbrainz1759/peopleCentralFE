@@ -1,5 +1,7 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { leaveService } from "@/services/leave.service";
+import { toast } from "react-hot-toast";
 import {
     Table,
     TableBody,
@@ -96,6 +98,9 @@ const tableData: LeaveRequest[] = [
 ];
 
 export default function LeaveApprovalsTable() {
+    const [tableData, setTableData] = useState<LeaveRequest[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
     const [filterStatus, setFilterStatus] = useState("All");
     const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
@@ -114,20 +119,73 @@ export default function LeaveApprovalsTable() {
         setIsDrawerOpen(true);
     };
 
-    const handleApprove = (id: number) => {
-        // Implement approval logic here
-        console.log("Approved request", id);
-        alert(`Request ${id} Approved!`);
-        closeDropdown();
-        setIsDrawerOpen(false);
+    const fetchLeaves = async () => {
+        setIsLoading(true);
+        try {
+            const response = await leaveService.getInstance().getAllLeaves(1, 100, filterStatus);
+            // Map API data to LeaveRequest format
+            const mappedData = response.data.map((item: any) => ({
+                id: item.id,
+                employeeName: item.staff?.first_name ? `${item.staff.first_name} ${item.staff.last_name || ""}` : "Unknown Employee",
+                role: item.staff?.employment_detail?.job_title || "Staff",
+                department: item.staff?.employment_detail?.department?.name || "Unit",
+                leaveType: item.leaveType?.name || "Other",
+                startDate: item.leaveDuration?.[0]?.startDate || "-",
+                endDate: item.leaveDuration?.[0]?.endDate || "-",
+                duration: `${item.leaveDuration?.length || 0} Periods`,
+                reason: item.reason,
+                status: item.status,
+                appliedOn: new Date(item.created_at).toLocaleDateString(),
+            }));
+            setTableData(mappedData);
+        } catch (error) {
+            console.error("Failed to fetch leave approvals:", error);
+            toast.error("Could not load leave approvals");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const handleReject = (id: number) => {
-        // Implement rejection logic here
-        console.log("Rejected request", id);
-        alert(`Request ${id} Rejected!`);
-        closeDropdown();
-        setIsDrawerOpen(false);
+    useEffect(() => {
+        fetchLeaves();
+    }, [filterStatus]);
+
+    const handleReview = async (id: number) => {
+        const comments = prompt("Please enter review comments (optional):") || "";
+        try {
+            await leaveService.getInstance().reviewLeave(id, comments);
+            toast.success("Leave request reviewed by HR");
+            fetchLeaves();
+            setIsDrawerOpen(false);
+        } catch (error) {
+            console.error("Review error:", error);
+            toast.error("Failed to review leave request");
+        }
+    };
+
+    const handleApprove = async (id: number) => {
+        try {
+            await leaveService.getInstance().approveLeave(id);
+            toast.success("Leave request approved by supervisor");
+            fetchLeaves();
+            setIsDrawerOpen(false);
+        } catch (error) {
+            console.error("Approval error:", error);
+            toast.error("Failed to approve leave request");
+        }
+    };
+
+    const handleReject = async (id: number) => {
+        const comments = prompt("Please enter a reason for rejection (optional):") || "";
+        try {
+            await leaveService.getInstance().rejectLeave(id, comments);
+            toast.success("Leave request rejected");
+            fetchLeaves();
+            setIsDrawerOpen(false);
+        } catch (error) {
+            console.error("Rejection error:", error);
+            toast.error("Failed to reject leave request");
+        }
     };
 
     const filteredData =
@@ -206,94 +264,117 @@ export default function LeaveApprovalsTable() {
                     </TableHeader>
 
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {filteredData.map((record, index) => (
-                            <TableRow key={record.id} className="">
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    {index + 1}
-                                </TableCell>
-                                <TableCell className="py-3">
-                                    <div className="flex flex-col">
-                                        <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                            {record.employeeName}
-                                        </span>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                                            {record.role}
-                                        </span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    {record.leaveType}
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    <div className="flex flex-col">
-                                        <span>{record.startDate}</span>
-                                        <span className="text-xs text-gray-400">to {record.endDate}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    {record.duration}
-                                </TableCell>
-                                <TableCell className="py-3 text-theme-sm">
-                                    <Badge
-                                        size="sm"
-                                        color={
-                                            record.status === "Approved"
-                                                ? "success"
-                                                : record.status === "Pending"
-                                                    ? "warning"
-                                                    : "error"
-                                        }
-                                    >
-                                        {record.status}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => toggleDropdown(record.id)}
-                                            className="dropdown-toggle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                            style={{ transform: 'rotate(90deg)' }}
-                                        >
-                                            <MoreDotIcon className="w-5 h-5" />
-                                        </button>
-                                        <Dropdown
-                                            isOpen={openDropdownId === record.id}
-                                            onClose={closeDropdown}
-                                            className="w-40 right-0 mt-2 top-full"
-                                        >
-                                            <DropdownItem
-                                                onItemClick={() => {
-                                                    closeDropdown();
-                                                    handleView(record);
-                                                }}
-                                                className="flex gap-2 items-center"
-                                            >
-                                                <EyeIcon className="w-4 h-4" />
-                                                View Details
-                                            </DropdownItem>
-                                            {record.status === "Pending" && (
-                                                <>
-                                                    <DropdownItem
-                                                        onItemClick={() => handleApprove(record.id)}
-                                                        className="flex gap-2 items-center text-green-600 hover:text-green-700"
-                                                    >
-                                                        <CheckCircleIcon className="w-4 h-4" />
-                                                        Approve
-                                                    </DropdownItem>
-                                                    <DropdownItem
-                                                        onItemClick={() => handleReject(record.id)}
-                                                        className="flex gap-2 items-center text-red-500 hover:text-red-700"
-                                                    >
-                                                        <CloseIcon className="w-4 h-4" />
-                                                        Reject
-                                                    </DropdownItem>
-                                                </>
-                                            )}
-                                        </Dropdown>
-                                    </div>
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="py-10 text-center text-gray-400">
+                                    Loading leave approvals...
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        ) : filteredData.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="py-10 text-center text-gray-400">
+                                    No leave requests found.
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            filteredData.map((record, index) => (
+                                <TableRow key={record.id} className="">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {index + 1}
+                                    </TableCell>
+                                    <TableCell className="py-3">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                                                {record.employeeName}
+                                            </span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                {record.role}
+                                            </span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {record.leaveType}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        <div className="flex flex-col">
+                                            <span>{record.startDate}</span>
+                                            <span className="text-xs text-gray-400">to {record.endDate}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {record.duration}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-theme-sm">
+                                        <Badge
+                                            size="sm"
+                                            color={
+                                                record.status === "Approved"
+                                                    ? "success"
+                                                    : record.status === "Pending"
+                                                        ? "warning"
+                                                        : record.status === "Rejected"
+                                                            ? "error"
+                                                            : "light"
+                                            }
+                                        >
+                                            {record.status}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => toggleDropdown(record.id)}
+                                                className="dropdown-toggle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                style={{ transform: 'rotate(90deg)' }}
+                                            >
+                                                <MoreDotIcon className="w-5 h-5" />
+                                            </button>
+                                            <Dropdown
+                                                isOpen={openDropdownId === record.id}
+                                                onClose={closeDropdown}
+                                                className="w-40 right-0 mt-2 top-full"
+                                            >
+                                                <DropdownItem
+                                                    onItemClick={() => {
+                                                        closeDropdown();
+                                                        handleView(record);
+                                                    }}
+                                                    className="flex gap-2 items-center"
+                                                >
+                                                    <EyeIcon className="w-4 h-4" />
+                                                    View Details
+                                                </DropdownItem>
+                                                {record.status === "Pending" && (
+                                                    <>
+                                                        <DropdownItem
+                                                            onItemClick={() => handleReview(record.id)}
+                                                            className="flex gap-2 items-center text-blue-600 hover:text-blue-700"
+                                                        >
+                                                            <EyeIcon className="w-4 h-4" />
+                                                            HR Review
+                                                        </DropdownItem>
+                                                        <DropdownItem
+                                                            onItemClick={() => handleApprove(record.id)}
+                                                            className="flex gap-2 items-center text-green-600 hover:text-green-700"
+                                                        >
+                                                            <CheckCircleIcon className="w-4 h-4" />
+                                                            Supervisor Approve
+                                                        </DropdownItem>
+                                                        <DropdownItem
+                                                            onItemClick={() => handleReject(record.id)}
+                                                            className="flex gap-2 items-center text-red-500 hover:text-red-700"
+                                                        >
+                                                            <CloseIcon className="w-4 h-4" />
+                                                            Reject
+                                                        </DropdownItem>
+                                                    </>
+                                                )}
+                                            </Dropdown>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
                     </TableBody>
                 </Table>
             </div>
@@ -347,21 +428,30 @@ export default function LeaveApprovalsTable() {
                         </div>
 
                         {selectedRequest.status === "Pending" ? (
-                            <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <div className="flex flex-col gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
                                 <button
-                                    onClick={() => handleApprove(selectedRequest.id)}
-                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                    onClick={() => handleReview(selectedRequest.id)}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                                 >
-                                    <CheckCircleIcon className="w-5 h-5" />
-                                    Approve Request
+                                    <EyeIcon className="w-5 h-5" />
+                                    HR Review
                                 </button>
-                                <button
-                                    onClick={() => handleReject(selectedRequest.id)}
-                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2"
-                                >
-                                    <CloseIcon className="w-5 h-5" />
-                                    Reject Request
-                                </button>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => handleApprove(selectedRequest.id)}
+                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircleIcon className="w-5 h-5" />
+                                        Supervisor Approve
+                                    </button>
+                                    <button
+                                        onClick={() => handleReject(selectedRequest.id)}
+                                        className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2"
+                                    >
+                                        <CloseIcon className="w-5 h-5" />
+                                        Reject Request
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
