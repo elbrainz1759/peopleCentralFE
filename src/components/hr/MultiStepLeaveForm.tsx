@@ -1,5 +1,12 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { leaveServiceInstance } from "@/services/leave.service";
+import { leaveBalanceService, LeaveBalance } from "@/services/leave-balance.service";
+import { userService } from "@/services/user.service";
+import { authService } from "@/services/auth.service";
+import { LeaveType, LeaveRequest } from "@/types/service.types";
+import { toast } from "react-hot-toast";
+import DatePicker from "@/components/form/date-picker";
 import {
     CalenderIcon,
     PaperPlaneIcon,
@@ -10,16 +17,114 @@ import {
     CheckCircleIcon,
 } from "@/icons";
 
-export default function MultiStepLeaveForm({ onClose }: { onClose: () => void }) {
+export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: () => void, initialData?: any }) {
     const [step, setStep] = useState(1);
+    const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+    const [isLoadingTypes, setIsLoadingTypes] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+    const [isLoadingBalances, setIsLoadingBalances] = useState(false);
+
     const [formData, setFormData] = useState({
-        leaveType: "",
-        startDate: "",
-        endDate: "",
-        reason: "",
-        handoverNotes: "",
-        supervisor: "",
+        leaveTypeId: initialData?.leaveTypeId || "",
+        durationSelection: "custom",
+        dates: initialData?.dates || initialData?.leaveDuration || [{ startDate: "", endDate: "" }],
+        reason: initialData?.reason || "",
+        handoverNotes: initialData?.handoverNotes || initialData?.handoverNote || "",
+        supervisor: initialData?.supervisor || "",
     });
+
+    // Auto-populate Start and End Date based on Selection Mode
+    useEffect(() => {
+        if (formData.durationSelection === "custom") return;
+
+        const now = new Date();
+        const todayStr = now.toISOString().split("T")[0];
+
+        const newDates = formData.dates.map((range: { startDate: string, endDate: string }, index: number) => {
+            // Only apply auto-population to the first range if durationSelection is not custom
+            if (index > 0 && formData.durationSelection !== "custom") {
+                return range; // Keep subsequent ranges as they are
+            }
+
+            let start = range.startDate || todayStr;
+            let end = "";
+            const startDateObj = new Date(start);
+
+            if (formData.durationSelection === "one-day") {
+                end = start;
+            } else if (formData.durationSelection === "one-week") {
+                const nextWeek = new Date(startDateObj);
+                nextWeek.setDate(startDateObj.getDate() + 6);
+                end = nextWeek.toISOString().split("T")[0];
+            }
+            return { startDate: start, endDate: end };
+        });
+
+        const hasChanged = JSON.stringify(newDates) !== JSON.stringify(formData.dates);
+        if (hasChanged) {
+            setFormData(prev => ({ ...prev, dates: newDates }));
+        }
+    }, [formData.durationSelection]); // Only trigger on mode selection change or first load
+
+    const handleDateChange = (index: number, name: "startDate" | "endDate", value: string) => {
+        const newDates = [...formData.dates];
+        newDates[index] = { ...newDates[index], [name]: value };
+        setFormData(prev => ({ ...prev, dates: newDates }));
+    };
+
+    const addDateRange = () => {
+        setFormData(prev => ({
+            ...prev,
+            dates: [...prev.dates, { startDate: "", endDate: "" }]
+        }));
+    };
+
+    const removeDateRange = (index: number) => {
+        if (formData.dates.length === 1) return;
+        const newDates = formData.dates.filter((_: any, i: number) => i !== index);
+        setFormData(prev => ({ ...prev, dates: newDates }));
+    };
+
+    useEffect(() => {
+        const fetchTypes = async () => {
+            setIsLoadingTypes(true);
+            try {
+                const response = await userService.getAllLeaveTypes(1, 100);
+                setLeaveTypes(response.data || []);
+            } catch (error) {
+                console.error("Failed to fetch leave types:", error);
+                toast.error("Could not load leave types");
+            } finally {
+                setIsLoadingTypes(false);
+            }
+        };
+
+        const fetchBalances = async () => {
+            setIsLoadingBalances(true);
+            try {
+                const currentUser = authService.getCurrentUser();
+                const staffId = currentUser?.staff_id || currentUser?.id;
+                if (!staffId) {
+                    toast.error("Staff ID not found. Please log in again.");
+                    return;
+                }
+                const response = await leaveBalanceService.getLeaveBalanceByStaffId(staffId);
+                const balancesData = response.data || response || [];
+                setLeaveBalances(Array.isArray(balancesData) ? balancesData : []);
+            } catch (error) {
+                console.error("Failed to fetch leave balances:", error);
+                toast.error("Could not load leave balances");
+            } finally {
+                setIsLoadingBalances(false);
+            }
+        };
+
+        fetchTypes();
+        fetchBalances();
+    }, []);
+
+
 
     const handleChange = (
         e: React.ChangeEvent<
@@ -33,11 +138,57 @@ export default function MultiStepLeaveForm({ onClose }: { onClose: () => void })
     const nextStep = () => setStep((prev) => prev + 1);
     const prevStep = () => setStep((prev) => prev - 1);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Form Submitted:", formData);
-        // Add logic to submit form data
-        onClose();
+
+        console.log("Submit clicked - Current step:", step);
+        console.log("Form data:", formData);
+
+        const currentUser = authService.getCurrentUser();
+        const employeeId = currentUser?.staff_id || currentUser?.id || currentUser?.unique_id;
+
+        console.log("Current user:", currentUser);
+        console.log("Employee ID:", employeeId);
+
+        if (!employeeId) {
+            toast.error("Staff ID not found. Please log in again.");
+            return;
+        }
+
+        const validationErrors = [];
+        if (!formData.leaveTypeId) validationErrors.push("leaveTypeId");
+        if (formData.dates.some((d: any) => !d.startDate || !d.endDate)) validationErrors.push("dates");
+        if (!formData.reason) validationErrors.push("reason");
+
+        console.log("Validation errors:", validationErrors);
+
+        if (validationErrors.length > 0) {
+            toast.error("Please fill in all required fields: " + validationErrors.join(", "));
+            return;
+        }
+
+        const leaveData: LeaveRequest = {
+            staffId: typeof employeeId === 'number' ? employeeId : parseInt(String(employeeId)),
+            leaveTypeId: parseInt(formData.leaveTypeId),
+            reason: formData.reason,
+            handoverNote: formData.handoverNotes,
+            leaveDuration: formData.dates.map((d: any) => ({
+                startDate: d.startDate,
+                endDate: d.endDate
+            }))
+        };
+
+        setIsSubmitting(true);
+        try {
+            await leaveServiceInstance.applyForLeave(leaveData);
+            toast.success("Leave application submitted successfully!");
+            onClose();
+        } catch (error: any) {
+            console.error("Leave submission error:", error);
+            toast.error(error.response?.data?.message || "Failed to submit leave application");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const steps = [
@@ -51,74 +202,145 @@ export default function MultiStepLeaveForm({ onClose }: { onClose: () => void })
             case 1:
                 return (
                     <div className="space-y-6 animate-fadeIn">
+                        {/* Leave Balance Display */}
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                            <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                                Your Current Leave Balances
+                            </h4>
+                            {isLoadingBalances ? (
+                                <div className="text-sm text-blue-700 dark:text-blue-300">
+                                    Loading leave balances...
+                                </div>
+                            ) : leaveBalances.length === 0 ? (
+                                <div className="text-sm text-blue-700 dark:text-blue-300">
+                                    No leave balances found. Please contact HR.
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {leaveBalances.map((balance) => {
+                                        const remainingHours = parseFloat(balance.remaining_hours || '0');
+                                        const totalHours = parseFloat(balance.total_hours || '0');
+                                        const usagePercentage = totalHours > 0 ? ((totalHours - remainingHours) / totalHours) * 100 : 0;
+
+                                        return (
+                                            <div key={balance.id} className="flex justify-between items-center text-sm">
+                                                <span className="font-medium text-blue-800 dark:text-blue-200">
+                                                    {balance.leave_type_name}
+                                                </span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-blue-700 dark:text-blue-300">
+                                                        {remainingHours}h remaining
+                                                    </span>
+                                                    <div className="w-20 bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                                                        <div
+                                                            className={`h-2 rounded-full ${usagePercentage >= 80
+                                                                ? 'bg-red-500'
+                                                                : usagePercentage >= 60
+                                                                    ? 'bg-yellow-500'
+                                                                    : 'bg-green-500'
+                                                                }`}
+                                                            style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
                         <div>
                             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Leave Type
                             </label>
                             <select
-                                name="leaveType"
-                                value={formData.leaveType}
+                                name="leaveTypeId"
+                                value={formData.leaveTypeId}
                                 onChange={handleChange}
                                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500"
                             >
-                                <option value="">Select Leave Type</option>
-                                <option value="Annual Leave">Annual Leave</option>
-                                <option value="Sick Leave">Sick Leave</option>
-                                <option value="Study Leave">Study Leave</option>
-                                <option value="Casual Leave">Casual Leave</option>
-                                <option value="Maternity Leave">Maternity Leave</option>
-                                <option value="Paternity Leave">Paternity Leave</option>
+                                <option value="">{isLoadingTypes ? "Loading types..." : "Select Leave Type"}</option>
+                                {leaveTypes.map((type) => (
+                                    <option key={type.id} value={type.id}>
+                                        {type.name}
+                                    </option>
+                                ))}
                             </select>
                         </div>
+
                         <div>
                             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
-                                Supervisor / Line Manager
+                                Duration Mode
                             </label>
-                            <input
-                                type="text"
-                                name="supervisor"
-                                value={formData.supervisor}
+                            <select
+                                name="durationSelection"
+                                value={formData.durationSelection}
                                 onChange={handleChange}
-                                placeholder="Enter Supervisor Name"
                                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500"
-                            />
+                            >
+                                <option value="custom">Custom Range</option>
+                                <option value="one-day">One Day</option>
+                                <option value="one-week">One Week</option>
+                            </select>
                         </div>
-                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                            <div>
-                                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
-                                    Start Date
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        name="startDate"
-                                        value={formData.startDate}
-                                        onChange={handleChange}
-                                        className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500"
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                        <CalenderIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                                    </span>
+
+                        {formData.dates.map((range: any, index: number) => (
+                            <div key={index} className="p-4 border border-gray-100 dark:border-gray-800 rounded-xl space-y-4 relative">
+                                {formData.dates.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeDateRange(index)}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-sm"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                )}
+                                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                                    <div>
+                                        <DatePicker
+                                            id={`start-date-${index}`}
+                                            label={`Start Date ${index > 0 ? `#${index + 1}` : ""}`}
+                                            placeholder="Select start date"
+                                            defaultDate={range.startDate}
+                                            onChange={(selectedDates) => {
+                                                const date = selectedDates[0];
+                                                if (date) {
+                                                    handleDateChange(index, "startDate", date.toISOString().split('T')[0]);
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <DatePicker
+                                            id={`end-date-${index}`}
+                                            label={`End Date ${index > 0 ? `#${index + 1}` : ""}`}
+                                            placeholder="Select end date"
+                                            defaultDate={range.endDate}
+                                            onChange={(selectedDates) => {
+                                                const date = selectedDates[0];
+                                                if (date) {
+                                                    handleDateChange(index, "endDate", date.toISOString().split('T')[0]);
+                                                }
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
-                                    End Date
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        name="endDate"
-                                        value={formData.endDate}
-                                        onChange={handleChange}
-                                        className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500"
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                        <CalenderIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+                        ))}
+
+                        <button
+                            type="button"
+                            onClick={addDateRange}
+                            className="w-full py-3 px-4 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl text-sm font-medium text-gray-500 hover:text-brand-500 hover:border-brand-500 transition-all flex items-center justify-center gap-2"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            Add Another Date Range
+                        </button>
                     </div>
                 );
             case 2:
@@ -171,26 +393,19 @@ export default function MultiStepLeaveForm({ onClose }: { onClose: () => void })
                             <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-700">
                                 <span className="text-gray-500">Type:</span>
                                 <span className="font-medium text-gray-800 dark:text-white">
-                                    {formData.leaveType || "-"}
+                                    {leaveTypes.find(t => String(t.id) === formData.leaveTypeId)?.name || "-"}
                                 </span>
                             </div>
-                            <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-700">
-                                <span className="text-gray-500">Supervisor:</span>
-                                <span className="font-medium text-gray-800 dark:text-white">
-                                    {formData.supervisor || "-"}
-                                </span>
-                            </div>
-                            <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-700">
-                                <span className="text-gray-500">Start Date:</span>
-                                <span className="font-medium text-gray-800 dark:text-white">
-                                    {formData.startDate || "-"}
-                                </span>
-                            </div>
-                            <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-700">
-                                <span className="text-gray-500">End Date:</span>
-                                <span className="font-medium text-gray-800 dark:text-white">
-                                    {formData.endDate || "-"}
-                                </span>
+                            <div className="space-y-2 border-b border-gray-200 pb-2 dark:border-gray-700">
+                                <span className="text-gray-500">Date Range(s):</span>
+                                {formData.dates.map((range: any, i: number) => (
+                                    <div key={i} className="flex justify-between items-center text-xs">
+                                        <span className="text-gray-400">Period {i + 1}:</span>
+                                        <span className="font-medium text-gray-800 dark:text-white">
+                                            {range.startDate || "-"} to {range.endDate || "-"}
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Reason:</span>
@@ -246,7 +461,7 @@ export default function MultiStepLeaveForm({ onClose }: { onClose: () => void })
 
             {/* Form Content Area */}
             <div className="flex-1 flex flex-col h-full bg-white dark:bg-gray-900">
-                <div className="flex-1 overflow-y-auto p-6 md:p-8">
+                <div className="flex-1 overflow-y-auto p-6 md:p-8" style={{ overflow: 'visible' }}>
                     <div className="max-w-xl mx-auto">
                         <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6">
                             {steps[step - 1].title}
@@ -279,13 +494,20 @@ export default function MultiStepLeaveForm({ onClose }: { onClose: () => void })
                                 <ArrowRightIcon className="w-5 h-5" />
                             </button>
                         ) : (
-                            <button
-                                onClick={handleSubmit}
-                                className="flex items-center gap-2 px-6 py-2.5 font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20"
-                            >
-                                Submit Application
-                                <PaperPlaneIcon className="w-5 h-5" />
-                            </button>
+                            <>
+                                {console.log("Rendering submit button - step:", step, "isSubmitting:", isSubmitting)}
+                                <button
+                                    onClick={(e) => {
+                                        console.log("Submit button clicked!");
+                                        handleSubmit(e);
+                                    }}
+                                    disabled={isSubmitting}
+                                    className="flex items-center gap-2 px-6 py-2.5 font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-green-500/20"
+                                >
+                                    {isSubmitting ? "Submitting..." : "Submit Application"}
+                                    <PaperPlaneIcon className="w-5 h-5" />
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>

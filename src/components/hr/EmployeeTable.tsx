@@ -1,5 +1,8 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { userService } from "@/services/user.service";
+import { Employee } from "@/types/service.types";
+import { toast } from "react-hot-toast";
 import {
     Table,
     TableBody,
@@ -13,98 +16,40 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Drawer } from "../ui/drawer/Drawer";
 import EmployeeProfile from "./EmployeeProfile";
+import EditEmployeeForm from "./EditEmployeeForm";
 
-// Interface for Employee
-interface Employee {
-    id: string;
-    name: string;
-    designation: string;
-    department: string;
-    status: "Active" | "On-boarding" | "Suspended" | "Exited";
-    joinedDate: string;
-    contractStart: string;
-    contractEnd: string;
-    email: string;
-}
 
-// Mock Data
-const employeeData: Employee[] = [
-    {
-        id: "EMP1001",
-        name: "Amara Okoro",
-        designation: "Software Engineer",
-        department: "Engineering",
-        status: "Active",
-        joinedDate: "2024-03-01",
-        contractStart: "2024-03-01",
-        contractEnd: "2026-03-01",
-        email: "amara.o@company.com",
-    },
-    {
-        id: "EMP1002",
-        name: "Kwame Asante",
-        designation: "HR Manager",
-        department: "HR",
-        status: "Active",
-        joinedDate: "2023-11-15",
-        contractStart: "2023-11-15",
-        contractEnd: "2026-04-15",
-        email: "kwame.a@company.com",
-    },
-    {
-        id: "EMP1003",
-        name: "Fatima Zahra",
-        designation: "Product Designer",
-        department: "Product",
-        status: "Active",
-        joinedDate: "2024-01-10",
-        contractStart: "2024-01-10",
-        contractEnd: "2025-05-10",
-        email: "fatima.z@company.com",
-    },
-    {
-        id: "EMP1004",
-        name: "Siddharth Nair",
-        designation: "Financial Analyst",
-        department: "Finance",
-        status: "Active",
-        joinedDate: "2024-02-20",
-        contractStart: "2024-02-20",
-        contractEnd: "2026-02-20",
-        email: "siddharth.n@company.com",
-    },
-    {
-        id: "EMP1005",
-        name: "Carlos Mendez",
-        designation: "Junior Dev",
-        department: "Engineering",
-        status: "On-boarding",
-        joinedDate: "2025-02-01",
-        contractStart: "2025-02-01",
-        contractEnd: "2026-02-01",
-        email: "carlos.m@company.com",
-    },
-    {
-        id: "EMP1006",
-        name: "Yuki Tanaka",
-        designation: "Marketing Specialist",
-        department: "Marketing",
-        status: "Suspended",
-        joinedDate: "2023-05-12",
-        contractStart: "2023-05-12",
-        contractEnd: "2025-04-12",
-        email: "yuki.t@company.com",
-    }
-];
 
 export default function EmployeeTable() {
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterDepartment, setFilterDepartment] = useState("All");
-    const [filterStatus, setFilterStatus] = useState("All");
+    const [filterLocation, setFilterLocation] = useState("All");
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
     const [isViewOpen, setIsViewOpen] = useState(false);
+
+    const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+
+    useEffect(() => {
+        fetchEmployees();
+    }, []);
+
+    const fetchEmployees = async () => {
+        setIsLoading(true);
+        try {
+            const response = await userService.getAllEmployees();
+            setEmployees(response.data || []);
+        } catch (error: any) {
+            console.error("Error fetching employees:", error);
+            toast.error("Failed to load employees");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const toggleDropdown = (id: string) => {
         setOpenDropdownId(openDropdownId === id ? null : id);
@@ -117,12 +62,20 @@ export default function EmployeeTable() {
         setIsViewOpen(true);
     };
 
-    const filteredEmployees = employeeData.filter((emp) => {
-        const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            emp.id.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesDept = filterDepartment === "All" || emp.department === filterDepartment;
-        const matchesStatus = filterStatus === "All" || emp.status === filterStatus;
-        return matchesSearch && matchesDept && matchesStatus;
+    const handleEdit = (employee: Employee) => {
+        setEditEmployee(employee);
+        setIsEditOpen(true);
+    };
+
+    const filteredEmployees = employees.filter((emp) => {
+        const fullName = `${emp.first_name || ''} ${emp.last_name || ''}`.toLowerCase();
+        const matchesSearch = fullName.includes(searchTerm.toLowerCase()) ||
+            String(emp.staff_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            String(emp.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            String(emp.designation || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesDept = filterDepartment === "All" || emp.department === filterDepartment || emp.department_name === filterDepartment;
+        const matchesLocation = filterLocation === "All" || emp.location === filterLocation || emp.location_name === filterLocation;
+        return matchesSearch && matchesDept && matchesLocation;
     });
 
     return (
@@ -165,17 +118,15 @@ export default function EmployeeTable() {
                         <option value="Marketing">Marketing</option>
                     </select>
 
-                    {/* Status */}
+                    {/* Location */}
                     <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
+                        value={filterLocation}
+                        onChange={(e) => setFilterLocation(e.target.value)}
                         className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-theme-sm text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
                     >
-                        <option value="All">All Status</option>
-                        <option value="Active">Active</option>
-                        <option value="On-boarding">On-boarding</option>
-                        <option value="Suspended">Suspended</option>
-                        <option value="Exited">Exited</option>
+                        <option value="All">All Locations</option>
+                        <option value="Abuja">Abuja</option>
+                        <option value="Lagos">Lagos</option>
                     </select>
                 </div>
             </div>
@@ -188,19 +139,28 @@ export default function EmployeeTable() {
                                 Employee
                             </TableCell>
                             <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                Staff ID
+                            </TableCell>
+                            <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                Email
+                            </TableCell>
+                            <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                 Designation
+                            </TableCell>
+                            <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                Location
+                            </TableCell>
+                            <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                Program
                             </TableCell>
                             <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                 Department
                             </TableCell>
                             <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                Joined Date
+                                Supervisor
                             </TableCell>
                             <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                Contract Period
-                            </TableCell>
-                            <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                Status
+                                Created At
                             </TableCell>
                             <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                 Actions
@@ -209,103 +169,110 @@ export default function EmployeeTable() {
                     </TableHeader>
 
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {filteredEmployees.map((emp) => (
-                            <TableRow key={emp.id}>
-                                <TableCell className="py-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 flex items-center justify-center rounded-full shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-bold text-xs uppercase">
-                                            {emp.name.split(" ").map(n => n[0]).join("")}
-                                        </div>
-                                        <div>
-                                            <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                                {emp.name}
-                                            </span>
-                                            <span className="block text-xs text-gray-500 dark:text-gray-400 italic">
-                                                {emp.id}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    {emp.designation}
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    {emp.department}
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    {emp.joinedDate}
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-xs">{emp.contractStart} to</span>
-                                        <span className="text-xs font-semibold">{emp.contractEnd}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="py-3">
-                                    <Badge
-                                        size="sm"
-                                        color={
-                                            emp.status === "Active"
-                                                ? "success"
-                                                : emp.status === "On-boarding"
-                                                    ? "info"
-                                                    : emp.status === "Suspended"
-                                                        ? "error"
-                                                        : "warning"
-                                        }
-                                    >
-                                        {emp.status}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => toggleDropdown(emp.id)}
-                                            className="dropdown-toggle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                            style={{ transform: 'rotate(90deg)' }}
-                                        >
-                                            <MoreDotIcon className="w-5 h-5" />
-                                        </button>
-                                        <Dropdown
-                                            isOpen={openDropdownId === emp.id}
-                                            onClose={closeDropdown}
-                                            className="w-40 right-0 mt-2 top-full"
-                                        >
-                                            <DropdownItem
-                                                onItemClick={() => {
-                                                    closeDropdown();
-                                                    handleView(emp);
-                                                }}
-                                                className="flex gap-2 items-center"
-                                            >
-                                                <EyeIcon className="w-4 h-4" />
-                                                View Profile
-                                            </DropdownItem>
-                                            <DropdownItem
-                                                onItemClick={() => {
-                                                    closeDropdown();
-                                                    alert("Editing " + emp.name);
-                                                }}
-                                                className="flex gap-2 items-center"
-                                            >
-                                                <PencilIcon className="w-4 h-4" />
-                                                Edit Record
-                                            </DropdownItem>
-                                            <DropdownItem
-                                                onItemClick={() => {
-                                                    closeDropdown();
-                                                    alert("Deleting " + emp.name);
-                                                }}
-                                                className="flex gap-2 items-center text-red-500"
-                                            >
-                                                <TrashBinIcon className="w-4 h-4" />
-                                                Delete
-                                            </DropdownItem>
-                                        </Dropdown>
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={10} className="py-10 text-center text-gray-500">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"></div>
+                                        <span>Loading employees...</span>
                                     </div>
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        ) : filteredEmployees.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={10} className="py-10 text-center text-gray-500">
+                                    No employees found matching your criteria.
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            filteredEmployees.map((emp) => (
+                                <TableRow key={emp.unique_id || String(emp.id)}>
+                                    <TableCell className="py-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 flex items-center justify-center rounded-full shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-bold text-xs uppercase">
+                                                {(emp.first_name?.[0] || "") + (emp.last_name?.[0] || "")}
+                                            </div>
+                                            <div>
+                                                <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                                                    {emp.first_name} {emp.last_name}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {String(emp.staff_id || emp.id)}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {emp.email}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {emp.designation || 'N/A'}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {emp.location_name || emp.location || 'N/A'}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {emp.program_name || emp.program || 'N/A'}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {emp.department_name || emp.department || 'N/A'}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {emp.supervisor_name || emp.supervisor || 'N/A'}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        {emp.created_at ? new Date(emp.created_at).toLocaleDateString() : "N/A"}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => toggleDropdown(String(emp.id || emp.staff_id))}
+                                                className="dropdown-toggle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                style={{ transform: 'rotate(90deg)' }}
+                                            >
+                                                <MoreDotIcon className="w-5 h-5" />
+                                            </button>
+                                            <Dropdown
+                                                isOpen={openDropdownId === String(emp.id || emp.staff_id)}
+                                                onClose={closeDropdown}
+                                                className="w-40 right-0 mt-2 top-full"
+                                            >
+                                                <DropdownItem
+                                                    onItemClick={() => {
+                                                        closeDropdown();
+                                                        handleView(emp);
+                                                    }}
+                                                    className="flex gap-2 items-center"
+                                                >
+                                                    <EyeIcon className="w-4 h-4" />
+                                                    View Profile
+                                                </DropdownItem>
+                                                <DropdownItem
+                                                    onItemClick={() => {
+                                                        closeDropdown();
+                                                        handleEdit(emp);
+                                                    }}
+                                                    className="flex gap-2 items-center"
+                                                >
+                                                    <PencilIcon className="w-4 h-4" />
+                                                    Edit Record
+                                                </DropdownItem>
+                                                <DropdownItem
+                                                    onItemClick={() => {
+                                                        closeDropdown();
+                                                        alert("Deleting " + emp.first_name);
+                                                    }}
+                                                    className="flex gap-2 items-center text-red-500"
+                                                >
+                                                    <TrashBinIcon className="w-4 h-4" />
+                                                    Delete
+                                                </DropdownItem>
+                                            </Dropdown>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
                     </TableBody>
                 </Table>
             </div>
@@ -317,6 +284,24 @@ export default function EmployeeTable() {
             >
                 <div className="p-6">
                     {selectedEmployee && <EmployeeProfile employee={selectedEmployee} />}
+                </div>
+            </Drawer>
+
+            <Drawer
+                isOpen={isEditOpen}
+                onClose={() => setIsEditOpen(false)}
+                title="Edit Employee"
+            >
+                <div className="p-6">
+                    {editEmployee && (
+                        <EditEmployeeForm
+                            employee={editEmployee}
+                            onSuccess={() => {
+                                setIsEditOpen(false);
+                                fetchEmployees();
+                            }}
+                        />
+                    )}
                 </div>
             </Drawer>
         </div>

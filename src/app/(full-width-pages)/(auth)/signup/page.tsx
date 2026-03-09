@@ -1,12 +1,11 @@
-import SignUpForm from "@/components/auth/SignUpForm";
 import { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Next.js SignUp Page | TailAdmin - Next.js Dashboard Template",
-  description: "This is Next.js SignUp Page TailAdmin Dashboard Template",
-  // other metadata
+  title: "User Management | HR Dashboard",
+  description: "User management has been moved to HR Administration",
 };
 
 export default function SignUp() {
-  return <SignUpForm />;
+  redirect("/hr/users");
 }
