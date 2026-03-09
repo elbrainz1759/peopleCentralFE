@@ -26,12 +26,22 @@ export default function DatePicker({
   useEffect(() => {
     const flatPickr = flatpickr(`#${id}`, {
       mode: mode || "single",
-      static: true,
+      static: false,
       monthSelectorType: "static",
       dateFormat: "Y-m-d",
       defaultDate,
       onChange,
+      position: "auto left",
+      appendTo: document.body,
     });
+
+    // Set z-index after initialization
+    setTimeout(() => {
+      const calendar = document.querySelector('.flatpickr-calendar');
+      if (calendar) {
+        (calendar as HTMLElement).style.zIndex = "9999";
+      }
+    }, 0);
 
     return () => {
       if (!Array.isArray(flatPickr)) {

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Table,
     TableBody,
@@ -9,77 +9,59 @@ import {
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
 import Button from "../ui/button/Button";
-import { SearchIcon, MoreDotIcon as MoreIcon } from "@/icons";
-
-interface ContractRecord {
-    id: string;
-    staffId: string;
-    staffName: string;
-    position: string;
-    contractStart: string;
-    contractEnd: string;
-}
-
-const mockContracts: ContractRecord[] = [
-    {
-        id: "1",
-        staffId: "EMP1001",
-        staffName: "Amara Okoro",
-        position: "Software Engineer",
-        contractStart: "2024-03-01",
-        contractEnd: "2026-03-01",
-    },
-    {
-        id: "2",
-        staffId: "EMP1002",
-        staffName: "Kwame Asante",
-        position: "HR Manager",
-        contractStart: "2023-11-15",
-        contractEnd: "2026-04-15",
-    },
-    {
-        id: "3",
-        staffId: "EMP1003",
-        staffName: "Fatima Zahra",
-        position: "Product Designer",
-        contractStart: "2024-01-10",
-        contractEnd: "2025-05-10", // Fast approaching
-    },
-    {
-        id: "4",
-        staffId: "EMP1004",
-        staffName: "Siddharth Nair",
-        position: "Financial Analyst",
-        contractStart: "2024-02-20",
-        contractEnd: "2026-02-20",
-    },
-    {
-        id: "5",
-        staffId: "EMP1005",
-        staffName: "Carlos Mendez",
-        position: "Junior Dev",
-        contractStart: "2025-02-01",
-        contractEnd: "2026-02-01",
-    },
-    {
-        id: "6",
-        staffId: "EMP1006",
-        staffName: "Yuki Tanaka",
-        position: "Marketing Specialist",
-        contractStart: "2023-05-12",
-        contractEnd: "2025-04-12", // Very close!
-    }
-];
+import { SearchIcon, MoreDotIcon as MoreIcon, PlusIcon } from "@/icons";
+import { Modal } from "../ui/modal";
+import { toast } from "react-hot-toast";
+import { trackerService } from "@/services/data-tracker.service";
 
 export default function NotificationTrackerTable() {
     const [searchTerm, setSearchTerm] = useState("");
+    const [trackers, setTrackers] = useState<any[]>([]);
+    const [meta, setMeta] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const filteredContracts = mockContracts.filter(record =>
-        record.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.staffId.toLowerCase().includes(searchTerm.toLowerCase())
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Tracker form state
+    const [trackerData, setTrackerData] = useState({
+        title: "",
+        description: "",
+        start_date: "",
+        end_date: "",
+        recipients_csv: "", // comma separated emails
+        periods_csv: "30,15,7" // comma separated days
+    });
+
+    useEffect(() => {
+        loadTrackers();
+    }, []);
+
+    const loadTrackers = async () => {
+        setIsLoading(true);
+        try {
+            const res = await trackerService.getTrackers();
+            // The new API structure returns: { data: [...], meta: {...} }
+            const items = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+            setTrackers(items);
+            if (res?.meta) {
+                setMeta(res.meta);
+            }
+        } catch (err) {
+            console.error("Failed to load trackers", err);
+            toast.error("Failed to load trackers");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const filteredTrackers = trackers.filter(record =>
+        (record.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (record.description || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const getDaysRemaining = (endDate: string) => {
+        if (!endDate) return 0;
         const today = new Date();
         const end = new Date(endDate);
         const diffTime = end.getTime() - today.getTime();
@@ -92,8 +74,63 @@ export default function NotificationTrackerTable() {
         return { label: "Active", color: "success" as const };
     };
 
-    const handleSendPrompt = (name: string) => {
-        alert(`Prompt sent to ${name}'s supervisor and HR regarding contract renewal.`);
+    const handleCreateTracker = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        const rawRecipients = trackerData.recipients_csv.split(",").map(e => e.trim()).filter(Boolean);
+        const rawPeriods = trackerData.periods_csv.split(",").map(p => p.trim()).filter(Boolean);
+        const periods = rawPeriods.map(p => parseInt(p)).filter(p => !isNaN(p));
+
+        if (!trackerData.title) {
+            toast.error("Title is required.");
+            return;
+        }
+        if (!trackerData.start_date || !trackerData.end_date) {
+            toast.error("Please enter valid Start and End dates.");
+            return;
+        }
+        if (rawRecipients.length === 0) {
+            toast.error("Please provide at least one recipient email address.");
+            return;
+        }
+        if (rawPeriods.length > 0 && periods.length === 0) {
+            toast.error(`Notification periods must be numbers, but received: "${trackerData.periods_csv}"`);
+            return;
+        }
+        if (periods.length === 0) {
+            toast.error("Please provide at least one valid notification period (e.g., 30, 15, 7).");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const payload = {
+                title: trackerData.title,
+                description: trackerData.description || undefined,
+                start_date: trackerData.start_date,
+                end_date: trackerData.end_date,
+                recipients: rawRecipients,
+                notification_periods: periods
+            };
+            
+            await trackerService.createTracker(payload);
+            toast.success("Data Tracker created successfully!");
+            setIsCreateModalOpen(false);
+            setTrackerData({
+                title: "",
+                description: "",
+                start_date: "",
+                end_date: "",
+                recipients_csv: "",
+                periods_csv: "30,15,7"
+            });
+            loadTrackers();
+        } catch (error: any) {
+            console.error("Failed to create tracker:", error);
+            toast.error(error.message || "Failed to create tracker");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -101,20 +138,26 @@ export default function NotificationTrackerTable() {
             {/* Table Header/Filter */}
             <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 dark:border-gray-800">
                 <div>
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Employment Contracts</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Track and manage employee contract renewals</p>
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Data Trackers</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Track and manage your automated notifications</p>
                 </div>
-                <div className="relative w-full sm:w-72">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                        <SearchIcon size={18} />
-                    </span>
-                    <input
-                        type="text"
-                        placeholder="Search Staff ID or Name..."
-                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                <div className="flex items-center gap-3">
+                    <div className="relative w-full sm:w-64">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <SearchIcon size={18} />
+                        </span>
+                        <input
+                            type="text"
+                            placeholder="Search by Title or Description..."
+                            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-4 py-2">
+                        <PlusIcon className="w-4 h-4" />
+                        Create Tracker
+                    </Button>
                 </div>
             </div>
 
@@ -122,56 +165,74 @@ export default function NotificationTrackerTable() {
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-gray-50/50 dark:bg-gray-800/50">
-                            <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Staff ID</TableCell>
-                            <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Employee</TableCell>
-                            <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Position</TableCell>
-                            <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Contract Period</TableCell>
+                            <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Title & Description</TableCell>
+                            <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Period</TableCell>
+                            <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Recipients</TableCell>
+                            <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Notification Periods</TableCell>
                             <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Status</TableCell>
-                            <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500 text-right">Action</TableCell>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredContracts.map((record) => {
-                            const days = getDaysRemaining(record.contractEnd);
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                                    Loading trackers...
+                                </TableCell>
+                            </TableRow>
+                        ) : filteredTrackers.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                                    No data trackers found.
+                                </TableCell>
+                            </TableRow>
+                        ) : filteredTrackers.map((record, index) => {
+                            const days = getDaysRemaining(record.end_date);
                             const status = getStatus(days);
                             const isUrgent = days <= 60;
 
+                            const uniqueKey = record.unique_id || record.id || index;
+
                             return (
-                                <TableRow key={record.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors ${isUrgent ? 'bg-orange-50/30 dark:bg-orange-900/5' : ''}`}>
+                                <TableRow key={uniqueKey} className={`hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors ${isUrgent ? 'bg-orange-50/30 dark:bg-orange-900/5' : ''}`}>
                                     <TableCell className="py-4 px-5">
-                                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{record.staffId}</span>
-                                    </TableCell>
-                                    <TableCell className="py-4 px-5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-9 w-9 flex items-center justify-center rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-bold text-xs">
-                                                {record.staffName.split(" ").map(n => n[0]).join("")}
-                                            </div>
-                                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{record.staffName}</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{record.title}</span>
+                                            {record.description && (
+                                                <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">{record.description}</span>
+                                            )}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="py-4 px-5 text-sm text-gray-600 dark:text-gray-400">{record.position}</TableCell>
                                     <TableCell className="py-4 px-5 text-sm text-gray-600 dark:text-gray-400">
                                         <div className="flex flex-col gap-0.5">
-                                            <span>{record.contractStart} to {record.contractEnd}</span>
+                                            <span>
+                                                {record.start_date ? new Date(record.start_date).toLocaleDateString() : 'N/A'} - {record.end_date ? new Date(record.end_date).toLocaleDateString() : 'N/A'}
+                                            </span>
                                             <span className={`text-[11px] font-medium ${isUrgent ? 'text-orange-600 dark:text-orange-400' : 'text-gray-500'}`}>
                                                 {days < 0 ? 'Expired' : `${days} days remaining`}
                                             </span>
                                         </div>
                                     </TableCell>
                                     <TableCell className="py-4 px-5">
+                                        <div className="flex flex-wrap gap-1">
+                                            {(record.recipients || []).slice(0, 2).map((email: string, i: number) => (
+                                                <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                                    {email}
+                                                </span>
+                                            ))}
+                                            {(record.recipients?.length || 0) > 2 && (
+                                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                                    +{(record.recipients.length - 2)} more
+                                                </span>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-4 px-5 text-sm text-gray-600 dark:text-gray-400">
+                                        {record.notification_periods ? record.notification_periods.join(', ') + ' days' : 'N/A'}
+                                    </TableCell>
+                                    <TableCell className="py-4 px-5">
                                         <Badge size="sm" color={status.color}>
                                             {status.label}
                                         </Badge>
-                                    </TableCell>
-                                    <TableCell className="py-4 px-5 text-right">
-                                        <Button
-                                            size="sm"
-                                            variant={isUrgent ? "primary" : "outline"}
-                                            onClick={() => handleSendPrompt(record.staffName)}
-                                            className="text-xs"
-                                        >
-                                            Send Prompt
-                                        </Button>
                                     </TableCell>
                                 </TableRow>
                             );
@@ -179,6 +240,101 @@ export default function NotificationTrackerTable() {
                     </TableBody>
                 </Table>
             </div>
+
+            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} className="max-w-2xl p-0">
+                <div className="flex flex-col h-full bg-white dark:bg-gray-900 rounded-2xl overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Create Data Tracker</h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Setup an automated notification tracker for important dates.</p>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <form id="tracker-form" onSubmit={handleCreateTracker} className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Title <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={trackerData.title}
+                                    onChange={(e) => setTrackerData({ ...trackerData, title: e.target.value })}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none"
+                                    placeholder="e.g., Q3 Contract Renewals"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Description</label>
+                                <textarea
+                                    value={trackerData.description}
+                                    onChange={(e) => setTrackerData({ ...trackerData, description: e.target.value })}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none min-h-[80px]"
+                                    placeholder="Optional description of this tracker..."
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Start Date <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={trackerData.start_date}
+                                        onChange={(e) => setTrackerData({ ...trackerData, start_date: e.target.value })}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">End Date <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={trackerData.end_date}
+                                        onChange={(e) => setTrackerData({ ...trackerData, end_date: e.target.value })}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Recipients (Emails) <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={trackerData.recipients_csv}
+                                    onChange={(e) => setTrackerData({ ...trackerData, recipients_csv: e.target.value })}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none"
+                                    placeholder="hr@company.com, manager@company.com"
+                                />
+                                <p className="text-[11px] text-gray-500 mt-1.5">Comma separated list of email addresses.</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Notification Periods (Days) <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={trackerData.periods_csv}
+                                    onChange={(e) => setTrackerData({ ...trackerData, periods_csv: e.target.value })}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none"
+                                    placeholder="30, 15, 7"
+                                />
+                                <p className="text-[11px] text-gray-500 mt-1.5">Days before end date to send notifications (e.g., 30, 15, 7).</p>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20 flex justify-end gap-3">
+                        <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                            Cancel
+                        </Button>
+                        <button type="submit" form="tracker-form" disabled={isSubmitting} className="px-5 py-2 bg-brand-500 text-white rounded-lg text-sm font-medium hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 transition-all">
+                            {isSubmitting ? "Creating..." : "Create Tracker"}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

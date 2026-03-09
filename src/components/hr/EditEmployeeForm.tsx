@@ -5,18 +5,23 @@ import { userService } from "@/services/user.service";
 import { Employee } from "@/types/service.types";
 import { toast } from "react-hot-toast";
 
-export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void }) {
+interface EditEmployeeFormProps {
+    employee: Employee;
+    onSuccess?: () => void;
+}
+
+export default function EditEmployeeForm({ employee, onSuccess }: EditEmployeeFormProps) {
     const [formData, setFormData] = useState({
-        firstName: "",
-        lastName: "",
-        staffId: "",
-        email: "",
-        designation: "",
-        locationId: "",
-        supervisorId: "",
-        programId: "",
-        departmentId: "",
-        countryId: "",
+        firstName: employee.first_name || "",
+        lastName: employee.last_name || "",
+        staffId: String(employee.staff_id || employee.id || ""),
+        email: employee.email || "",
+        designation: employee.designation || "",
+        locationId: employee.location || "",
+        supervisorId: employee.supervisor || "",
+        programId: employee.program || "",
+        departmentId: employee.department || "",
+        countryId: employee.country || "",
     });
 
     const [departments, setDepartments] = useState<any[]>([]);
@@ -50,6 +55,26 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                 setCountries(countrs);
                 setLocations(locs);
                 setEmployees(emps);
+
+                // Re-map IDs once we have the lookup data
+                const matchedDept = depts.find((d: any) => d.name === employee.department_name || d.name === employee.department || d.unique_id === employee.department);
+                const matchedProg = progs.find((p: any) => p.name === employee.program_name || p.name === employee.program || p.unique_id === employee.program);
+                const matchedCountry = countrs.find((c: any) => c.name === employee.country || c.unique_id === employee.country);
+                const matchedLoc = locs.find((l: any) => l.name === employee.location_name || l.name === employee.location || l.unique_id === employee.location);
+                const matchedSupervisor = emps.find((e: Employee) => {
+                    const supName = employee.supervisor_name || employee.supervisor;
+                    const empFullName = `${e.first_name} ${e.last_name}`;
+                    return e.unique_id === employee.supervisor || empFullName === supName;
+                });
+
+                setFormData(prev => ({
+                    ...prev,
+                    departmentId: matchedDept?.unique_id || prev.departmentId,
+                    programId: matchedProg?.unique_id || prev.programId,
+                    countryId: matchedCountry?.unique_id || prev.countryId,
+                    locationId: matchedLoc?.unique_id || prev.locationId,
+                    supervisorId: matchedSupervisor?.unique_id || prev.supervisorId,
+                }));
             } catch (err) {
                 console.error("Failed to load setup data", err);
                 toast.error("Error loading setup data");
@@ -59,7 +84,7 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
         };
 
         loadInitialData();
-    }, []);
+    }, [employee]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -85,42 +110,26 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                 countryId: formData.countryId,
             };
 
-            console.log("Submitting employee data:", submissionData);
+            console.log("Updating employee data:", submissionData);
 
-            await userService.createEmployee(submissionData);
-            toast.success("Employee profile created successfully!");
+            await userService.updateEmployee(employee.unique_id || String(employee.id), submissionData);
+            toast.success("Employee updated successfully!");
             if (onSuccess) onSuccess();
         } catch (err: any) {
-            const message = err.message || "Failed to create employee";
+            const message = err.message || "Failed to update employee";
             setError(message);
             toast.error(message);
-            console.error("Employee creation error:", err);
+            console.error("Employee update error:", err);
         } finally {
             setIsSubmitting(false);
         }
-    };
-
-    const resetForm = () => {
-        setFormData({
-            firstName: "",
-            lastName: "",
-            staffId: "",
-            email: "",
-            designation: "",
-            locationId: "",
-            supervisorId: "",
-            programId: "",
-            departmentId: "",
-            countryId: "",
-        });
-        setError(null);
     };
 
     if (isFetchingData) {
         return (
             <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-gray-100 rounded-3xl bg-gray-50/30">
                 <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-500/20 border-t-brand-500 mb-4 mx-auto"></div>
-                <p className="text-gray-500 font-medium">Synchronizing organizational data...</p>
+                <p className="text-gray-500 font-medium">Loading employee data...</p>
             </div>
         );
     }
@@ -128,7 +137,7 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
     return (
         <div className="p-1">
             <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Section 1: Personal Identification */}
+                {/* Section 1: Staff Identification */}
                 <div>
                     <h4 className="mb-5 text-sm font-bold text-gray-400 uppercase tracking-widest dark:text-gray-500">
                         Staff Identification
@@ -137,7 +146,7 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                         <InputField
                             label="First Name"
                             name="firstName"
-                            id="firstName"
+                            id="edit_firstName"
                             placeholder="e.g. John"
                             value={formData.firstName}
                             onChange={handleInputChange}
@@ -146,7 +155,7 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                         <InputField
                             label="Last Name"
                             name="lastName"
-                            id="lastName"
+                            id="edit_lastName"
                             placeholder="e.g. Doe"
                             value={formData.lastName}
                             onChange={handleInputChange}
@@ -155,7 +164,7 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                         <InputField
                             label="Staff ID"
                             name="staffId"
-                            id="staffId"
+                            id="edit_staffId"
                             type="number"
                             placeholder="e.g. 433434"
                             value={formData.staffId}
@@ -165,7 +174,7 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                         <InputField
                             label="Official Email"
                             name="email"
-                            id="email"
+                            id="edit_email"
                             type="email"
                             placeholder="john.doe@mercycorps.org"
                             value={formData.email}
@@ -176,7 +185,7 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                             <InputField
                                 label="Designation"
                                 name="designation"
-                                id="designation"
+                                id="edit_designation"
                                 placeholder="e.g. Program Manager"
                                 value={formData.designation}
                                 onChange={handleInputChange}
@@ -185,7 +194,7 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                     </div>
                 </div>
 
-                {/* Section 2: Deployment Details */}
+                {/* Section 2: Deployment & Reporting */}
                 <div>
                     <h4 className="mb-5 text-sm font-bold text-gray-400 uppercase tracking-widest dark:text-gray-500">
                         Deployment & Reporting
@@ -196,11 +205,10 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                             {locations.length > 0 ? (
                                 <select
                                     name="locationId"
-                                    id="locationId"
+                                    id="edit_locationId"
                                     value={formData.locationId}
                                     onChange={handleInputChange}
                                     className="w-full h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                    required
                                 >
                                     <option value="">Select Location</option>
                                     {locations.map((l: any) => (
@@ -210,7 +218,7 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                             ) : (
                                 <input
                                     name="locationId"
-                                    id="locationId"
+                                    id="edit_locationId"
                                     type="text"
                                     placeholder="e.g. Location ID"
                                     value={formData.locationId}
@@ -225,22 +233,24 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                             {employees.length > 0 ? (
                                 <select
                                     name="supervisorId"
-                                    id="supervisorId"
+                                    id="edit_supervisorId"
                                     value={formData.supervisorId}
                                     onChange={handleInputChange}
                                     className="w-full h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
                                 >
                                     <option value="">Select Supervisor</option>
-                                    {employees.map((e: Employee) => (
-                                        <option key={e.unique_id || e.id} value={e.unique_id}>
-                                            {e.first_name} {e.last_name} ({e.staff_id})
-                                        </option>
-                                    ))}
+                                    {employees
+                                        .filter(e => e.unique_id !== employee.unique_id)
+                                        .map((e: Employee) => (
+                                            <option key={e.unique_id || e.id} value={e.unique_id}>
+                                                {e.first_name} {e.last_name} ({e.staff_id})
+                                            </option>
+                                        ))}
                                 </select>
                             ) : (
                                 <input
                                     name="supervisorId"
-                                    id="supervisorId"
+                                    id="edit_supervisorId"
                                     type="text"
                                     placeholder="e.g. Supervisor ID"
                                     value={formData.supervisorId}
@@ -254,11 +264,10 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Country</label>
                             <select
                                 name="countryId"
-                                id="countryId"
+                                id="edit_countryId"
                                 value={formData.countryId}
                                 onChange={handleInputChange}
                                 className="w-full h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                required
                             >
                                 <option value="">Choose Country</option>
                                 {countries.map((c: any) => (
@@ -271,11 +280,10 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Department</label>
                             <select
                                 name="departmentId"
-                                id="departmentId"
+                                id="edit_departmentId"
                                 value={formData.departmentId}
                                 onChange={handleInputChange}
                                 className="w-full h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                required
                             >
                                 <option value="">Choose Department</option>
                                 {departments.map((d: any) => (
@@ -288,11 +296,10 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Program</label>
                             <select
                                 name="programId"
-                                id="programId"
+                                id="edit_programId"
                                 value={formData.programId}
                                 onChange={handleInputChange}
                                 className="w-full h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                required
                             >
                                 <option value="">Select a Program</option>
                                 {programs.map((p: any) => (
@@ -313,19 +320,12 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                 {/* Form Actions */}
                 <div className="flex items-center justify-end gap-3 pt-6 sticky bottom-0 bg-white dark:bg-gray-900 pb-4 border-t border-gray-100 dark:border-gray-800 mt-6 lg:-mx-6 lg:px-6">
                     <button
-                        type="button"
-                        onClick={resetForm}
-                        className="flex-1 sm:flex-none justify-center rounded-xl border border-gray-200 bg-white px-8 py-3 text-sm font-semibold text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                    >
-                        Clear Form
-                    </button>
-                    <button
                         type="submit"
                         disabled={isSubmitting}
                         className={`flex-1 sm:flex-none justify-center rounded-xl bg-brand-500 px-10 py-3 text-sm font-bold text-white shadow-lg shadow-brand-500/25 transition-all hover:bg-brand-600 hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100 ${isSubmitting ? 'cursor-not-allowed' : ''
                             }`}
                     >
-                        {isSubmitting ? "Creating Staff..." : "Create Staff Profile"}
+                        {isSubmitting ? "Updating Employee..." : "Save Changes"}
                     </button>
                 </div>
             </form>

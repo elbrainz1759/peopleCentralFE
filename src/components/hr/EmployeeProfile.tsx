@@ -2,17 +2,7 @@
 import React from "react";
 import Badge from "../ui/badge/Badge";
 
-interface Employee {
-    id: string;
-    name: string;
-    designation: string;
-    department: string;
-    status: "Active" | "On-boarding" | "Suspended" | "Exited";
-    joinedDate: string;
-    contractStart: string;
-    contractEnd: string;
-    email: string;
-}
+import { Employee } from "@/types/service.types";
 
 export default function EmployeeProfile({ employee }: { employee: Employee }) {
     return (
@@ -20,10 +10,10 @@ export default function EmployeeProfile({ employee }: { employee: Employee }) {
             {/* Profile Header */}
             <div className="flex flex-col items-center p-6 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800">
                 <div className="h-24 w-24 flex items-center justify-center rounded-full border-4 border-white dark:border-gray-800 shadow-lg mb-4 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 font-bold text-3xl uppercase">
-                    {employee.name.split(" ").map(n => n[0]).join("")}
+                    {(employee.first_name?.[0] || "") + (employee.last_name?.[0] || "")}
                 </div>
-                <h3 className="text-xl font-bold text-gray-800 dark:text-white">{employee.name}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{employee.designation}</p>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white">{employee.first_name} {employee.last_name}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{employee.designation || 'N/A'}</p>
                 <div className="mt-3">
                     <Badge
                         size="md"
@@ -37,7 +27,7 @@ export default function EmployeeProfile({ employee }: { employee: Employee }) {
                                         : "warning"
                         }
                     >
-                        {employee.status}
+                        {employee.status || "N/A"}
                     </Badge>
                 </div>
             </div>
@@ -49,13 +39,15 @@ export default function EmployeeProfile({ employee }: { employee: Employee }) {
                     <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Professional Information</h4>
                     <div className="grid grid-cols-2 gap-y-4 text-sm">
                         <div className="text-gray-500">Staff ID</div>
-                        <div className="font-medium text-gray-800 dark:text-gray-200">{employee.id}</div>
+                        <div className="font-medium text-gray-800 dark:text-gray-200">{String(employee.staff_id || employee.id)}</div>
                         <div className="text-gray-500">Department</div>
-                        <div className="font-medium text-gray-800 dark:text-gray-200">{employee.department}</div>
+                        <div className="font-medium text-gray-800 dark:text-gray-200">{employee.department_name || employee.department}</div>
+                        <div className="text-gray-500">Program</div>
+                        <div className="font-medium text-gray-800 dark:text-gray-200">{employee.program_name || employee.program}</div>
                         <div className="text-gray-500">Joined Date</div>
-                        <div className="font-medium text-gray-800 dark:text-gray-200">{employee.joinedDate}</div>
-                        <div className="text-gray-500">Pay Grade</div>
-                        <div className="font-medium text-gray-800 dark:text-gray-200">GS-12</div>
+                        <div className="font-medium text-gray-800 dark:text-gray-200">{employee.created_at ? new Date(employee.created_at).toLocaleDateString() : (employee.joinedDate || "N/A")}</div>
+                        <div className="text-gray-500">Supervisor</div>
+                        <div className="font-medium text-gray-800 dark:text-gray-200">{employee.supervisor_name || employee.supervisor || "N/A"}</div>
                     </div>
                 </div>
 
@@ -80,7 +72,7 @@ export default function EmployeeProfile({ employee }: { employee: Employee }) {
                         </div>
                         <div className="flex flex-col gap-1">
                             <span className="text-xs text-gray-500">Phone Number</span>
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">+1 (555) 000-0000</span>
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">N/A</span>
                         </div>
                     </div>
                 </div>
@@ -89,9 +81,8 @@ export default function EmployeeProfile({ employee }: { employee: Employee }) {
             {/* About */}
             <div className="border border-gray-100 dark:border-gray-800 p-5 rounded-2xl">
                 <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">About</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                    A highly motivated {employee.designation} with over 5 years of experience in the {employee.department} field.
-                    Demonstrates exceptional skills in problem solving and teamwork.
+                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed italic">
+                    No additional information available for this employee profile.
                 </p>
             </div>
         </div>
