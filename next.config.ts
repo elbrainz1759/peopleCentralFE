@@ -9,16 +9,24 @@ const nextConfig: NextConfig = {
     });
     return config;
   },
-    
-    turbopack: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
+
+  turbopack: {
+    rules: {
+      '*.svg': {
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
       },
     },
-  
+  },
+
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: "https://d17gqyseyowaqt.cloudfront.net/:path*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
