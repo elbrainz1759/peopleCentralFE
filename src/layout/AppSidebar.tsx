@@ -29,7 +29,7 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    path: "/",
+    path: "/dashboard",
   },
   {
     icon: <CalenderIcon />,
@@ -38,15 +38,15 @@ const navItems: NavItem[] = [
       { name: "Apply for Leave", path: "/leave/apply" },
       { name: "My Leaves", path: "/leave/history" },
       { name: "Approvals", path: "/leave/approvals" },
-      { name: "Leave Reports", path: "/leave/reports" },
+      { name: "Leave Balances", path: "/leave/balances" },
+      { name: "Leave Types", path: "/leave/leave-types" },
     ],
   },
   {
     icon: <ListIcon />,
     name: "Exit Management",
     subItems: [
-      { name: "Exit Checklist", path: "/exit/checklist" },
-      { name: "Exit Interview", path: "/exit/interview" },
+      { name: "Exit Request", path: "/exit" },
       { name: "Approvals", path: "/exit/approvals" },
     ],
   },
@@ -56,6 +56,11 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "Notification Tracker", path: "/hr/notifications" },
       { name: "Employee Database", path: "/hr/employees" },
+      { name: "User Management", path: "/hr/users" },
+      { name: "Departments", path: "/hr/departments" },
+      { name: "Programs", path: "/hr/programs" },
+      { name: "Locations", path: "/hr/locations" },
+      { name: "Countries", path: "/hr/countries" },
     ],
   },
 ];
@@ -263,22 +268,22 @@ const AppSidebar: React.FC = () => {
         className={`py-8 flex  ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
           }`}
       >
-        <Link href="/">
+        <Link href="/dashboard">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <Image
                 className="dark:hidden"
                 src="/images/logo/brand-logo.png"
                 alt="Logo"
-                width={150}
-                height={40}
+                width={180}
+                height={48}
               />
               <Image
                 className="hidden dark:block"
                 src="/images/logo/brand-logo-dark.png"
                 alt="Logo"
-                width={150}
-                height={40}
+                width={180}
+                height={48}
               />
             </>
           ) : (
