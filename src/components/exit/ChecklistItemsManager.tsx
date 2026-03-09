@@ -240,7 +240,7 @@ export default function ChecklistItemsManager() {
                       </span>
                     </TableCell>
                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                      {getDepartmentName(item.department, item.department_name)}
+                      {getDepartmentName(item.department, item.departmentName)}
                     </TableCell>
                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                       <div className="relative">
