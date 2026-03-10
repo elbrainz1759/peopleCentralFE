@@ -75,6 +75,32 @@ export class UserService {
             throw error;
         }
     }
+
+    /**
+     * updates an existing user's role or details
+     */
+    public async updateUser(unique_id: string, userData: any): Promise<any> {
+        try {
+            const response = await api.patch<any>(`/users/${unique_id}`, userData);
+            return response;
+        } catch (error) {
+            console.error('UserService updateUser error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * deletes a user
+     */
+    public async deleteUser(unique_id: string): Promise<any> {
+        try {
+            const response = await api.delete<any>(`/users/${unique_id}`);
+            return response;
+        } catch (error) {
+            console.error('UserService deleteUser error:', error);
+            throw error;
+        }
+    }
     /**
      * gets a list of all employees
      */

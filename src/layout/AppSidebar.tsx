@@ -52,10 +52,18 @@ const navItems: NavItem[] = [
   },
   {
     icon: <UserCircleIcon />,
-    name: "HR Administration",
+    name: "Notification Tracker",
+    path: "/hr/notifications",
+  },
+  {
+    icon: <UserCircleIcon />,
+    name: "Employee Database",
+    path: "/hr/employees",
+  },
+  {
+    icon: <UserCircleIcon />,
+    name: "Admin Settings",
     subItems: [
-      { name: "Notification Tracker", path: "/hr/notifications" },
-      { name: "Employee Database", path: "/hr/employees" },
       { name: "User Management", path: "/hr/users" },
       { name: "Departments", path: "/hr/departments" },
       { name: "Programs", path: "/hr/programs" },
