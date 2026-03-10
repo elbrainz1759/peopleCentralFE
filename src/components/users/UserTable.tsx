@@ -13,16 +13,13 @@ import Badge from "../ui/badge/Badge";
 import { EyeIcon, PencilIcon, TrashBinIcon, MoreDotIcon } from "@/icons";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import EditUserModal from "./EditUserModal";
-import DeleteUserModal from "./DeleteUserModal";
 
-export interface User {
-    id: string | number;
-    unique_id: string;
+interface User {
+    id: string;
     email: string;
     role: string;
-    first_name?: string;
-    last_name?: string;
+    firstName?: string;
+    lastName?: string;
     status?: string;
 }
 
@@ -31,9 +28,6 @@ export default function UserTable() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
     useEffect(() => {
         fetchUsers();
@@ -59,32 +53,12 @@ export default function UserTable() {
     const closeDropdown = () => setOpenDropdownId(null);
 
     const filteredUsers = users.filter((user) => {
-        const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
+        const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
         const matchesSearch = fullName.includes(searchTerm.toLowerCase()) ||
             user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (user.unique_id || '').toLowerCase().includes(searchTerm.toLowerCase());
+            (user.id || '').toLowerCase().includes(searchTerm.toLowerCase());
         return matchesSearch;
     });
-
-    const handleEdit = (user: User) => {
-        setSelectedUser(user);
-        setIsEditModalOpen(true);
-    };
-
-    const handleDeleteClick = (user: User) => {
-        setSelectedUser(user);
-        setIsDeleteModalOpen(true);
-    };
-
-    const handleDeleteSuccess = () => {
-        setIsDeleteModalOpen(false);
-        fetchUsers();
-    };
-
-    const handleEditSuccess = () => {
-        setIsEditModalOpen(false);
-        fetchUsers();
-    };
 
     return (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
@@ -151,15 +125,15 @@ export default function UserTable() {
                             </TableRow>
                         ) : (
                             filteredUsers.map((user) => (
-                                <TableRow key={user.unique_id}>
+                                <TableRow key={user.id}>
                                     <TableCell className="py-3">
                                         <div className="flex items-center gap-3">
                                             <div className="h-10 w-10 flex items-center justify-center rounded-full shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-bold text-xs uppercase">
-                                                {(user.first_name?.[0] || "") + (user.last_name?.[0] || user.email[0])}
+                                                {(user.firstName?.[0] || "") + (user.lastName?.[0] || user.email[0])}
                                             </div>
                                             <div>
                                                 <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                                    {user.first_name ? `${user.first_name} ${user.last_name}` : 'N/A'}
+                                                    {user.firstName ? `${user.firstName} ${user.lastName}` : 'N/A'}
                                                 </span>
                                             </div>
                                         </div>
@@ -192,14 +166,14 @@ export default function UserTable() {
                                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                                         <div className="relative">
                                             <button
-                                                onClick={() => toggleDropdown(user.unique_id)}
+                                                onClick={() => toggleDropdown(user.id)}
                                                 className="dropdown-toggle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                                                 style={{ transform: 'rotate(90deg)' }}
                                             >
                                                 <MoreDotIcon className="w-5 h-5" />
                                             </button>
                                             <Dropdown
-                                                isOpen={openDropdownId === user.unique_id}
+                                                isOpen={openDropdownId === user.id}
                                                 onClose={closeDropdown}
                                                 className="w-40 right-0 mt-2 top-full"
                                             >
@@ -216,7 +190,7 @@ export default function UserTable() {
                                                 <DropdownItem
                                                     onItemClick={() => {
                                                         closeDropdown();
-                                                        handleEdit(user);
+                                                        alert("Editing " + user.email);
                                                     }}
                                                     className="flex gap-2 items-center"
                                                 >
@@ -226,7 +200,7 @@ export default function UserTable() {
                                                 <DropdownItem
                                                     onItemClick={() => {
                                                         closeDropdown();
-                                                        handleDeleteClick(user);
+                                                        alert("Deleting " + user.email);
                                                     }}
                                                     className="flex gap-2 items-center text-red-500"
                                                 >
@@ -242,20 +216,6 @@ export default function UserTable() {
                     </TableBody>
                 </Table>
             </div>
-
-            <EditUserModal
-                isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
-                user={selectedUser}
-                onSuccess={handleEditSuccess}
-            />
-
-            <DeleteUserModal
-                isOpen={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                user={selectedUser}
-                onSuccess={handleDeleteSuccess}
-            />
         </div>
     );
 }
