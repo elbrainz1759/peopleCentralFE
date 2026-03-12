@@ -1,0 +1,9 @@
+variable "app_name" { type = string }
+variable "environment" { type = string }
+variable "instance_type" { type = string }
+variable "ami" { type = string }
+variable "key_pair_name" { type = string }
+variable "allowed_ssh_cidr" { type = string }
+variable "iam_instance_profile" { type = string }
+variable "ecr_repository_url" { type = string }
+variable "aws_region" { type = string }

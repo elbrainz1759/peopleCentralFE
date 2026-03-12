@@ -1,0 +1,7 @@
+aws_region        = "us-east-1"
+environment       = "production"
+app_name          = "people-central-fe"
+ec2_instance_type = "t3.micro"
+ec2_ami           = "ami-0c7217cdde317cfec"
+key_pair_name     = "people-central-key"
+allowed_ssh_cidr  = "0.0.0.0/0"
