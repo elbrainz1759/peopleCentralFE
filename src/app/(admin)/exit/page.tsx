@@ -1,5 +1,6 @@
 "use client";
 import MultiStepExitForm from "@/components/exit/MultiStepExitForm";
+import Link from "next/link";
 
 export default function ExitPage() {
   return (
@@ -14,9 +15,9 @@ export default function ExitPage() {
               <nav>
                 <ol className="flex items-center gap-2">
                   <li>
-                    <a className="font-medium" href="/">
+                    <Link className="font-medium" href="/">
                       Dashboard /
-                    </a>
+                    </Link>
                   </li>
                   <li className="font-medium text-brand-500">Exit Request</li>
                 </ol>

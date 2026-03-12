@@ -128,7 +128,7 @@ export default function ExitChecklistForm() {
                 {/* Supervisor Approval Routing */}
                 <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                        Supervisor's Email for Approval <span className="text-red-500">*</span>
+                        Supervisor&apos;s Email for Approval <span className="text-red-500">*</span>
                     </label>
                     <input
                         type="email"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { ExitService, ChecklistItem, ExitInterview } from "@/services/exit.service";
 import { leaveServiceInstance } from "@/services/leave.service";
@@ -60,49 +60,24 @@ export default function MultiStepExitForm() {
     additionalComments: "",
     selectedChecklistItems: [],
   });
-
+  
   const exitServiceInstance = ExitService.getInstance();
 
-  useEffect(() => {
-    fetchChecklistItems();
-    fetchStaffDetails();
-    fetchDepartments();
-    fetchPrograms();
-    fetchLocations();
-  }, []);
-
-  const fetchLocations = async () => {
+  const fetchChecklistItems = useCallback(async () => {
+    setIsLoadingChecklist(true);
     try {
-      const response = await exitServiceInstance.getLocations();
-      setLocations(response.data || response || []);
+      const response = await exitServiceInstance.getAllChecklistItems();
+      const itemsData = response.data || response || [];
+      setChecklistItems(Array.isArray(itemsData) ? itemsData : []);
     } catch (error) {
-      console.error("Failed to fetch locations:", error);
+      console.error("Failed to fetch checklist items:", error);
+      toast.error("Could not load checklist items");
+    } finally {
+      setIsLoadingChecklist(false);
     }
-  };
+  }, [exitServiceInstance]);
 
-  const fetchPrograms = async () => {
-    try {
-      const response = await exitServiceInstance.getPrograms();
-      setPrograms(response.data || response || []);
-    } catch (error) {
-      console.error("Failed to fetch programs:", error);
-    }
-  };
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await exitServiceInstance.getDepartments();
-      const depts = response.data || response || [];
-      setDepartments(depts);
-      if (depts.length > 0) {
-        setSelectedDeptId(depts[0].unique_id || depts[0].id);
-      }
-    } catch (error) {
-      console.error("Failed to fetch departments:", error);
-    }
-  };
-
-  const fetchStaffDetails = async () => {
+  const fetchStaffDetails = useCallback(async () => {
     try {
       const authUser = authService.getCurrentUser();
       const rawUserString = typeof window !== 'undefined' ? localStorage.getItem('auth_user') : null;
@@ -171,21 +146,46 @@ export default function MultiStepExitForm() {
         }
       }
     }
-  };
+  }, []);
 
-  const fetchChecklistItems = async () => {
-    setIsLoadingChecklist(true);
+  const fetchDepartments = useCallback(async () => {
     try {
-      const response = await exitServiceInstance.getAllChecklistItems();
-      const itemsData = response.data || response || [];
-      setChecklistItems(Array.isArray(itemsData) ? itemsData : []);
+      const response = await exitServiceInstance.getDepartments();
+      const depts = response.data || response || [];
+      setDepartments(depts);
+      if (depts.length > 0) {
+        setSelectedDeptId(depts[0].unique_id || depts[0].id);
+      }
     } catch (error) {
-      console.error("Failed to fetch checklist items:", error);
-      toast.error("Could not load checklist items");
-    } finally {
-      setIsLoadingChecklist(false);
+      console.error("Failed to fetch departments:", error);
     }
-  };
+  }, [exitServiceInstance]);
+
+  const fetchPrograms = useCallback(async () => {
+    try {
+      const response = await exitServiceInstance.getPrograms();
+      setPrograms(response.data || response || []);
+    } catch (error) {
+      console.error("Failed to fetch programs:", error);
+    }
+  }, [exitServiceInstance]);
+
+  const fetchLocations = useCallback(async () => {
+    try {
+      const response = await exitServiceInstance.getLocations();
+      setLocations(response.data || response || []);
+    } catch (error) {
+      console.error("Failed to fetch locations:", error);
+    }
+  }, [exitServiceInstance]);
+
+  useEffect(() => {
+    fetchChecklistItems();
+    fetchStaffDetails();
+    fetchDepartments();
+    fetchPrograms();
+    fetchLocations();
+  }, [fetchChecklistItems, fetchStaffDetails, fetchDepartments, fetchPrograms, fetchLocations]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement> | React.ChangeEvent<HTMLSelectElement>) => {
     const target = e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;

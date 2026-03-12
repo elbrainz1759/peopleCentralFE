@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { leaveServiceInstance } from "@/services/leave.service";
 import { leaveBalanceService, LeaveBalance } from "@/services/leave-balance.service";
 import { userService } from "@/services/user.service";
@@ -61,11 +61,14 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
             return { startDate: start, endDate: end };
         });
 
-        const hasChanged = JSON.stringify(newDates) !== JSON.stringify(formData.dates);
-        if (hasChanged) {
+        // Use a more stable dependency for comparison
+        const currentDatesStr = JSON.stringify(formData.dates);
+        const nextDatesStr = JSON.stringify(newDates);
+        
+        if (nextDatesStr !== currentDatesStr) {
             setFormData(prev => ({ ...prev, dates: newDates }));
         }
-    }, [formData.durationSelection]); // Only trigger on mode selection change or first load
+    }, [formData.durationSelection, formData.dates]); // trigger on mode selection change or first load
 
     const handleDateChange = (index: number, name: "startDate" | "endDate", value: string) => {
         const newDates = [...formData.dates];
@@ -86,43 +89,43 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
         setFormData(prev => ({ ...prev, dates: newDates }));
     };
 
+    const fetchTypes = useCallback(async () => {
+        setIsLoadingTypes(true);
+        try {
+            const response = await userService.getAllLeaveTypes(1, 100);
+            setLeaveTypes(response.data || []);
+        } catch (error) {
+            console.error("Failed to fetch leave types:", error);
+            toast.error("Could not load leave types");
+        } finally {
+            setIsLoadingTypes(false);
+        }
+    }, []);
+
+    const fetchBalances = useCallback(async () => {
+        setIsLoadingBalances(true);
+        try {
+            const currentUser = authService.getCurrentUser();
+            const staffId = currentUser?.staff_id || currentUser?.id;
+            if (!staffId) {
+                toast.error("Staff ID not found. Please log in again.");
+                return;
+            }
+            const response = await leaveBalanceService.getLeaveBalanceByStaffId(staffId);
+            const balancesData = response.data || response || [];
+            setLeaveBalances(Array.isArray(balancesData) ? balancesData : []);
+        } catch (error) {
+            console.error("Failed to fetch leave balances:", error);
+            toast.error("Could not load leave balances");
+        } finally {
+            setIsLoadingBalances(false);
+        }
+    }, []);
+
     useEffect(() => {
-        const fetchTypes = async () => {
-            setIsLoadingTypes(true);
-            try {
-                const response = await userService.getAllLeaveTypes(1, 100);
-                setLeaveTypes(response.data || []);
-            } catch (error) {
-                console.error("Failed to fetch leave types:", error);
-                toast.error("Could not load leave types");
-            } finally {
-                setIsLoadingTypes(false);
-            }
-        };
-
-        const fetchBalances = async () => {
-            setIsLoadingBalances(true);
-            try {
-                const currentUser = authService.getCurrentUser();
-                const staffId = currentUser?.staff_id || currentUser?.id;
-                if (!staffId) {
-                    toast.error("Staff ID not found. Please log in again.");
-                    return;
-                }
-                const response = await leaveBalanceService.getLeaveBalanceByStaffId(staffId);
-                const balancesData = response.data || response || [];
-                setLeaveBalances(Array.isArray(balancesData) ? balancesData : []);
-            } catch (error) {
-                console.error("Failed to fetch leave balances:", error);
-                toast.error("Could not load leave balances");
-            } finally {
-                setIsLoadingBalances(false);
-            }
-        };
-
         fetchTypes();
         fetchBalances();
-    }, []);
+    }, [fetchTypes, fetchBalances]);
 
 
 

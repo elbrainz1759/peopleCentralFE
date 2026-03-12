@@ -6,7 +6,7 @@ import flatpickr from "flatpickr";
 import ChartTab from "../common/ChartTab";
 import { CalenderIcon } from "../../icons";
 
-const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
+const Chart = dynamic(() => import("react-apexcharts").then((mod) => mod.default), { ssr: false });
 
 export default function StatisticsChart() {
   const datePickerRef = useRef<HTMLInputElement>(null);
@@ -154,7 +154,7 @@ export default function StatisticsChart() {
             Statistics
           </h3>
           <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-            Target you've set for each month
+            Target you&apos;ve set for each month
           </p>
         </div>
         <div className="flex items-center gap-3 sm:justify-end">

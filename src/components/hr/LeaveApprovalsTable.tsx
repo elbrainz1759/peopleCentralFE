@@ -119,7 +119,7 @@ export default function LeaveApprovalsTable() {
         setIsDrawerOpen(true);
     };
 
-    const fetchLeaves = async () => {
+    const fetchLeaves = React.useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await leaveService.getInstance().getAllLeaves(1, 100, filterStatus);
@@ -144,11 +144,11 @@ export default function LeaveApprovalsTable() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [filterStatus]);
 
     useEffect(() => {
         fetchLeaves();
-    }, [filterStatus]);
+    }, [fetchLeaves]);
 
     const handleReview = async (id: number) => {
         const comments = prompt("Please enter review comments (optional):") || "";

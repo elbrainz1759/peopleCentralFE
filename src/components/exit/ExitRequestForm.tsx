@@ -46,103 +46,104 @@ export default function ExitRequestForm({ onClose, initialData }: { onClose: () 
   const exitServiceInstance = ExitService.getInstance();
 
   // Load data
+  // Load data
+  const loadUserData = React.useCallback(async () => {
+    setIsLoadingUser(true);
+    try {
+      const authUser = authService.getCurrentUser();
+      const authToken = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      let userId = authUser?.staff_id || authUser?.staffId || authUser?.email || authUser?.unique_id || authUser?.uniqueId || authUser?.id;
+
+      if (!userId && authToken) {
+        try {
+          const payload = JSON.parse(atob(authToken.split('.')[1]));
+          userId = payload.staff_id || payload.staffId || payload.id || payload.sub;
+        } catch (e) {
+          console.error("Token decode error:", e);
+        }
+      }
+
+      let response;
+      if (userId) {
+        response = await leaveServiceInstance.getStaffDetails(userId);
+      } else {
+        response = await leaveServiceInstance.getStaffDetails();
+      }
+
+      const rawData = response.data || response;
+      const staffData = Array.isArray(rawData) ? rawData[0] : rawData;
+
+      if (staffData) {
+        setCurrentUser(staffData);
+        setFormData(prev => ({
+          ...prev,
+          departmentId: staffData.department || "",
+          programId: staffData.program || "",
+          locationId: staffData.location || "",
+          countryId: staffData.country || "",
+          supervisorId: staffData.supervisor || "",
+        }));
+        if (!authUser && typeof window !== 'undefined') {
+          localStorage.setItem('auth_user', JSON.stringify(staffData));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load user data:", error);
+    } finally {
+      setIsLoadingUser(false);
+    }
+  }, []);
+
+  const fetchChecklistItems = React.useCallback(async () => {
+    setIsLoadingChecklist(true);
+    try {
+      const response = await exitServiceInstance.getAllChecklistItems();
+      setChecklistItems(response.data || response || []);
+    } catch (error) {
+      console.error("Failed to fetch checklist items:", error);
+    } finally {
+      setIsLoadingChecklist(false);
+    }
+  }, [exitServiceInstance]);
+
+  const fetchDepartments = React.useCallback(async () => {
+    try {
+      const response = await exitServiceInstance.getDepartments();
+      const depts = response.data || response || [];
+      setDepartments(depts);
+      if (depts.length > 0) {
+        setSelectedDeptId(depts[0].uniqueId || depts[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch departments:", error);
+    }
+  }, [exitServiceInstance]);
+
+  const fetchPrograms = React.useCallback(async () => {
+    try {
+      const response = await exitServiceInstance.getPrograms();
+      setPrograms(response.data || response || []);
+    } catch (error) {
+      console.error("Failed to fetch programs:", error);
+    }
+  }, [exitServiceInstance]);
+
+  const fetchLocations = React.useCallback(async () => {
+    try {
+      const response = await exitServiceInstance.getLocations();
+      setLocations(response.data || response || []);
+    } catch (error) {
+      console.error("Failed to fetch locations:", error);
+    }
+  }, [exitServiceInstance]);
+
   useEffect(() => {
-    const loadUserData = async () => {
-      setIsLoadingUser(true);
-      try {
-        const authUser = authService.getCurrentUser();
-        const authToken = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-        let userId = authUser?.staff_id || authUser?.staffId || authUser?.email || authUser?.unique_id || authUser?.uniqueId || authUser?.id;
-
-        if (!userId && authToken) {
-          try {
-            const payload = JSON.parse(atob(authToken.split('.')[1]));
-            userId = payload.staff_id || payload.staffId || payload.id || payload.sub;
-          } catch (e) {
-            console.error("Token decode error:", e);
-          }
-        }
-
-        let response;
-        if (userId) {
-          response = await leaveServiceInstance.getStaffDetails(userId);
-        } else {
-          response = await leaveServiceInstance.getStaffDetails();
-        }
-
-        const rawData = response.data || response;
-        const staffData = Array.isArray(rawData) ? rawData[0] : rawData;
-
-        if (staffData) {
-          setCurrentUser(staffData);
-          setFormData(prev => ({
-            ...prev,
-            departmentId: staffData.department || "",
-            programId: staffData.program || "",
-            locationId: staffData.location || "",
-            countryId: staffData.country || "",
-            supervisorId: staffData.supervisor || "",
-          }));
-          if (!authUser && typeof window !== 'undefined') {
-            localStorage.setItem('auth_user', JSON.stringify(staffData));
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load user data:", error);
-      } finally {
-        setIsLoadingUser(false);
-      }
-    };
-
-    const fetchChecklistItems = async () => {
-      setIsLoadingChecklist(true);
-      try {
-        const response = await exitServiceInstance.getAllChecklistItems();
-        setChecklistItems(response.data || response || []);
-      } catch (error) {
-        console.error("Failed to fetch checklist items:", error);
-      } finally {
-        setIsLoadingChecklist(false);
-      }
-    };
-
-    const fetchDepartments = async () => {
-      try {
-        const response = await exitServiceInstance.getDepartments();
-        const depts = response.data || response || [];
-        setDepartments(depts);
-        if (depts.length > 0) {
-          setSelectedDeptId(depts[0].uniqueId || depts[0].id);
-        }
-      } catch (error) {
-        console.error("Failed to fetch departments:", error);
-      }
-    };
-
-    const fetchPrograms = async () => {
-      try {
-        const response = await exitServiceInstance.getPrograms();
-        setPrograms(response.data || response || []);
-      } catch (error) {
-        console.error("Failed to fetch programs:", error);
-      }
-    };
-
-    const fetchLocations = async () => {
-      try {
-        const response = await exitServiceInstance.getLocations();
-        setLocations(response.data || response || []);
-      } catch (error) {
-        console.error("Failed to fetch locations:", error);
-      }
-    };
-
     fetchChecklistItems();
     loadUserData();
     fetchDepartments();
     fetchPrograms();
     fetchLocations();
-  }, []);
+  }, [fetchChecklistItems, loadUserData, fetchDepartments, fetchPrograms, fetchLocations]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;

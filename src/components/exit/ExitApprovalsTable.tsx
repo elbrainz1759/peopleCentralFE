@@ -65,51 +65,7 @@ export default function ExitApprovalsTable() {
 
     const exitServiceInstance = ExitService.getInstance();
 
-    useEffect(() => {
-        // Evaluate the logged-in user's role or department
-        // to restrict which queues they can see.
-        try {
-            const authUserJson = localStorage.getItem('auth_user') || localStorage.getItem('user');
-            if (authUserJson) {
-                const user = JSON.parse(authUserJson);
-                setCurrentUserId(user?.id);
-                setCurrentUserStaffId(user?.staff_id || user?.staffId);
-                
-                // Example RBAC Logic:
-                const deptName = user?.department?.name?.toLowerCase() || user?.department_name?.toLowerCase() || '';
-                const role = user?.role?.toLowerCase() || '';
-                
-                if (role.includes('admin') || role === 'super_admin' || role === 'hr_manager') {
-                    // Admins and HR see everything
-                    setAvailableQueues(['All', 'Operations', 'Finance', 'HR_Final']);
-                    setCurrentQueue('All');
-                } else if (deptName.includes('operation')) {
-                    setAvailableQueues(['Operations']);
-                    setCurrentQueue('Operations');
-                } else if (deptName.includes('finance')) {
-                    setAvailableQueues(['Finance']);
-                    setCurrentQueue('Finance');
-                } else if (deptName.includes('hr') || deptName.includes('human resources')) {
-                    setAvailableQueues(['All', 'HR_Final']);
-                    setCurrentQueue('HR_Final');
-                }
-            }
-        } catch (e) {
-            console.error("Failed to parse auth user for RBAC", e);
-        }
-
-        fetchChecklistItems();
-        fetchDepartments();
-    }, []);
-
-    useEffect(() => {
-        // Only fetch if we're on "All"/"HR_Final", or if we are on a dept queue and departments have loaded
-        if (currentQueue === 'All' || currentQueue === 'HR_Final' || departments.length > 0) {
-            fetchInterviews();
-        }
-    }, [currentQueue, departments]);
-
-    const fetchInterviews = async () => {
+    const fetchInterviews = React.useCallback(async () => {
         setIsLoadingInterviews(true);
         try {
             let res;
@@ -165,9 +121,9 @@ export default function ExitApprovalsTable() {
         } finally {
             setIsLoadingInterviews(false);
         }
-    };
+    }, [currentQueue, currentUserId, currentUserStaffId, departments, exitServiceInstance]);
 
-    const fetchChecklistItems = async () => {
+    const fetchChecklistItems = React.useCallback(async () => {
         setIsLoadingChecklist(true);
         try {
             const response = await exitServiceInstance.getAllChecklistItems();
@@ -177,9 +133,9 @@ export default function ExitApprovalsTable() {
         } finally {
             setIsLoadingChecklist(false);
         }
-    };
+    }, [exitServiceInstance]);
 
-    const fetchDepartments = async () => {
+    const fetchDepartments = React.useCallback(async () => {
         try {
             const response = await exitServiceInstance.getDepartments();
             const depts = response.data || response || [];
@@ -190,7 +146,51 @@ export default function ExitApprovalsTable() {
         } catch (error) {
             console.error("Failed to fetch departments:", error);
         }
-    };
+    }, [exitServiceInstance]);
+
+    useEffect(() => {
+        // Evaluate the logged-in user's role or department
+        // to restrict which queues they can see.
+        try {
+            const authUserJson = localStorage.getItem('auth_user') || localStorage.getItem('user');
+            if (authUserJson) {
+                const user = JSON.parse(authUserJson);
+                setCurrentUserId(user?.id);
+                setCurrentUserStaffId(user?.staff_id || user?.staffId);
+                
+                // Example RBAC Logic:
+                const deptName = user?.department?.name?.toLowerCase() || user?.department_name?.toLowerCase() || '';
+                const role = user?.role?.toLowerCase() || '';
+                
+                if (role.includes('admin') || role === 'super_admin' || role === 'hr_manager') {
+                    // Admins and HR see everything
+                    setAvailableQueues(['All', 'Operations', 'Finance', 'HR_Final']);
+                    setCurrentQueue('All');
+                } else if (deptName.includes('operation')) {
+                    setAvailableQueues(['Operations']);
+                    setCurrentQueue('Operations');
+                } else if (deptName.includes('finance')) {
+                    setAvailableQueues(['Finance']);
+                    setCurrentQueue('Finance');
+                } else if (deptName.includes('hr') || deptName.includes('human resources')) {
+                    setAvailableQueues(['All', 'HR_Final']);
+                    setCurrentQueue('HR_Final');
+                }
+            }
+        } catch (e) {
+            console.error("Failed to parse auth user for RBAC", e);
+        }
+
+        fetchChecklistItems();
+        fetchDepartments();
+    }, [fetchChecklistItems, fetchDepartments]);
+
+    useEffect(() => {
+        // Only fetch if we're on "All"/"HR_Final", or if we are on a dept queue and departments have loaded
+        if (currentQueue === 'All' || currentQueue === 'HR_Final' || departments.length > 0) {
+            fetchInterviews();
+        }
+    }, [currentQueue, departments, fetchInterviews]);
 
     const handleAddItem = async () => {
         if (!newItemName.trim() || !selectedDeptId) {
@@ -436,7 +436,7 @@ export default function ExitApprovalsTable() {
                         ) : exitInterviews.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="py-10 text-center text-gray-500">
-                                    No records found for "{currentQueue}"
+                                    No records found for &quot;{currentQueue}&quot;
                                 </TableCell>
                             </TableRow>
                         ) : exitInterviews.map((interview: ExitInterviewDisplay, i) => (

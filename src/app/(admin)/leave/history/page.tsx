@@ -1,6 +1,7 @@
 import LeaveHistoryTable from "@/components/hr/LeaveHistoryTable";
 import { Metadata } from "next";
 import React from "react";
+import Link from "next/link";
 
 export const metadata: Metadata = {
     title: "My Leave History | Mercy Corps HR",
@@ -17,9 +18,9 @@ export default function LeaveHistoryPage() {
                 <nav>
                     <ol className="flex items-center gap-2">
                         <li>
-                            <a className="font-medium" href="/">
+                            <Link className="font-medium" href="/">
                                 Dashboard /
-                            </a>
+                            </Link>
                         </li>
                         <li className="font-medium text-brand-500">History</li>
                     </ol>

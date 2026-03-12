@@ -99,7 +99,7 @@ const Calendar: React.FC = () => {
     } else {
       // Add new event
       const newEvent: CalendarEvent = {
-        id: Date.now().toString(),
+        id: Math.random().toString(36).substr(2, 9),
         title: eventTitle,
         start: eventStartDate,
         end: eventEndDate,

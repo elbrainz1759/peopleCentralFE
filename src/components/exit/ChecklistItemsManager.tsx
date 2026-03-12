@@ -34,12 +34,7 @@ export default function ChecklistItemsManager() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchChecklistItems();
-    fetchDepartments();
-  }, []);
-
-  const fetchDepartments = async () => {
+  const fetchDepartments = React.useCallback(async () => {
     setIsLoadingDepartments(true);
     try {
       const response = await exitServiceInstance.getDepartments();
@@ -59,9 +54,9 @@ export default function ChecklistItemsManager() {
     } finally {
       setIsLoadingDepartments(false);
     }
-  };
+  }, [formData.departmentId]);
 
-  const fetchChecklistItems = async () => {
+  const fetchChecklistItems = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await exitServiceInstance.getAllChecklistItems();
@@ -73,7 +68,12 @@ export default function ChecklistItemsManager() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchChecklistItems();
+    fetchDepartments();
+  }, [fetchChecklistItems, fetchDepartments]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;

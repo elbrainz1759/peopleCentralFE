@@ -33,11 +33,7 @@ export default function NotificationTrackerTable() {
         periods_csv: "30,15,7" // comma separated days
     });
 
-    useEffect(() => {
-        loadTrackers();
-    }, []);
-
-    const loadTrackers = async () => {
+    const loadTrackers = React.useCallback(async () => {
         setIsLoading(true);
         try {
             const res = await trackerService.getTrackers();
@@ -53,7 +49,11 @@ export default function NotificationTrackerTable() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        loadTrackers();
+    }, [loadTrackers]);
 
     const filteredTrackers = trackers.filter(record =>
         (record.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
