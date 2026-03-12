@@ -10,7 +10,6 @@ RUN npm install -g pnpm
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
-
 # ─────────────────────────────────────────────
 # Stage 2: Builder
 # ─────────────────────────────────────────────
@@ -31,6 +30,8 @@ ENV SENTRY_DSN=$SENTRY_DSN
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV CI=true
 
 RUN pnpm run build
 

@@ -1,0 +1,8 @@
+node_modules
+.next
+.git
+terraform
+observability
+*.md
+.env*
+!.env.production
