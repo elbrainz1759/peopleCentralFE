@@ -1,0 +1,134 @@
+name: Build & Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+env:
+  AWS_REGION: us-east-1
+  APP_NAME: people-central-fe
+
+jobs:
+  # ─── Job 1: Build & push Docker image to ECR ──────────────
+  build:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Generate image tag
+        id: meta
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "tag=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "Image tag: $SHORT_SHA"
+
+      - name: Build, tag, and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG:    ${{ steps.meta.outputs.tag }}
+        run: |
+          docker build \
+            --file docker/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }} \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }} \
+            --build-arg SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }} \
+            --tag $ECR_REGISTRY/${{ env.APP_NAME }}:$IMAGE_TAG \
+            --tag $ECR_REGISTRY/${{ env.APP_NAME }}:latest \
+            .
+
+          docker push $ECR_REGISTRY/${{ env.APP_NAME }}:$IMAGE_TAG
+          docker push $ECR_REGISTRY/${{ env.APP_NAME }}:latest
+
+          echo "Pushed: $ECR_REGISTRY/${{ env.APP_NAME }}:$IMAGE_TAG"
+
+  # ─── Job 2: Deploy to EC2 ─────────────────────────────────
+  deploy:
+    name: Deploy to EC2
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: SSH into EC2 and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key:      ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            AWS_REGION="${{ env.AWS_REGION }}"
+            ECR_URL="${{ secrets.ECR_REPOSITORY_URL }}"
+            IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
+            APP_NAME="${{ env.APP_NAME }}"
+
+            echo "==> Logging into ECR..."
+            aws ecr get-login-password --region $AWS_REGION | \
+              docker login --username AWS --password-stdin $ECR_URL
+
+            echo "==> Pulling image: $ECR_URL:$IMAGE_TAG"
+            docker pull $ECR_URL:$IMAGE_TAG
+
+            echo "==> Stopping old container..."
+            docker stop $APP_NAME || true
+            docker rm   $APP_NAME || true
+
+            echo "==> Starting new container..."
+            docker run -d \
+              --name $APP_NAME \
+              --restart unless-stopped \
+              -p 3000:3000 \
+              --log-driver awslogs \
+              --log-opt awslogs-region=$AWS_REGION \
+              --log-opt awslogs-group=/aws/ec2/$APP_NAME \
+              --log-opt awslogs-stream=docker \
+              -e NODE_ENV=production \
+              $ECR_URL:$IMAGE_TAG
+
+            echo "==> Cleaning up old images..."
+            docker image prune -f
+
+            echo "==> Verifying container is healthy..."
+            sleep 10
+            docker ps | grep $APP_NAME
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+      - name: Notify Sentry of new release
+        run: |
+          curl -s https://sentry.io/api/0/organizations/${{ secrets.SENTRY_ORG }}/releases/ \
+            -H "Authorization: Bearer ${{ secrets.SENTRY_AUTH_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "version": "${{ github.sha }}",
+              "projects": ["${{ secrets.SENTRY_PROJECT }}"],
+              "refs": [{"repository": "${{ github.repository }}", "commit": "${{ github.sha }}"}]
+            }' || echo "Sentry release notification skipped"
