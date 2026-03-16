@@ -102,6 +102,8 @@ jobs:
               --name $APP_NAME \
               --restart unless-stopped \
               -p 3000:3000 \
+              --memory="700m" \
+              --memory-swap="700m" \
               --log-driver awslogs \
               --log-opt awslogs-region=$AWS_REGION \
               --log-opt awslogs-group=/aws/ec2/$APP_NAME \
