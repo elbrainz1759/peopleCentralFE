@@ -1,4 +1,3 @@
-import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -29,14 +28,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
-  org: "agejerry",
-  project: "people-central-fe",
-  silent: !process.env.CI,
-  widenClientFileUpload: true,
-
-  // Disable the automatic pages-router error page injection
-  // Your app uses App Router so this causes the <Html> conflict
-  autoInstrumentServerFunctions: false,
-  disableLogger: true,
-});
+export default nextConfig;
