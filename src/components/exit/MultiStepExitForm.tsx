@@ -30,7 +30,7 @@ interface ExitFormData {
 
 export default function MultiStepExitForm() {
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 2;
+  const totalSteps = 3;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [isLoadingChecklist, setIsLoadingChecklist] = useState(false);
@@ -274,8 +274,14 @@ export default function MultiStepExitForm() {
     }
   };
 
+  const formatDateMMDDYY = (dateStr: string) => {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split('-');
+    return `${month}/${day}/${year.slice(-2)}`;
+  };
+
   const nextStep = () => {
-    if (currentStep < 3) {
+    if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -313,7 +319,7 @@ export default function MultiStepExitForm() {
           </div>
 
           <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-900/50 p-2 rounded-2xl border border-gray-100 dark:border-gray-800">
-            {[1, 2].map((step) => (
+            {[1, 2, 3].map((step) => (
               <div key={step} className="flex items-center">
                 <div
                   className={`flex items-center justify-center w-12 h-12 rounded-xl font-bold text-base transition-all duration-500 ${step === currentStep
@@ -329,7 +335,7 @@ export default function MultiStepExitForm() {
                     </svg>
                   ) : step}
                 </div>
-                {step < 2 && (
+                {step < 3 && (
                   <div className={`w-6 h-1 mx-1 rounded-full ${step < currentStep ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-800'}`} />
                 )}
               </div>
@@ -361,10 +367,9 @@ export default function MultiStepExitForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-12 gap-x-16 relative">
                   {[
                     { label: "Legal Name", value: currentUser ? `${currentUser.first_name || currentUser.firstName || ""} ${currentUser.last_name || currentUser.lastName || ""}`.trim() || currentUser.name || "Unknown User" : "Loading...", highlight: true },
-                    { label: "Global ID", value: `#${currentUser?.staff_id || currentUser?.id || "N/A"}`, muted: true },
+                    { label: "Staff ID", value: `#${currentUser?.staff_id || currentUser?.id || "N/A"}`, muted: true },
                     { label: "Designation", value: currentUser?.designation || currentUser?.role || "N/A" },
                     { label: "Department", value: currentUser?.department_name || currentUser?.department?.name || currentUser?.department || "N/A" },
-                    { label: "Reporting Supervisor ID", value: `#${currentUser?.supervisor_id || "N/A"}`, muted: true },
                     { label: "Primary Location", value: currentUser?.location_name || currentUser?.location?.name || currentUser?.location || "N/A" },
                     { label: "Active Program", value: currentUser?.program_name || currentUser?.program?.name || currentUser?.program || "N/A" },
                   ].map((item, idx) => (
@@ -381,7 +386,22 @@ export default function MultiStepExitForm() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-12">
                 <div className="space-y-3.5">
                   <label className="text-sm font-black text-gray-800 dark:text-gray-200 ml-1 tracking-tight">
-                    Resignation Date *
+                    Supervisor Name / ID *
+                  </label>
+                  <input
+                    type="text"
+                    name="supervisorId"
+                    value={formData.supervisorId}
+                    onChange={handleInputChange}
+                    className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-5 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all font-bold shadow-sm"
+                    placeholder="Enter supervisor name or ID..."
+                    required
+                  />
+                </div>
+
+                <div className="space-y-3.5">
+                  <label className="text-sm font-black text-gray-800 dark:text-gray-200 ml-1 tracking-tight">
+                    Resignation Date * <span className="text-xs font-normal text-gray-400">(MM/DD/YY)</span>
                   </label>
                   <input
                     type="date"
@@ -392,11 +412,17 @@ export default function MultiStepExitForm() {
                     required
                   />
                   {formData.resignationDate && (
-                    <div className="flex items-center gap-2.5 px-4 py-3 bg-brand-50 dark:bg-brand-500/5 rounded-2xl border border-brand-100 dark:border-brand-500/20 w-fit">
-                      <div className="w-2 h-2 rounded-full bg-brand-500"></div>
-                      <p className="text-[11px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.1em]">
-                        Commitment End Date: <span className="opacity-70 font-bold">{calculateLastWorkingDay(formData.resignationDate)}</span>
-                      </p>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2.5 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 w-fit">
+                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Selected:</span>
+                        <span className="text-sm font-black text-gray-800 dark:text-white">{formatDateMMDDYY(formData.resignationDate)}</span>
+                      </div>
+                      <div className="flex items-center gap-2.5 px-4 py-2 bg-brand-50 dark:bg-brand-500/5 rounded-xl border border-brand-100 dark:border-brand-500/20 w-fit">
+                        <div className="w-2 h-2 rounded-full bg-brand-500"></div>
+                        <p className="text-[11px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-widest">
+                          Commitment End: <span className="opacity-70 font-bold">{formatDateMMDDYY(calculateLastWorkingDay(formData.resignationDate))}</span>
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -488,8 +514,57 @@ export default function MultiStepExitForm() {
           </div>
         )}
 
-        {/* Step 2: Experience Assessment */}
+        {/* Step 2: Exit Checklist */}
         {currentStep === 2 && (
+          <div className="mb-6 bg-white/80 dark:bg-gray-900/60 rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/40 p-10 dark:border-gray-800 backdrop-blur-2xl transition-all duration-700 animate-in fade-in slide-in-from-bottom-8">
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">Step 2: Exit Checklist</h2>
+            <p className="text-gray-500 dark:text-gray-400 mb-10 text-sm">Confirm all items below have been addressed before proceeding.</p>
+
+            {isLoadingChecklist ? (
+              <div className="flex items-center justify-center py-16 text-gray-400 text-sm font-medium">Loading checklist items...</div>
+            ) : checklistItems.length === 0 ? (
+              <div className="flex items-center justify-center py-16 text-gray-400 text-sm font-medium">No checklist items found. Contact HR to configure exit checklist items.</div>
+            ) : (
+              <div className="space-y-8">
+                {Object.entries(groupedChecklistItems).map(([deptName, items]) => (
+                  <div key={deptName} className="rounded-2xl border-2 border-gray-100 dark:border-gray-800 overflow-hidden">
+                    <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+                      <h3 className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">{deptName}</h3>
+                    </div>
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {items.map((item) => (
+                        <label key={item.id} className="flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={formData.selectedChecklistItems.includes(String(item.id))}
+                            onChange={() => handleCheckboxChange(String(item.id))}
+                            className="w-5 h-5 rounded-lg border-2 border-gray-300 dark:border-gray-600 accent-brand-500 cursor-pointer"
+                          />
+                          <span className="text-sm font-semibold text-gray-800 dark:text-white">{item.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mt-16 border-t border-gray-50 dark:border-gray-800 pt-10">
+              <Button onClick={prevStep} variant="outline" className="px-10 py-5 rounded-2xl font-bold border-2 border-gray-100 dark:border-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900 transition-all">
+                Back
+              </Button>
+              <Button onClick={nextStep} className="px-14 py-6 rounded-2xl bg-brand-500 hover:bg-brand-600 text-white font-black shadow-2xl shadow-brand-500/30 transition-all hover:scale-[1.03] hover:-translate-y-1.5 active:scale-95 group flex items-center gap-4 text-lg">
+                Proceed to Assessment
+                <svg className="w-6 h-6 group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Experience Assessment */}
+        {currentStep === 3 && (
           <div className="mb-6 bg-white/80 dark:bg-gray-900/60 rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/40 p-10 dark:border-gray-800 backdrop-blur-2xl transition-all duration-700 animate-in fade-in slide-in-from-right-8">
             <div className="">
               <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-10 tracking-tight">Step 2: Career Experience Audit</h2>
