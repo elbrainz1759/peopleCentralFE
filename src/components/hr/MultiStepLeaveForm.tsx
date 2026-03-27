@@ -8,7 +8,6 @@ import { LeaveType, LeaveRequest } from "@/types/service.types";
 import { toast } from "react-hot-toast";
 import DatePicker from "@/components/form/date-picker";
 import {
-    CalenderIcon,
     PaperPlaneIcon,
     ArrowRightIcon,
     ChevronLeftIcon,
@@ -16,6 +15,13 @@ import {
     FileIcon,
     CheckCircleIcon,
 } from "@/icons";
+
+const STATIC_LEAVE_TYPES: LeaveType[] = [
+    { id: "education_leave", name: "Education Leave", description: "", country: "" },
+    { id: "paternity_leave", name: "Paternity Leave", description: "", country: "" },
+    { id: "sick_leave", name: "Sick Leave", description: "", country: "" },
+    { id: "bereavement_leave", name: "Bereavement Leave", description: "", country: "" },
+];
 
 export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: () => void, initialData?: any }) {
     const [step, setStep] = useState(1);
@@ -27,50 +33,19 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
 
     const [formData, setFormData] = useState({
         leaveTypeId: initialData?.leaveTypeId || "",
-        durationSelection: "custom",
         dates: initialData?.dates || initialData?.leaveDuration || [{ startDate: "", endDate: "" }],
-        reason: initialData?.reason || "",
+        comment: initialData?.reason || "",
         handoverNotes: initialData?.handoverNotes || initialData?.handoverNote || "",
         supervisor: initialData?.supervisor || "",
     });
-
-    // Auto-populate Start and End Date based on Selection Mode
-    useEffect(() => {
-        if (formData.durationSelection === "custom") return;
-
-        const now = new Date();
-        const todayStr = now.toISOString().split("T")[0];
-
-        const newDates = formData.dates.map((range: { startDate: string, endDate: string }, index: number) => {
-            // Only apply auto-population to the first range if durationSelection is not custom
-            if (index > 0 && formData.durationSelection !== "custom") {
-                return range; // Keep subsequent ranges as they are
-            }
-
-            let start = range.startDate || todayStr;
-            let end = "";
-            const startDateObj = new Date(start);
-
-            if (formData.durationSelection === "one-day") {
-                end = start;
-            } else if (formData.durationSelection === "one-week") {
-                const nextWeek = new Date(startDateObj);
-                nextWeek.setDate(startDateObj.getDate() + 6);
-                end = nextWeek.toISOString().split("T")[0];
-            }
-            return { startDate: start, endDate: end };
-        });
-
-        const hasChanged = JSON.stringify(newDates) !== JSON.stringify(formData.dates);
-        if (hasChanged) {
-            setFormData(prev => ({ ...prev, dates: newDates }));
-        }
-    }, [formData.durationSelection]); // Only trigger on mode selection change or first load
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const handleDateChange = (index: number, name: "startDate" | "endDate", value: string) => {
         const newDates = [...formData.dates];
         newDates[index] = { ...newDates[index], [name]: value };
         setFormData(prev => ({ ...prev, dates: newDates }));
+        const errorKey = `${name}_${index}`;
+        if (errors[errorKey]) setErrors((prev) => { const next = { ...prev }; delete next[errorKey]; return next; });
     };
 
     const addDateRange = () => {
@@ -91,10 +66,11 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
             setIsLoadingTypes(true);
             try {
                 const response = await userService.getAllLeaveTypes(1, 100);
-                setLeaveTypes(response.data || []);
+                const apiTypes = response.data || [];
+                setLeaveTypes(apiTypes.length > 0 ? apiTypes : STATIC_LEAVE_TYPES);
             } catch (error) {
                 console.error("Failed to fetch leave types:", error);
-                toast.error("Could not load leave types");
+                setLeaveTypes(STATIC_LEAVE_TYPES);
             } finally {
                 setIsLoadingTypes(false);
             }
@@ -133,44 +109,64 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
     ) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
+        if (errors[name]) setErrors((prev) => { const next = { ...prev }; delete next[name]; return next; });
     };
 
-    const nextStep = () => setStep((prev) => prev + 1);
-    const prevStep = () => setStep((prev) => prev - 1);
+    const validateStep = (): boolean => {
+        const newErrors: Record<string, string> = {};
+
+        if (step === 1) {
+            if (!formData.leaveTypeId) {
+                newErrors.leaveTypeId = "Please select a leave type.";
+            }
+            formData.dates.forEach((d: any, i: number) => {
+                if (!d.startDate) newErrors[`startDate_${i}`] = "Start date is required.";
+                if (!d.endDate) newErrors[`endDate_${i}`] = "End date is required.";
+                if (d.startDate && d.endDate && d.endDate < d.startDate) {
+                    newErrors[`endDate_${i}`] = "End date must be after start date.";
+                }
+            });
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const nextStep = () => {
+        if (validateStep()) {
+            setErrors({});
+            setStep((prev) => prev + 1);
+        }
+    };
+    const prevStep = () => {
+        setErrors({});
+        setStep((prev) => prev - 1);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        console.log("Submit clicked - Current step:", step);
-        console.log("Form data:", formData);
-
         const currentUser = authService.getCurrentUser();
         const employeeId = currentUser?.staff_id || currentUser?.id || currentUser?.unique_id;
-
-        console.log("Current user:", currentUser);
-        console.log("Employee ID:", employeeId);
 
         if (!employeeId) {
             toast.error("Staff ID not found. Please log in again.");
             return;
         }
 
-        const validationErrors = [];
-        if (!formData.leaveTypeId) validationErrors.push("leaveTypeId");
-        if (formData.dates.some((d: any) => !d.startDate || !d.endDate)) validationErrors.push("dates");
-        if (!formData.reason) validationErrors.push("reason");
-
-        console.log("Validation errors:", validationErrors);
-
-        if (validationErrors.length > 0) {
-            toast.error("Please fill in all required fields: " + validationErrors.join(", "));
+        if (!formData.leaveTypeId) {
+            toast.error("Please select a Leave Type.");
+            return;
+        }
+        if (formData.dates.some((d: any) => !d.startDate || !d.endDate)) {
+            toast.error("Please fill in all date ranges.");
             return;
         }
 
         const leaveData: LeaveRequest = {
             staffId: typeof employeeId === 'number' ? employeeId : parseInt(String(employeeId)),
             leaveTypeId: parseInt(formData.leaveTypeId),
-            reason: formData.reason,
+            reason: formData.comment,
             handoverNote: formData.handoverNotes,
             leaveDuration: formData.dates.map((d: any) => ({
                 startDate: d.startDate,
@@ -193,7 +189,7 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
 
     const steps = [
         { title: "Leave Details", icon: <UserIcon />, description: "Select type & dates" },
-        { title: "Reason & Notes", icon: <FileIcon />, description: "Provide justification" },
+        { title: "Additional Info", icon: <FileIcon />, description: "Comment & documents" },
         { title: "Review", icon: <CheckCircleIcon />, description: "Confirm & Submit" },
     ];
 
@@ -250,15 +246,16 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                             )}
                         </div>
 
+                        {/* Leave Type — Mandatory */}
                         <div>
                             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
-                                Leave Type
+                                Leave Type <span className="text-red-500">*</span>
                             </label>
                             <select
                                 name="leaveTypeId"
                                 value={formData.leaveTypeId}
                                 onChange={handleChange}
-                                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500"
+                                className={`w-full rounded-lg border bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500 ${errors.leaveTypeId ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-700"}`}
                             >
                                 <option value="">{isLoadingTypes ? "Loading types..." : "Select Leave Type"}</option>
                                 {leaveTypes.map((type) => (
@@ -267,24 +264,10 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                                     </option>
                                 ))}
                             </select>
+                            {errors.leaveTypeId && <p className="mt-1 text-xs text-red-500">{errors.leaveTypeId}</p>}
                         </div>
 
-                        <div>
-                            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
-                                Duration Mode
-                            </label>
-                            <select
-                                name="durationSelection"
-                                value={formData.durationSelection}
-                                onChange={handleChange}
-                                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500"
-                            >
-                                <option value="custom">Custom Range</option>
-                                <option value="one-day">One Day</option>
-                                <option value="one-week">One Week</option>
-                            </select>
-                        </div>
-
+                        {/* Date Range — Mandatory */}
                         {formData.dates.map((range: any, index: number) => (
                             <div key={index} className="p-4 border border-gray-100 dark:border-gray-800 rounded-xl space-y-4 relative">
                                 {formData.dates.length > 1 && (
@@ -302,7 +285,7 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                                     <div>
                                         <DatePicker
                                             id={`start-date-${index}`}
-                                            label={`Start Date ${index > 0 ? `#${index + 1}` : ""}`}
+                                            label={`From${index > 0 ? ` #${index + 1}` : ""} *`}
                                             placeholder="Select start date"
                                             defaultDate={range.startDate}
                                             onChange={(selectedDates) => {
@@ -312,11 +295,12 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                                                 }
                                             }}
                                         />
+                                        {errors[`startDate_${index}`] && <p className="mt-1 text-xs text-red-500">{errors[`startDate_${index}`]}</p>}
                                     </div>
                                     <div>
                                         <DatePicker
                                             id={`end-date-${index}`}
-                                            label={`End Date ${index > 0 ? `#${index + 1}` : ""}`}
+                                            label={`To${index > 0 ? ` #${index + 1}` : ""} *`}
                                             placeholder="Select end date"
                                             defaultDate={range.endDate}
                                             onChange={(selectedDates) => {
@@ -326,6 +310,7 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                                                 }
                                             }}
                                         />
+                                        {errors[`endDate_${index}`] && <p className="mt-1 text-xs text-red-500">{errors[`endDate_${index}`]}</p>}
                                     </div>
                                 </div>
                             </div>
@@ -346,16 +331,17 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
             case 2:
                 return (
                     <div className="space-y-6 animate-fadeIn">
+                        {/* Comment — Optional */}
                         <div>
                             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
-                                Reason for Leave
+                                Comment
                             </label>
                             <textarea
-                                name="reason"
-                                value={formData.reason}
+                                name="comment"
+                                value={formData.comment}
                                 onChange={handleChange}
                                 rows={4}
-                                placeholder="Briefly describe the reason for your leave..."
+                                placeholder="Add any comments (optional)..."
                                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500 resize-none"
                             ></textarea>
                         </div>
@@ -372,9 +358,13 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500 resize-none"
                             ></textarea>
                         </div>
+                        {/* Supporting Documents — Optional */}
                         <div>
                             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
-                                Supporting Document
+                                Supporting Document{" "}
+                                <span className="text-gray-400 font-normal">
+                                    (Medical excuse duty, exam timetable, copy of admission letter/invitation, etc.)
+                                </span>
                             </label>
                             <input
                                 type="file"
@@ -407,12 +397,14 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                                     </div>
                                 ))}
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">Reason:</span>
-                                <span className="font-medium text-gray-800 dark:text-white truncate max-w-[200px]">
-                                    {formData.reason || "-"}
-                                </span>
-                            </div>
+                            {formData.comment && (
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">Comment:</span>
+                                    <span className="font-medium text-gray-800 dark:text-white truncate max-w-[200px]">
+                                        {formData.comment}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                         <p className="text-sm text-gray-500 italic">
                             By clicking Submit, you confirm the details are correct.
@@ -440,7 +432,7 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                         <div key={index} className={`flex items-start gap-3 relative ${isActive ? "opacity-100" : "opacity-50"}`}>
                             {/* Connector Line */}
                             {index !== steps.length - 1 && (
-                                <div className="absolute left-[15px] top-[30px] bottom-[-24px] w-[2px] bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
+                                <div className="absolute left-[15px] top-[30px] -bottom-6 w-0.5 bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
                             )}
 
                             <div
@@ -482,7 +474,7 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                                 Back
                             </button>
                         ) : (
-                            <div></div> // Spacer
+                            <div></div>
                         )}
 
                         {step < 3 ? (
@@ -494,20 +486,14 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                                 <ArrowRightIcon className="w-5 h-5" />
                             </button>
                         ) : (
-                            <>
-                                {console.log("Rendering submit button - step:", step, "isSubmitting:", isSubmitting)}
-                                <button
-                                    onClick={(e) => {
-                                        console.log("Submit button clicked!");
-                                        handleSubmit(e);
-                                    }}
-                                    disabled={isSubmitting}
-                                    className="flex items-center gap-2 px-6 py-2.5 font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-green-500/20"
-                                >
-                                    {isSubmitting ? "Submitting..." : "Submit Application"}
-                                    <PaperPlaneIcon className="w-5 h-5" />
-                                </button>
-                            </>
+                            <button
+                                onClick={(e) => handleSubmit(e)}
+                                disabled={isSubmitting}
+                                className="flex items-center gap-2 px-6 py-2.5 font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-green-500/20"
+                            >
+                                {isSubmitting ? "Submitting..." : "Submit Application"}
+                                <PaperPlaneIcon className="w-5 h-5" />
+                            </button>
                         )}
                     </div>
                 </div>
