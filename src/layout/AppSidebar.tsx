@@ -48,6 +48,7 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "Exit Request", path: "/exit" },
       { name: "Approvals", path: "/exit/approvals" },
+      { name: "Checklist", path: "/exit/checklist" },
     ],
   },
   {
