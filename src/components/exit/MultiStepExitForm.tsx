@@ -35,6 +35,7 @@ export default function MultiStepExitForm() {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [isLoadingChecklist, setIsLoadingChecklist] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [supervisorName, setSupervisorName] = useState<string>("");
   const [departments, setDepartments] = useState<any[]>([]);
   const [programs, setPrograms] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
@@ -146,6 +147,10 @@ export default function MultiStepExitForm() {
       // Update currentUser AND try to update auth_user in localStorage if it was null
       setCurrentUser(staffData);
       if (staffData) {
+        const resolvedSupervisorName = staffData.supervisor_name ||
+          `${staffData.supervisor_first_name || ""} ${staffData.supervisor_last_name || ""}`.trim() ||
+          "";
+        setSupervisorName(resolvedSupervisorName);
         setFormData(prev => ({
           ...prev,
           departmentId: staffData.department || "",
@@ -388,15 +393,14 @@ export default function MultiStepExitForm() {
                   <label className="text-sm font-black text-gray-800 dark:text-gray-200 ml-1 tracking-tight">
                     Supervisor Name / ID *
                   </label>
-                  <input
-                    type="text"
-                    name="supervisorId"
-                    value={formData.supervisorId}
-                    onChange={handleInputChange}
-                    className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-5 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all font-bold shadow-sm"
-                    placeholder="Enter supervisor name or ID..."
-                    required
-                  />
+                  <div className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50/50 dark:bg-gray-800/20 dark:border-gray-800 px-6 py-5 font-bold text-gray-900 dark:text-white shadow-sm min-h-16 flex items-center">
+                    {supervisorName
+                      ? supervisorName
+                      : formData.supervisorId
+                        ? <span className="text-gray-500 font-normal text-sm">ID: {formData.supervisorId}</span>
+                        : <span className="text-gray-400 font-normal">Loading...</span>
+                    }
+                  </div>
                 </div>
 
                 <div className="space-y-3.5">

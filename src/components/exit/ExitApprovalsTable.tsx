@@ -16,8 +16,10 @@ import { Modal } from "../ui/modal";
 import { ExitService, ChecklistItem as ServiceChecklistItem } from "@/services/exit.service";
 import { toast } from "react-hot-toast";
 import Button from "../ui/button/Button";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-type QueueType = 'All' | 'Operations' | 'Finance' | 'HR_Final';
+type QueueType = 'All' | 'HR' | 'Operations' | 'Finance';
 
 interface ExitInterviewDisplay {
     id: any;
@@ -58,44 +60,38 @@ export default function ExitApprovalsTable() {
     const [isAddingItem, setIsAddingItem] = useState(false);
     const [showChecklistManager, setShowChecklistManager] = useState(false);
     
-    const [selectedChecklistIds, setSelectedChecklistIds] = useState<number[]>([]);
+    const [selectedChecklistIds, setSelectedChecklistIds] = useState<string[]>([]);
     const [isActioning, setIsActioning] = useState(false);
     
-    const [availableQueues, setAvailableQueues] = useState<QueueType[]>(['All', 'Operations', 'Finance', 'HR_Final']);
+    const [availableQueues, setAvailableQueues] = useState<QueueType[]>(['All', 'HR', 'Operations', 'Finance']);
+    const [authUser, setAuthUser] = useState<any>(null);
 
     const exitServiceInstance = ExitService.getInstance();
 
     useEffect(() => {
-        // Evaluate the logged-in user's role or department
-        // to restrict which queues they can see.
+        // Read auth user — merge with JWT payload so role is always available
         try {
             const authUserJson = localStorage.getItem('auth_user') || localStorage.getItem('user');
-            if (authUserJson) {
-                const user = JSON.parse(authUserJson);
-                setCurrentUserId(user?.id);
-                setCurrentUserStaffId(user?.staff_id || user?.staffId);
-                
-                // Example RBAC Logic:
-                const deptName = user?.department?.name?.toLowerCase() || user?.department_name?.toLowerCase() || '';
-                const role = user?.role?.toLowerCase() || '';
-                
-                if (role.includes('admin') || role === 'super_admin' || role === 'hr_manager') {
-                    // Admins and HR see everything
-                    setAvailableQueues(['All', 'Operations', 'Finance', 'HR_Final']);
-                    setCurrentQueue('All');
-                } else if (deptName.includes('operation')) {
-                    setAvailableQueues(['Operations']);
-                    setCurrentQueue('Operations');
-                } else if (deptName.includes('finance')) {
-                    setAvailableQueues(['Finance']);
-                    setCurrentQueue('Finance');
-                } else if (deptName.includes('hr') || deptName.includes('human resources')) {
-                    setAvailableQueues(['All', 'HR_Final']);
-                    setCurrentQueue('HR_Final');
+            const authToken = localStorage.getItem('auth_token');
+
+            let user: any = authUserJson ? JSON.parse(authUserJson) : {};
+
+            // JWT payload is the source of truth for role — merge it in
+            if (authToken) {
+                try {
+                    const payload = JSON.parse(atob(authToken.split('.')[1]));
+                    // Prefer token values for identity/role fields
+                    user = { ...user, ...payload };
+                } catch (e) {
+                    console.error("Failed to decode JWT", e);
                 }
             }
+
+            setCurrentUserId(user?.id);
+            setCurrentUserStaffId(user?.staff_id || user?.staffId);
+            setAuthUser(user);
         } catch (e) {
-            console.error("Failed to parse auth user for RBAC", e);
+            console.error("Failed to parse auth user", e);
         }
 
         fetchChecklistItems();
@@ -103,8 +99,42 @@ export default function ExitApprovalsTable() {
     }, []);
 
     useEffect(() => {
-        // Only fetch if we're on "All"/"HR_Final", or if we are on a dept queue and departments have loaded
-        if (currentQueue === 'All' || currentQueue === 'HR_Final' || departments.length > 0) {
+        if (!authUser) return;
+
+        const role = authUser?.role?.toLowerCase() || '';
+
+        // Admins and superadmins always see everything
+        if (role.includes('admin') || role.includes('superadmin') || role === 'hr_manager') {
+            setAvailableQueues(['All', 'HR', 'Operations', 'Finance']);
+            setCurrentQueue('All');
+            return;
+        }
+
+        // For non-admins, resolve the department UUID against the loaded departments list
+        const deptUUID = authUser?.department || authUser?.department_id || '';
+        const matchedDept = departments.find(
+            (d: any) => d.unique_id === deptUUID || d.uniqueId === deptUUID || d.id === deptUUID
+        );
+        const deptName = (matchedDept?.name || authUser?.department_name || '').toLowerCase();
+
+        if (deptName.includes('hr') || deptName.includes('human resources')) {
+            setAvailableQueues(['All', 'HR']);
+            setCurrentQueue('HR');
+        } else if (deptName.includes('operation')) {
+            setAvailableQueues(['All', 'Operations']);
+            setCurrentQueue('Operations');
+        } else if (deptName.includes('finance')) {
+            setAvailableQueues(['All', 'Finance']);
+            setCurrentQueue('Finance');
+        } else {
+            // Default: show all queues if department can't be resolved
+            setAvailableQueues(['All', 'HR', 'Operations', 'Finance']);
+            setCurrentQueue('All');
+        }
+    }, [authUser, departments]);
+
+    useEffect(() => {
+        if (currentQueue === 'All' || currentQueue === 'HR' || departments.length > 0) {
             fetchInterviews();
         }
     }, [currentQueue, departments]);
@@ -137,25 +167,34 @@ export default function ExitApprovalsTable() {
                     department: item.department_name || item.department?.name || item.department || 'N/A',
                     designation: item.designation_name || item.designation || 'Not Specified',
                     supervisor: item.supervisor?.name || item.supervisor || 'N/A',
-                    stage: item.stage || 'N/A',
+                    stage: (() => {
+                        const s = item.stage || 'N/A';
+                        // Derive effective stage from cleared flags when backend hasn't advanced it
+                        if (s === 'Operations' && item.operations_cleared === 1 && item.finance_cleared === 0) return 'Finance';
+                        if (s === 'Operations' && item.operations_cleared === 1 && item.finance_cleared === 1) return 'Completed';
+                        if (s === 'Finance' && item.finance_cleared === 1) return 'Completed';
+                        return s;
+                    })(),
+                    resignationDate: item.resignation_date ? new Date(item.resignation_date).toLocaleDateString() : 'N/A',
                     submittedOn: item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A',
                     handoverStatus: item.stage !== 'Supervisor' ? "Accepted" : "Pending", // basic fallback logic since handover_cleared isn't present
                     assetsStatus: item.operations_cleared === 1 ? "Cleared" : "Pending",
                     financeStatus: item.finance_cleared === 1 ? "Cleared" : "Pending",
+                    status: item.status || 'Pending',
                     program: item.program_name || item.program?.name || item.program || 'N/A',
                     location: item.location_name || item.location?.name || item.location || 'N/A',
                 };
             });
 
-            // Prevent users from seeing/approving their own exit
-            mapped = mapped.filter((m: any) => {
-                const isMatchingId = currentUserId && String(m.staffId) === String(currentUserId);
-                const isMatchingStaffId = currentUserStaffId && String(m.staffId) === String(currentUserStaffId);
-                return !isMatchingId && !isMatchingStaffId;
-            });
+            // TODO: re-enable self-exclusion filter before go-live
+            // mapped = mapped.filter((m: any) => {
+            //     const isMatchingId = currentUserId && String(m.staffId) === String(currentUserId);
+            //     const isMatchingStaffId = currentUserStaffId && String(m.staffId) === String(currentUserStaffId);
+            //     return !isMatchingId && !isMatchingStaffId;
+            // });
 
-            if (currentQueue === 'HR_Final') {
-                mapped = mapped.filter((m: any) => m.stage === 'HR_Final' || m.stage === 'HR');
+            if (currentQueue === 'HR') {
+                mapped = mapped.filter((m: any) => m.stage === 'HR');
             }
 
             setExitInterviews(mapped);
@@ -192,8 +231,9 @@ export default function ExitApprovalsTable() {
         }
     };
 
-    const handleAddItem = async () => {
-        if (!newItemName.trim() || !selectedDeptId) {
+    const handleAddItem = async (deptIdOverride?: string) => {
+        const deptId = deptIdOverride || selectedDeptId;
+        if (!newItemName.trim() || !deptId) {
             toast.error("Please provide both name and department");
             return;
         }
@@ -202,13 +242,20 @@ export default function ExitApprovalsTable() {
         try {
             await exitServiceInstance.createChecklistItem({
                 name: newItemName,
-                department: selectedDeptId
+                departmentId: deptId
             });
             toast.success("Checklist item added");
             setNewItemName("");
             fetchChecklistItems();
-        } catch (error) {
-            toast.error("Failed to add checklist item");
+        } catch (error: any) {
+            const msg = error?.response?.data?.message || error?.message || "";
+            if (msg.toLowerCase().includes("already exists")) {
+                toast("Item already exists — showing current checklist.", { icon: "ℹ️" });
+                setNewItemName("");
+                fetchChecklistItems();
+            } else {
+                toast.error("Failed to add checklist item");
+            }
         } finally {
             setIsAddingItem(false);
         }
@@ -245,32 +292,66 @@ export default function ExitApprovalsTable() {
         if (!selectedInterview) return;
         setIsActioning(true);
 
+        // Determine action from the record's actual stage (works from any queue including All)
+        const stage = selectedInterview.stage;
+
         try {
-            if (currentQueue === 'Operations' || currentQueue === 'Finance') {
+            if (stage === 'Supervisor') {
+                await exitServiceInstance.updateExitInterview(selectedInterview.uniqueId as any, { stage: 'HR' } as any);
+                toast.success("Supervisor approval submitted. Forwarded to HR.");
+                setIsReviewOpen(false);
+                fetchInterviews();
+
+            } else if (stage === 'HR') {
+                await exitServiceInstance.updateExitInterview(selectedInterview.uniqueId as any, { stage: 'Operations' } as any);
+                toast.success("HR review approved. Forwarded to Operations/Finance.");
+                setIsReviewOpen(false);
+                fetchInterviews();
+
+            } else if (stage === 'Operations') {
                 if (selectedChecklistIds.length === 0) {
                     toast.error("Please verify at least one asset before approving.");
-                    setIsActioning(false);
                     return;
                 }
-                
-                await exitServiceInstance.clearExitInterviewItems(selectedInterview.id, {
-                    department: currentQueue,
-                    checkListItemIds: selectedChecklistIds
-                });
-                toast.success(`${currentQueue} clearance submitted successfully.`);
-            
-            } else if (currentQueue === 'HR_Final' || selectedInterview.stage.includes('HR')) {
-                await exitServiceInstance.finalizeExitInterview(selectedInterview.id);
-                toast.success(`Exit successfully finalized.`);
-            } else {
-                toast.error("Please act within the Operations, Finance, or HR queues.");
-            }
+                const clearedBy = authUser?.unique_id || authUser?.uniqueId || String(authUser?.id || '');
+                await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
+                    department: 'Operations',
+                    checkListItemIds: selectedChecklistIds.map(Number),
+                    clearedBy,
+                } as any);
+                toast.success("Operations cleared. Forwarded to Finance.");
+                setIsReviewOpen(false);
+                fetchInterviews();
 
-            setIsReviewOpen(false);
-            fetchInterviews();
+            } else if (stage === 'Finance') {
+                const clearedBy = authUser?.unique_id || authUser?.uniqueId || String(authUser?.id || '');
+                await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
+                    department: 'Finance',
+                    checkListItemIds: [],
+                    clearedBy,
+                } as any);
+                toast.success("Finance cleared. Exit process completed.");
+                setIsReviewOpen(false);
+                fetchInterviews();
+
+            } else if (stage === 'Completed') {
+                await exitServiceInstance.finalizeExitInterview(selectedInterview.uniqueId as any);
+                toast.success("Exit clearance finalized successfully.");
+                setIsReviewOpen(false);
+                fetchInterviews();
+
+            } else if (stage === 'HR_Final') {
+                await exitServiceInstance.finalizeExitInterview(selectedInterview.uniqueId as any);
+                toast.success("Exit process completed successfully.");
+                setIsReviewOpen(false);
+                fetchInterviews();
+
+            } else {
+                toast.error(`No approval action available for stage: ${stage}`);
+            }
         } catch (error: any) {
             console.error("Approval error", error);
-            toast.error(error.message || "Failed to approve record.");
+            toast.error(error.response?.data?.message || error.message || "Failed to approve record.");
         } finally {
             setIsActioning(false);
         }
@@ -282,9 +363,9 @@ export default function ExitApprovalsTable() {
         setIsReviewOpen(false);
     };
 
-    const toggleChecklistId = (id: number) => {
-        setSelectedChecklistIds(prev => 
-            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    const toggleChecklistId = (uid: string) => {
+        setSelectedChecklistIds(prev =>
+            prev.includes(uid) ? prev.filter(i => i !== uid) : [...prev, uid]
         );
     };
 
@@ -293,7 +374,7 @@ export default function ExitApprovalsTable() {
             case "Supervisor": return "warning";
             case "Operations": return "info";
             case "Finance": return "success";
-            case "HR": case "HR_Final": return "error";
+            case "HR": return "error";
             case "Completed": return "success";
             default: return "light";
         }
@@ -415,6 +496,9 @@ export default function ExitApprovalsTable() {
                                 Location
                             </TableCell>
                             <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                Exit Date
+                            </TableCell>
+                            <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                 Submitted On
                             </TableCell>
                             <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
@@ -463,6 +547,9 @@ export default function ExitApprovalsTable() {
                                     {interview.location}
                                 </TableCell>
                                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    {(interview as any).resignationDate}
+                                </TableCell>
+                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                                     {interview.submittedOn}
                                 </TableCell>
                                 <TableCell className="py-3">
@@ -507,70 +594,229 @@ export default function ExitApprovalsTable() {
                                 <h5 className="font-semibold text-gray-800 dark:text-white/90 border-b pb-2 border-gray-100 dark:border-gray-800">Clearance Progress</h5>
                                 <div className="grid grid-cols-1 gap-4">
                                     <div className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">Supervisor (Handover)</span>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">1. Supervisor (Handover)</span>
                                         <Badge color={selectedInterview.handoverStatus === "Accepted" ? "success" : "warning"}>{selectedInterview.handoverStatus}</Badge>
                                     </div>
                                     <div className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">Operations (Assets)</span>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">2. HR (Review & Checklist)</span>
+                                        {(() => {
+                                            const s = selectedInterview.stage;
+                                            if (s === "Operations" || s === "Finance" || s === "Completed") return <Badge color="success">Approved</Badge>;
+                                            if (s === "HR") return <Badge color="warning">In Review</Badge>;
+                                            return <Badge color="light">Not Reached</Badge>;
+                                        })()}
+                                    </div>
+                                    <div className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg">
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">3. Operations (Assets)</span>
                                         <Badge color={selectedInterview.assetsStatus === "Cleared" ? "success" : "warning"}>{selectedInterview.assetsStatus}</Badge>
                                     </div>
                                     <div className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">Finance (Outstanding)</span>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">4. Finance (Outstanding)</span>
                                         <Badge color={selectedInterview.financeStatus === "Cleared" ? "success" : "warning"}>{selectedInterview.financeStatus}</Badge>
                                     </div>
                                 </div>
                             </div>
 
-                            {(currentQueue === 'Operations' || currentQueue === 'Finance') && (
-                                <div className="space-y-4">
-                                    <h5 className="font-semibold text-gray-800 dark:text-white/90 border-b pb-2 border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                                        Asset / Finance Verification
-                                        <span className="text-[10px] bg-brand-500/10 text-brand-500 px-2 py-0.5 rounded-full uppercase tracking-tighter">Required for your Stage</span>
-                                    </h5>
-                                    
-                                    <div className="space-y-2">
-                                        {checklistItems.length > 0 ? (
-                                            checklistItems.map((item) => {
-                                                if (!item.id) return null;
-                                                // If we had API filtering, we could selectively show dept items
-                                                return (
-                                                <label key={item.uniqueId || item.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/20 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/40 transition-all border border-transparent hover:border-brand-500/20">
-                                                    <div className="flex items-center gap-3">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            className="w-5 h-5 rounded border-gray-300 text-brand-500 focus:ring-brand-500 transition-all" 
-                                                            checked={selectedChecklistIds.includes(item.id)}
-                                                            onChange={() => toggleChecklistId(item.id!)}
-                                                        />
-                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{item.name}</span>
-                                                    </div>
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">{item.departmentName || 'General'}</span>
-                                                </label>
-                                                )
-                                            })
+                            {/* Checklist section — scoped to the stage's department */}
+                            {selectedInterview.stage !== 'Completed' && (selectedInterview as any)?.status !== 'Completed' && (() => {
+                                const stage = selectedInterview.stage;
+                                // Map each stage to its corresponding department name
+                                const stageDeptName = stage === 'HR' || stage === 'HR_Final' ? 'HR'
+                                    : stage === 'Operations' ? 'Operations'
+                                    : stage === 'Finance' ? 'Finance'
+                                    : stage === 'Supervisor' ? 'Supervisor'
+                                    : selectedInterview.department;
+                                // Find the department matching this stage
+                                const stageDept = departments.find(
+                                    (d: any) => d.name?.toLowerCase().includes(stageDeptName.toLowerCase())
+                                );
+                                const stageDeptId = stageDept?.uniqueId || stageDept?.unique_id || stageDept?.id || '';
+                                const stageDeptLabel = stageDept?.name || stageDeptName;
+                                // Resolve department name from UUID for each item
+                                const resolveDeptName = (item: any) => {
+                                    if (item.department_name) return item.department_name;
+                                    if (item.departmentName) return item.departmentName;
+                                    const deptId = item.departmentId || item.department || '';
+                                    const match = departments.find((d: any) => d.uniqueId === deptId || d.unique_id === deptId || d.id === deptId);
+                                    return match?.name || stageDeptLabel;
+                                };
+                                // Filter checklist items to the stage's department
+                                const stageItems = checklistItems.filter((item: any) => {
+                                    const itemDeptId = item.departmentId || item.department || '';
+                                    const itemDeptName = (item.departmentName || '').toLowerCase();
+                                    const targetName = stageDeptLabel.toLowerCase();
+                                    return (
+                                        itemDeptName.includes(targetName) || targetName.includes(itemDeptName) ||
+                                        (stageDeptId && (itemDeptId === stageDeptId))
+                                    );
+                                });
+                                return (
+                                    <div className="space-y-4">
+                                        <h5 className="font-semibold text-gray-800 dark:text-white/90 border-b pb-2 border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                                            Checklist Items
+                                            <span className="text-[10px] bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">{stageDeptLabel}</span>
+                                        </h5>
+
+                                        {/* Select/tick items from the stage's department */}
+                                        {stageItems.length > 0 ? (
+                                            <div className="space-y-1 max-h-48 overflow-y-auto">
+                                                {stageItems.map((item) => {
+                                                    if (!item.id) return null;
+                                                    const deptLabel = resolveDeptName(item);
+                                                    return (
+                                                        <label key={item.uniqueId || item.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/20 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/40 transition-all border border-transparent hover:border-brand-500/20">
+                                                            <div className="flex items-center gap-3">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="w-5 h-5 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                                                                    checked={selectedChecklistIds.includes(String(item.id))}
+                                                                    onChange={() => toggleChecklistId(String(item.id))}
+                                                                />
+                                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{item.name}</span>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-gray-400 uppercase">{deptLabel}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
                                         ) : (
-                                            <p className="text-sm text-gray-500 italic text-center py-4">No verification checklist configured.</p>
+                                            <div className="text-center py-4">
+                                                <p className="text-xs text-gray-400 italic mb-2">No checklist items for {stageDeptLabel}.</p>
+                                                <a href="/exit/checklist" className="text-xs text-brand-500 hover:underline">Manage Checklist Items</a>
+                                            </div>
                                         )}
                                     </div>
+                                );
+                            })()}
+
+                            {(selectedInterview as any)?.status === 'Completed' ? (
+                                <div className="pt-6 space-y-3 text-center">
+                                    <div className="inline-flex items-center gap-2 px-6 py-3 bg-green-50 text-green-700 rounded-lg border border-green-200 font-semibold">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                        Exit Clearance Completed
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            const iv = selectedInterview;
+                                            if (!iv) return;
+                                            const doc = new jsPDF();
+
+                                            // Header
+                                            doc.setFontSize(18);
+                                            doc.setFont("helvetica", "bold");
+                                            doc.text("EXIT CLEARANCE CHECKLIST", 105, 20, { align: "center" });
+                                            doc.setFontSize(10);
+                                            doc.setFont("helvetica", "normal");
+                                            doc.text("Mercy Corps - People Central", 105, 27, { align: "center" });
+
+                                            // Line
+                                            doc.setDrawColor(200);
+                                            doc.line(14, 31, 196, 31);
+
+                                            // Employee Info
+                                            doc.setFontSize(12);
+                                            doc.setFont("helvetica", "bold");
+                                            doc.text("Employee Information", 14, 40);
+                                            const infoData = [
+                                                ["Employee", String(iv.employeeName)],
+                                                ["Staff ID", String(iv.staffId)],
+                                                ["Department", String(iv.department)],
+                                                ["Location", String(iv.location)],
+                                                ["Program", String(iv.program)],
+                                                ["Exit Date", String((iv as any).resignationDate)],
+                                                ["Submitted", String(iv.submittedOn)],
+                                            ];
+                                            autoTable(doc, {
+                                                startY: 44,
+                                                head: [["Field", "Details"]],
+                                                body: infoData,
+                                                theme: "grid",
+                                                headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+                                                styles: { fontSize: 10 },
+                                                columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
+                                            });
+
+                                            // Clearance Progress
+                                            const afterInfo = (doc as any).lastAutoTable?.finalY || 90;
+                                            doc.setFontSize(12);
+                                            doc.setFont("helvetica", "bold");
+                                            doc.text("Clearance Progress", 14, afterInfo + 10);
+                                            const progressData = [
+                                                ["1. Supervisor (Handover)", iv.handoverStatus],
+                                                ["2. HR (Review & Checklist)", "Approved"],
+                                                ["3. Operations (Assets)", iv.assetsStatus],
+                                                ["4. Finance (Outstanding)", iv.financeStatus],
+                                            ];
+                                            autoTable(doc, {
+                                                startY: afterInfo + 14,
+                                                head: [["Step", "Status"]],
+                                                body: progressData,
+                                                theme: "grid",
+                                                headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+                                                styles: { fontSize: 10 },
+                                                columnStyles: { 0: { cellWidth: 100 } },
+                                            });
+
+                                            // Checklist Items
+                                            const afterProgress = (doc as any).lastAutoTable?.finalY || 140;
+                                            doc.setFontSize(12);
+                                            doc.setFont("helvetica", "bold");
+                                            doc.text("Checklist Items", 14, afterProgress + 10);
+                                            const itemRows = checklistItems.map((item, i) => [
+                                                String(i + 1),
+                                                item.name,
+                                                (item as any).department_name || item.departmentName || "N/A",
+                                                "Cleared",
+                                            ]);
+                                            autoTable(doc, {
+                                                startY: afterProgress + 14,
+                                                head: [["#", "Item", "Department", "Status"]],
+                                                body: itemRows.length > 0 ? itemRows : [["—", "No items", "—", "—"]],
+                                                theme: "grid",
+                                                headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+                                                styles: { fontSize: 10 },
+                                                columnStyles: { 0: { cellWidth: 15 } },
+                                            });
+
+                                            // Footer
+                                            const pageHeight = doc.internal.pageSize.height;
+                                            doc.setFontSize(8);
+                                            doc.setTextColor(150);
+                                            doc.text(`Generated on ${new Date().toLocaleString()}`, 105, pageHeight - 10, { align: "center" });
+
+                                            doc.save(`Exit_Checklist_${iv.staffId}_${iv.employeeName.replace(/\s+/g, '_')}.pdf`);
+                                            toast.success("PDF downloaded.");
+                                        }}
+                                        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                        Download Exit Checklist (PDF)
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="pt-6 flex gap-3">
+                                    <button
+                                        onClick={handleReject}
+                                        disabled={isActioning}
+                                        className="w-full px-4 py-2.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-medium transition-colors disabled:opacity-50"
+                                    >
+                                        Reject
+                                    </button>
+                                    <button
+                                        onClick={handleApprove}
+                                        disabled={isActioning}
+                                        className="w-full px-4 py-2.5 rounded-lg bg-brand-500 text-white hover:bg-brand-600 font-medium transition-colors shadow-sm disabled:opacity-50"
+                                    >
+                                        {isActioning ? "Processing..." :
+                                            selectedInterview?.stage === 'Supervisor' ? "Approve & Forward to HR" :
+                                            selectedInterview?.stage === 'HR' ? "Approve & Forward" :
+                                            selectedInterview?.stage === 'Completed' ? "Finalize Exit" :
+                                            selectedInterview?.stage === 'HR_Final' ? "Complete Exit Process" :
+                                            "Approve Clearance"
+                                        }
+                                    </button>
                                 </div>
                             )}
-
-                            <div className="pt-6 flex gap-3">
-                                <button
-                                    onClick={handleReject}
-                                    disabled={isActioning}
-                                    className="w-full px-4 py-2.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-medium transition-colors disabled:opacity-50"
-                                >
-                                    Reject
-                                </button>
-                                <button
-                                    onClick={handleApprove}
-                                    disabled={isActioning}
-                                    className="w-full px-4 py-2.5 rounded-lg bg-brand-500 text-white hover:bg-brand-600 font-medium transition-colors shadow-sm disabled:opacity-50"
-                                >
-                                    {isActioning ? "Processing..." : (currentQueue === 'HR_Final' ? "Finalize Exit" : "Approve Stage")}
-                                </button>
-                            </div>
                         </div>
                     )}
                 </div>

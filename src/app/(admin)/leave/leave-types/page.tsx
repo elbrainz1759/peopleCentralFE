@@ -33,7 +33,7 @@ export default function LeaveTypesPage() {
     const [countries, setCountries] = useState<any[]>([]);
 
     // Form state
-    const [form, setForm] = useState({ name: "", description: "", country: "" });
+    const [form, setForm] = useState({ name: "", description: "", country: "", hours: 0 });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fetchLeaveTypes = useCallback(async (page = 1) => {
@@ -69,7 +69,7 @@ export default function LeaveTypesPage() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.name.trim() || !form.description.trim() || !form.country.trim()) return;
+        if (!form.name.trim() || !form.description.trim() || !form.country.trim() || !form.hours) return;
 
         setIsSubmitting(true);
         try {
@@ -77,10 +77,11 @@ export default function LeaveTypesPage() {
                 name: form.name,
                 description: form.description,
                 country: form.country,
+                hours: Number(form.hours),
             });
             toast.success("Leave type created successfully!");
             setIsAddOpen(false);
-            setForm({ name: "", description: "", country: "" });
+            setForm({ name: "", description: "", country: "", hours: 0 });
             fetchLeaveTypes(1);
         } catch (error: any) {
             toast.error(error.message || "Failed to create leave type");
@@ -153,6 +154,9 @@ export default function LeaveTypesPage() {
                                     Country
                                 </TableCell>
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                    Hours
+                                </TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                     Created By
                                 </TableCell>
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
@@ -169,13 +173,13 @@ export default function LeaveTypesPage() {
                         <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="py-10 text-center text-gray-500">
+                                    <TableCell colSpan={9} className="py-10 text-center text-gray-500">
                                         Loading...
                                     </TableCell>
                                 </TableRow>
                             ) : filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="py-10 text-center text-gray-500">
+                                    <TableCell colSpan={9} className="py-10 text-center text-gray-500">
                                         No leave types found.
                                     </TableCell>
                                 </TableRow>
@@ -193,6 +197,9 @@ export default function LeaveTypesPage() {
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {lt.country}
+                                        </TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">
+                                            {(lt as any).hours || 0}
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {lt.created_by || "System"}
@@ -360,6 +367,21 @@ export default function LeaveTypesPage() {
                                 required
                             />
                         )}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Hours <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            value={form.hours}
+                            onChange={(e) => setForm({ ...form, hours: Number(e.target.value) })}
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
+                            placeholder="e.g. 8"
+                            min={0}
+                            required
+                        />
                     </div>
 
                     <button
