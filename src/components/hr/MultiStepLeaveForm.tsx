@@ -143,25 +143,76 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
         setStep((prev) => prev - 1);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
+        console.log("Submit button clicked!");
+        console.log("Form data:", formData);
 
-        const currentUser = authService.getCurrentUser();
-        const employeeId = currentUser?.staff_id || currentUser?.id || currentUser?.unique_id;
+        let currentUser = authService.getCurrentUser();
+        let employeeId = currentUser?.staff_id || currentUser?.id || currentUser?.unique_id;
+        
+        console.log("Current user:", currentUser);
+        console.log("Employee ID:", employeeId);
+
+        // If no user found, try to get from token or fetch staff details
+        if (!employeeId) {
+            console.log("No user found, trying alternative methods...");
+            
+            // Check token payload
+            const authToken = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+            if (authToken) {
+                try {
+                    const payload = JSON.parse(atob(authToken.split('.')[1]));
+                    console.log('Token payload:', payload);
+                    employeeId = payload.staff_id || payload.staffId || payload.id || payload.sub;
+                    console.log('Employee ID from token:', employeeId);
+                } catch (e) {
+                    console.error("Token decode error:", e);
+                }
+            }
+
+            // If still no employee ID, try to fetch staff details
+            if (!employeeId) {
+                try {
+                    console.log('Fetching staff details...');
+                    const response = await leaveServiceInstance.getStaffDetails();
+                    const rawData = response.data || response;
+                    const staffData = Array.isArray(rawData) ? rawData[0] : rawData;
+                    console.log('Staff data from API:', staffData);
+                    
+                    if (staffData) {
+                        employeeId = staffData.staff_id || staffData.id || staffData.unique_id;
+                        currentUser = staffData;
+                        
+                        // Update localStorage if it was empty
+                        if (!authService.getCurrentUser()) {
+                            localStorage.setItem('auth_user', JSON.stringify(staffData));
+                        }
+                        console.log('Updated employee ID from API:', employeeId);
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch staff details:", error);
+                }
+            }
+        }
 
         if (!employeeId) {
+            console.log("No employee ID found after all attempts");
             toast.error("Staff ID not found. Please log in again.");
             return;
         }
 
         if (!formData.leaveTypeId) {
+            console.log("No leave type selected");
             toast.error("Please select a Leave Type.");
             return;
         }
         if (formData.dates.some((d: any) => !d.startDate || !d.endDate)) {
+            console.log("Missing dates:", formData.dates);
             toast.error("Please fill in all date ranges.");
             return;
         }
+        
+        console.log("Validation passed, preparing to submit...");
 
         const leaveData: LeaveRequest = {
             staffId: typeof employeeId === 'number' ? employeeId : parseInt(String(employeeId)),
@@ -287,11 +338,14 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                                             id={`start-date-${index}`}
                                             label={`From${index > 0 ? ` #${index + 1}` : ""} *`}
                                             placeholder="Select start date"
-                                            defaultDate={range.startDate}
+                                            value={range.startDate}
                                             onChange={(selectedDates) => {
+                                                console.log("Start date changed:", selectedDates);
                                                 const date = selectedDates[0];
                                                 if (date) {
-                                                    handleDateChange(index, "startDate", date.toISOString().split('T')[0]);
+                                                    const dateStr = date.toISOString().split('T')[0];
+                                                    console.log("Setting start date:", dateStr);
+                                                    handleDateChange(index, "startDate", dateStr);
                                                 }
                                             }}
                                         />
@@ -302,11 +356,14 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                                             id={`end-date-${index}`}
                                             label={`To${index > 0 ? ` #${index + 1}` : ""} *`}
                                             placeholder="Select end date"
-                                            defaultDate={range.endDate}
+                                            value={range.endDate}
                                             onChange={(selectedDates) => {
+                                                console.log("End date changed:", selectedDates);
                                                 const date = selectedDates[0];
                                                 if (date) {
-                                                    handleDateChange(index, "endDate", date.toISOString().split('T')[0]);
+                                                    const dateStr = date.toISOString().split('T')[0];
+                                                    console.log("Setting end date:", dateStr);
+                                                    handleDateChange(index, "endDate", dateStr);
                                                 }
                                             }}
                                         />
@@ -487,7 +544,10 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                             </button>
                         ) : (
                             <button
-                                onClick={(e) => handleSubmit(e)}
+                                onClick={() => {
+                    console.log("Button clicked! isSubmitting:", isSubmitting);
+                    handleSubmit();
+                }}
                                 disabled={isSubmitting}
                                 className="flex items-center gap-2 px-6 py-2.5 font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-green-500/20"
                             >
