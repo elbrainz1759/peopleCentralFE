@@ -35,7 +35,8 @@ export interface ChecklistItem {
   id?: number;
   uniqueId?: string;
   name: string;
-  department: string; // Department UUID
+  department?: string; // Department UUID (legacy)
+  departmentId?: string; // Department UUID (API field name)
   departmentName?: string; // Department name from API
   createdBy?: string;
   createdAt?: string;
@@ -163,11 +164,12 @@ export class ExitService {
    * Operations or Finance clears their items
    */
   async clearExitInterviewItems(
-    id: number, 
-    payload: { 
-      department: 'Operations' | 'Finance'; 
-      checkListItemIds: number[]; 
-      notes?: string 
+    id: number | string,
+    payload: {
+      department: 'Operations' | 'Finance';
+      checkListItemIds: number[];
+      clearedBy?: string;
+      notes?: string
     }
   ): Promise<any> {
     try {

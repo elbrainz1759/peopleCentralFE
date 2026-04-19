@@ -93,6 +93,7 @@ export interface CreateLeaveTypeRequest {
     name: string;
     description: string;
     country: string;
+    hours?: number;
 }
 
 export interface LeaveType {
