@@ -135,6 +135,14 @@ export class UserService {
     public async getAllLeaveTypes(page = 1, limit = 10): Promise<PaginatedResponse<LeaveType>> {
         return api.get(`/leave-types?page=${page}&limit=${limit}`);
     }
+
+    public async createLeaveTypeConfig(data: any): Promise<any> {
+        return api.post('/leave-type-configs', data);
+    }
+
+    public async getAllLeaveTypeConfigs(page = 1, limit = 10): Promise<PaginatedResponse<any>> {
+        return api.get(`/leave-type-configs?page=${page}&limit=${limit}`);
+    }
 }
 
 export const userService = UserService.getInstance();
