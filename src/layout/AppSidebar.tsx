@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
       { name: "Approvals", path: "/leave/approvals" },
       { name: "Leave Balances", path: "/leave/balances" },
       { name: "Leave Types", path: "/leave/leave-types" },
+      { name: "Leave Type Configs", path: "/leave/type-configs" },
     ],
   },
   {
