@@ -9,6 +9,60 @@ interface RequestOptions extends RequestInit {
     params?: Record<string, string>;
 }
 
+// Prevent multiple simultaneous refresh attempts
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+function clearSessionAndRedirect() {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('auth_user');
+        document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        window.location.href = '/?session=expired';
+    }
+}
+
+async function attemptTokenRefresh(): Promise<string | null> {
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+    if (!refreshToken) return null;
+
+    try {
+        const refreshResponse = await fetch(`${API_CONFIG.BASE_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+        });
+
+        if (refreshResponse.ok) {
+            const data = await refreshResponse.json();
+            const newToken = data.accessToken || data.token;
+            const newRefresh = data.refreshToken || refreshToken;
+
+            if (newToken) {
+                localStorage.setItem('auth_token', newToken);
+                document.cookie = `auth_token=${newToken}; path=/; max-age=86400; SameSite=Lax`;
+
+                if (newRefresh) {
+                    localStorage.setItem('refresh_token', newRefresh);
+                    document.cookie = `refresh_token=${newRefresh}; path=/; max-age=604800; SameSite=Lax`;
+                }
+
+                if (data.user) {
+                    localStorage.setItem('auth_user', JSON.stringify(data.user));
+                }
+
+                return newToken;
+            }
+        }
+    } catch (err) {
+        console.error('Failed to refresh token:', err);
+    }
+
+    return null;
+}
+
 export async function apiRequest<T>(
     endpoint: string,
     options: RequestOptions = {}
@@ -45,58 +99,23 @@ export async function apiRequest<T>(
 
         // Handle Token Expiration (401)
         if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/refresh')) {
-            const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
-
-            if (refreshToken) {
-                try {
-                    console.log('Got 401, attempting token refresh...');
-                    // Try to refresh the token
-                    const refreshResponse = await fetch(`${API_CONFIG.BASE_URL}/auth/refresh`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ refreshToken: refreshToken })
-                    });
-
-                    if (refreshResponse.ok) {
-                        const data = await refreshResponse.json();
-                        const newToken = data.accessToken || data.token;
-                        const newRefresh = data.refreshToken || refreshToken;
-
-                        if (newToken) {
-                            console.log('Refresh successful! Updating tokens and retrying original request.');
-                            localStorage.setItem('auth_token', newToken);
-                            document.cookie = `auth_token=${newToken}; path=/; max-age=86400; SameSite=Lax`;
-
-                            if (newRefresh) {
-                                localStorage.setItem('refresh_token', newRefresh);
-                                document.cookie = `refresh_token=${newRefresh}; path=/; max-age=604800; SameSite=Lax`;
-                            }
-
-                            if (data.user) {
-                                localStorage.setItem('auth_user', JSON.stringify(data.user));
-                            }
-
-                            // Retry original request recursively
-                            return apiRequest<T>(endpoint, options);
-                        }
-                    } else {
-                        console.error('Refresh response was not OK:', refreshResponse.status);
-                    }
-                } catch (refreshErr) {
-                    console.error('Failed to refresh token:', refreshErr);
-                }
+            // Use a single shared refresh promise to avoid duplicate refresh calls
+            if (!isRefreshing) {
+                isRefreshing = true;
+                refreshPromise = attemptTokenRefresh().finally(() => {
+                    isRefreshing = false;
+                });
             }
 
-            // If we reach here, either no refresh token or refresh failed
-            if (typeof window !== 'undefined') {
-                console.warn('Session recovery failed. Clearing session and redirecting.');
-                localStorage.removeItem('auth_token');
-                localStorage.removeItem('refresh_token');
-                localStorage.removeItem('auth_user');
-                document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-                document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-                window.location.href = '/?session=expired';
+            const newToken = await refreshPromise;
+
+            if (newToken) {
+                // Retry original request with the new token
+                return apiRequest<T>(endpoint, options);
             }
+
+            // Refresh failed — clear session and redirect to login
+            clearSessionAndRedirect();
             throw new Error('Session expired. Please log in again.');
         }
 

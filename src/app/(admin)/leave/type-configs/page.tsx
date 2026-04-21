@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { userService } from "@/services/user.service";
 import { toast } from "react-hot-toast";
 import {
     Table,
@@ -13,11 +12,41 @@ import { PlusIcon, SearchIcon, HorizontaLDots, PencilIcon, TrashBinIcon } from "
 import { Drawer } from "@/components/ui/drawer/Drawer";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
-import { LeaveType } from "@/types/service.types";
+import { userService } from "@/services/user.service";
 
 const PAGE_LIMIT = 10;
 
-export default function LeaveTypesPage() {
+// DTO Structure matching the backend
+interface LeaveTypeConfigDto {
+    leaveTypeId: number;
+    country: string;
+    annualHours: number;
+    monthlyAccrualHours?: number | null;
+    leavePolicyId: string; // Required - id of a leave type
+}
+
+interface LeaveType {
+    id: number | string;
+    unique_id?: string;
+    name: string;
+    description: string;
+    country: string;
+    hours?: number;
+}
+
+interface LeaveTypeConfig extends LeaveType {
+    // Additional fields for configuration display
+    leavePolicyId?: string;
+    annualHours?: number;
+    monthlyAccrualHours?: number;
+    approvalWorkflow?: string;
+    effectiveDate?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export default function LeaveTypeConfigsPage() {
+    const [configs, setConfigs] = useState<LeaveTypeConfig[]>([]);
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAddOpen, setIsAddOpen] = useState(false);
@@ -33,65 +62,97 @@ export default function LeaveTypesPage() {
     const [countries, setCountries] = useState<any[]>([]);
 
     // Form state
-    const [form, setForm] = useState({ name: "", description: "", country: "" });
+    const [form, setForm] = useState<LeaveTypeConfigDto>({
+        leaveTypeId: 0,
+        country: "",
+        annualHours: 0,
+        monthlyAccrualHours: null,
+        leavePolicyId: "",
+    });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const fetchLeaveTypes = useCallback(async (page = 1) => {
+    const fetchConfigs = useCallback(async (page = 1) => {
         setIsLoading(true);
         try {
-            const response = await userService.getAllLeaveTypes(page, PAGE_LIMIT);
-            setLeaveTypes(response.data || []);
+            const response = await userService.getAllLeaveTypeConfigs(page, PAGE_LIMIT);
+            setConfigs(response.data || []);
             const meta = response.meta;
             setTotalRecords(meta?.total ?? 0);
             setTotalPages(meta?.last_page ?? meta?.totalPages ?? 1);
             setCurrentPage(page);
-        } catch (error) {
-            toast.error("Failed to load leave types");
+        } catch (error: any) {
+            console.error('Failed to fetch configurations:', error);
+            toast.error(error.message || "Failed to load leave type configurations");
         } finally {
             setIsLoading(false);
         }
     }, []);
 
+    const fetchLeaveTypes = async () => {
+        try {
+            // Fetch leave types from API
+            const response = await userService.getAllLeaveTypes();
+            const data = response?.data || (Array.isArray(response) ? response : []);
+            setLeaveTypes(data);
+        } catch (error) {
+            console.error("Failed to fetch leave types:", error);
+            toast.error("Failed to load leave types");
+        }
+    };
+
     const fetchCountries = async () => {
         try {
-            const response: any = await userService.getAllCountries();
-            const data = response?.data || (Array.isArray(response) ? response : []);
+            // Fetch countries from API
+            const response = await userService.getAllCountries();
+            const data = (response as any)?.data || (Array.isArray(response) ? response : []);
             setCountries(data);
-        } catch {
-            // fail silently
+        } catch (error) {
+            console.error("Failed to fetch countries:", error);
+            toast.error("Could not load countries");
         }
     };
 
     useEffect(() => {
-        fetchLeaveTypes(1);
+        fetchConfigs(1);
+        fetchLeaveTypes();
         fetchCountries();
-    }, [fetchLeaveTypes]);
+    }, [fetchConfigs]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.name.trim() || !form.description.trim() || !form.country.trim()) return;
+        if (!form.leavePolicyId || !form.country.trim() || !form.annualHours) return;
 
         setIsSubmitting(true);
         try {
-            await userService.createLeaveType({
-                name: form.name,
-                description: form.description,
+            const response = await userService.createLeaveTypeConfig({
+                leaveTypeId: Number(form.leavePolicyId),
                 country: form.country,
+                annualHours: form.annualHours,
+                ...(form.monthlyAccrualHours ? { monthlyAccrualHours: form.monthlyAccrualHours } : {}),
             });
-            toast.success("Leave type created successfully!");
+
+            console.log('Configuration created:', response);
+            toast.success("Leave type configuration created successfully!");
             setIsAddOpen(false);
-            setForm({ name: "", description: "", country: "" });
-            fetchLeaveTypes(1);
+            setForm({
+                leaveTypeId: 0,
+                country: "",
+                annualHours: 0,
+                monthlyAccrualHours: null,
+                leavePolicyId: "",
+            });
+            fetchConfigs(1);
         } catch (error: any) {
-            toast.error(error.message || "Failed to create leave type");
+            console.error('Failed to create configuration:', error);
+            toast.error(error.message || "Failed to create leave type configuration");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const filtered = leaveTypes.filter((lt) =>
-        (lt.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (lt.country || "").toLowerCase().includes(searchTerm.toLowerCase())
+    const filtered = configs.filter((config) =>
+        (config.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (config.country || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
@@ -103,10 +164,10 @@ export default function LeaveTypesPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-                        Leave Types
+                        Leave Type Configurations
                     </h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Manage leave type definitions and their applicability by country.
+                        Configure leave types with country-specific hours and accrual rates.
                     </p>
                 </div>
 
@@ -115,7 +176,7 @@ export default function LeaveTypesPage() {
                     className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
                 >
                     <PlusIcon className="h-5 w-5" />
-                    Add Leave Type
+                    Add Configuration
                 </button>
             </div>
 
@@ -128,7 +189,7 @@ export default function LeaveTypesPage() {
                         </span>
                         <input
                             type="text"
-                            placeholder="Search leave types..."
+                            placeholder="Search configurations..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 w-64 rounded-lg border border-gray-300 bg-white px-4 py-2 text-theme-sm text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:focus:border-brand-500"
@@ -144,22 +205,25 @@ export default function LeaveTypesPage() {
                                     S/N
                                 </TableCell>
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Name
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Description
+                                    Leave Type
                                 </TableCell>
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                     Country
                                 </TableCell>
-<TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Created By
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                    Policy ID
                                 </TableCell>
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Date Added
+                                    Annual Hours
                                 </TableCell>
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Status
+                                    Monthly Accrual
+                                </TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                    Approval Workflow
+                                </TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                    Created
                                 </TableCell>
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                     Actions
@@ -176,56 +240,59 @@ export default function LeaveTypesPage() {
                             ) : filtered.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="py-10 text-center text-gray-500">
-                                        No leave types found.
+                                        No leave type configurations found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filtered.map((lt, index) => (
-                                    <TableRow key={lt.id}>
+                                filtered.map((config, index) => (
+                                    <TableRow key={config.id}>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {startRecord + index}
                                         </TableCell>
                                         <TableCell className="py-3 font-medium text-gray-800 dark:text-white/90">
-                                            {lt.name}
-                                        </TableCell>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500 max-w-xs truncate">
-                                            {lt.description}
+                                            {config.name}
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {lt.country}
+                                            {config.country}
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {lt.created_by || "System"}
+                                            {config.leavePolicyId}
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {lt.created_at
-                                                ? new Date(lt.created_at).toLocaleDateString()
-                                                : "—"}
+                                            {config.annualHours}
                                         </TableCell>
-                                        <TableCell className="py-3">
-                                            <span className="px-3 py-1 text-xs font-medium bg-green-100 text-green-600 rounded-full dark:bg-green-500/10 dark:text-green-400">
-                                                Active
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">
+                                            {config.monthlyAccrualHours || "—"}
+                                        </TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">
+                                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+                                                {config.approvalWorkflow || "—"}
                                             </span>
+                                        </TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">
+                                            {config.createdAt
+                                                ? new Date(config.createdAt).toLocaleDateString()
+                                                : "—"}
                                         </TableCell>
                                         <TableCell className="py-3 relative">
                                             <button
                                                 className="dropdown-toggle flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                                                 onClick={() =>
-                                                    setActiveDropdown(activeDropdown === lt.id ? null : lt.id)
+                                                    setActiveDropdown(activeDropdown === config.id ? null : config.id)
                                                 }
                                             >
                                                 <HorizontaLDots className="h-4 w-4 text-gray-500" />
                                             </button>
 
                                             <Dropdown
-                                                isOpen={activeDropdown === lt.id}
+                                                isOpen={activeDropdown === config.id}
                                                 onClose={() => setActiveDropdown(null)}
                                                 className="absolute right-0 top-10 pointer-events-auto"
                                             >
                                                 <div className="w-48 py-2">
                                                     <DropdownItem
                                                         onClick={() => {
-                                                            toast.success(`Edit ${lt.name}`);
+                                                            toast.success(`Edit configuration for ${config.name}`);
                                                             setActiveDropdown(null);
                                                         }}
                                                     >
@@ -236,7 +303,7 @@ export default function LeaveTypesPage() {
                                                     </DropdownItem>
                                                     <DropdownItem
                                                         onClick={() => {
-                                                            toast.error(`Delete ${lt.name}`);
+                                                            toast.error(`Delete configuration for ${config.name}`);
                                                             setActiveDropdown(null);
                                                         }}
                                                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
@@ -265,7 +332,7 @@ export default function LeaveTypesPage() {
                         </p>
                         <div className="flex items-center gap-1">
                             <button
-                                onClick={() => fetchLeaveTypes(currentPage - 1)}
+                                onClick={() => fetchConfigs(currentPage - 1)}
                                 disabled={currentPage <= 1}
                                 className="flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:hover:bg-gray-800 transition-colors text-sm"
                             >
@@ -275,7 +342,7 @@ export default function LeaveTypesPage() {
                             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                                 <button
                                     key={page}
-                                    onClick={() => fetchLeaveTypes(page)}
+                                    onClick={() => fetchConfigs(page)}
                                     className={`flex items-center justify-center h-8 w-8 rounded-lg text-sm font-medium transition-colors ${page === currentPage
                                             ? "bg-brand-500 text-white"
                                             : "border border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
@@ -286,7 +353,7 @@ export default function LeaveTypesPage() {
                             ))}
 
                             <button
-                                onClick={() => fetchLeaveTypes(currentPage + 1)}
+                                onClick={() => fetchConfigs(currentPage + 1)}
                                 disabled={currentPage >= totalPages}
                                 className="flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:hover:bg-gray-800 transition-colors text-sm"
                             >
@@ -297,39 +364,30 @@ export default function LeaveTypesPage() {
                 )}
             </div>
 
-            {/* Add Leave Type Drawer */}
+            {/* Add Configuration Drawer */}
             <Drawer
                 isOpen={isAddOpen}
                 onClose={() => setIsAddOpen(false)}
-                title="Add New Leave Type"
+                title="Add Leave Type Configuration"
             >
                 <form onSubmit={handleCreate} className="p-6 space-y-5">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Leave Type Name <span className="text-red-500">*</span>
+                            Leave Type <span className="text-red-500">*</span>
                         </label>
-                        <input
-                            type="text"
-                            value={form.name}
-                            onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        <select
+                            value={form.leavePolicyId}
+                            onChange={(e) => setForm({ ...form, leavePolicyId: e.target.value })}
                             className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
-                            placeholder="e.g. Annual Leave"
                             required
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Description <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                            value={form.description}
-                            onChange={(e) => setForm({ ...form, description: e.target.value })}
-                            rows={3}
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none resize-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
-                            placeholder="Describe this leave type..."
-                            required
-                        />
+                        >
+                            <option value="">Select a leave type</option>
+                            {leaveTypes.map((lt) => (
+                                <option key={lt.id} value={lt.id}>
+                                    {lt.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     <div>
@@ -351,6 +409,38 @@ export default function LeaveTypesPage() {
                         </select>
                     </div>
 
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Annual Hours <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            value={form.annualHours}
+                            onChange={(e) => setForm({ ...form, annualHours: Number(e.target.value) })}
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
+                            placeholder="e.g. 160"
+                            min={0}
+                            required
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Monthly Accrual Hours <span className="text-gray-400">(optional)</span>
+                        </label>
+                        <input
+                            type="number"
+                            value={form.monthlyAccrualHours || ""}
+                            onChange={(e) => setForm({ ...form, monthlyAccrualHours: e.target.value ? Number(e.target.value) : null })}
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
+                            placeholder="e.g. 13.33"
+                            min={0}
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            If not provided, will be calculated automatically from annual hours
+                        </p>
+                    </div>
+
                     <button
                         type="submit"
                         disabled={isSubmitting}
@@ -359,7 +449,7 @@ export default function LeaveTypesPage() {
                         {isSubmitting ? (
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                         ) : null}
-                        {isSubmitting ? "Processing..." : "Create Leave Type"}
+                        {isSubmitting ? "Processing..." : "Create Configuration"}
                     </button>
                 </form>
             </Drawer>
