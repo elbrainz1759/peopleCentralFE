@@ -126,7 +126,7 @@ export default function LeaveApprovalsTable() {
             // Map API data to LeaveRequest format
             const mappedData = response.data.map((item: any) => ({
                 id: item.id,
-                employeeName: item.staff?.first_name ? `${item.staff.first_name} ${item.staff.last_name || ""}` : "Unknown Employee",
+                employeeName: item.staff?.employee_name ? `${item.staff.first_name} ${item.staff.last_name || ""}` : "Unknown Employee",
                 role: item.staff?.employment_detail?.job_title || "Staff",
                 department: item.staff?.employment_detail?.department?.name || "Unit",
                 leaveType: item.leaveType?.name || "Other",
