@@ -271,13 +271,21 @@ export default function LeaveTypeConfigsPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filtered.map((config, index) => (
+                                filtered.map((config, index) => {
+                                    const matchedType = leaveTypes.find(
+                                        (lt) => String(lt.id) === String(config.leavePolicyId)
+                                    );
+                                    const displayName =
+                                        config.name && config.name !== "—"
+                                            ? config.name
+                                            : matchedType?.name ?? "—";
+                                    return (
                                     <TableRow key={config.id}>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {startRecord + index}
                                         </TableCell>
                                         <TableCell className="py-3 font-medium text-gray-800 dark:text-white/90">
-                                            {config.name}
+                                            {displayName}
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {config.country}
@@ -344,7 +352,8 @@ export default function LeaveTypeConfigsPage() {
                                             </Dropdown>
                                         </TableCell>
                                     </TableRow>
-                                ))
+                                    );
+                                })
                             )}
                         </TableBody>
                     </Table>
