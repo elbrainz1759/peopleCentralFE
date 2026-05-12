@@ -50,6 +50,9 @@ export default function LeaveTypeConfigsPage() {
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingConfig, setEditingConfig] = useState<LeaveTypeConfig | null>(null);
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [activeDropdown, setActiveDropdown] = useState<number | string | null>(null);
 
@@ -174,6 +177,73 @@ export default function LeaveTypeConfigsPage() {
             toast.error(error.message || "Failed to create leave type configuration");
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const openEdit = (config: LeaveTypeConfig) => {
+        setEditingConfig(config);
+        setForm({
+            leaveTypeId: 0,
+            country: config.country ?? "",
+            annualHours: Number(config.annualHours ?? 0),
+            monthlyAccrualHours: config.monthlyAccrualHours ?? null,
+            leavePolicyId: config.leavePolicyId ?? "",
+        });
+        setIsEditOpen(true);
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingConfig?.unique_id) return;
+        if (!form.leavePolicyId || !form.country.trim() || !form.annualHours) return;
+
+        setIsSubmitting(true);
+        try {
+            const selectedType = leaveTypes.find(
+                (lt) => String(lt.unique_id ?? lt.id) === String(form.leavePolicyId)
+            );
+            const leaveTypeUniqueId = selectedType?.unique_id ?? form.leavePolicyId;
+
+            await userService.updateLeaveTypeConfig(editingConfig.unique_id, {
+                leaveTypeId: leaveTypeUniqueId,
+                country: form.country,
+                annualHours: form.annualHours,
+                ...(form.monthlyAccrualHours ? { monthlyAccrualHours: form.monthlyAccrualHours } : {}),
+            });
+
+            toast.success("Leave type configuration updated");
+            setIsEditOpen(false);
+            setEditingConfig(null);
+            fetchConfigs(currentPage);
+        } catch (error: any) {
+            console.error('Failed to update configuration:', error);
+            toast.error(error.message || "Failed to update leave type configuration");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDelete = async (config: LeaveTypeConfig) => {
+        if (!config.unique_id) {
+            toast.error("Missing unique_id; cannot delete this record");
+            return;
+        }
+        const confirmed = window.confirm(
+            `Delete the configuration for "${config.name}" (${config.country})? This cannot be undone.`
+        );
+        if (!confirmed) return;
+
+        setIsDeleting(config.unique_id);
+        try {
+            await userService.deleteLeaveTypeConfig(config.unique_id);
+            toast.success("Configuration removed");
+            const nextPage = configs.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage;
+            fetchConfigs(nextPage);
+        } catch (error: any) {
+            console.error('Failed to delete configuration:', error);
+            toast.error(error.message || "Failed to remove leave type configuration");
+        } finally {
+            setIsDeleting(null);
         }
     };
 
@@ -311,7 +381,7 @@ export default function LeaveTypeConfigsPage() {
                                                 <div className="w-48 py-2">
                                                     <DropdownItem
                                                         onClick={() => {
-                                                            toast.success(`Edit configuration for ${config.name}`);
+                                                            openEdit(config);
                                                             setActiveDropdown(null);
                                                         }}
                                                     >
@@ -322,14 +392,16 @@ export default function LeaveTypeConfigsPage() {
                                                     </DropdownItem>
                                                     <DropdownItem
                                                         onClick={() => {
-                                                            toast.error(`Delete configuration for ${config.name}`);
                                                             setActiveDropdown(null);
+                                                            handleDelete(config);
                                                         }}
                                                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
                                                     >
                                                         <div className="flex items-center gap-2">
                                                             <TrashBinIcon className="w-4 h-4" />
-                                                            <span>Remove Record</span>
+                                                            <span>
+                                                                {isDeleting === config.unique_id ? "Removing..." : "Remove Record"}
+                                                            </span>
                                                         </div>
                                                     </DropdownItem>
                                                 </div>
@@ -384,13 +456,17 @@ export default function LeaveTypeConfigsPage() {
                 )}
             </div>
 
-            {/* Add Configuration Drawer */}
+            {/* Add / Edit Configuration Drawer */}
             <Drawer
-                isOpen={isAddOpen}
-                onClose={() => setIsAddOpen(false)}
-                title="Add Leave Type Configuration"
+                isOpen={isAddOpen || isEditOpen}
+                onClose={() => {
+                    setIsAddOpen(false);
+                    setIsEditOpen(false);
+                    setEditingConfig(null);
+                }}
+                title={isEditOpen ? "Edit Leave Type Configuration" : "Add Leave Type Configuration"}
             >
-                <form onSubmit={handleCreate} className="p-6 space-y-5">
+                <form onSubmit={isEditOpen ? handleUpdate : handleCreate} className="p-6 space-y-5">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Leave Type <span className="text-red-500">*</span>
@@ -469,7 +545,11 @@ export default function LeaveTypeConfigsPage() {
                         {isSubmitting ? (
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                         ) : null}
-                        {isSubmitting ? "Processing..." : "Create Configuration"}
+                        {isSubmitting
+                            ? "Processing..."
+                            : isEditOpen
+                                ? "Update Configuration"
+                                : "Create Configuration"}
                     </button>
                 </form>
             </Drawer>
