@@ -247,12 +247,6 @@ export default function LeaveTypeConfigsPage() {
                                     Monthly Accrual
                                 </TableCell>
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Approval Workflow
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Created
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                     Actions
                                 </TableCell>
                             </TableRow>
@@ -260,13 +254,13 @@ export default function LeaveTypeConfigsPage() {
                         <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="py-10 text-center text-gray-500">
+                                    <TableCell colSpan={7} className="py-10 text-center text-gray-500">
                                         Loading...
                                     </TableCell>
                                 </TableRow>
                             ) : filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="py-10 text-center text-gray-500">
+                                    <TableCell colSpan={7} className="py-10 text-center text-gray-500">
                                         No leave type configurations found.
                                     </TableCell>
                                 </TableRow>
@@ -298,16 +292,6 @@ export default function LeaveTypeConfigsPage() {
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {config.monthlyAccrualHours || "—"}
-                                        </TableCell>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
-                                                {config.approvalWorkflow || "—"}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {config.createdAt
-                                                ? new Date(config.createdAt).toLocaleDateString()
-                                                : "—"}
                                         </TableCell>
                                         <TableCell className="py-3 relative">
                                             <button
