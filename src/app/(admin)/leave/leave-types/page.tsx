@@ -13,6 +13,7 @@ import { PlusIcon, SearchIcon, HorizontaLDots, PencilIcon, TrashBinIcon } from "
 import { Drawer } from "@/components/ui/drawer/Drawer";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog/ConfirmDialog";
 import { LeaveType } from "@/types/service.types";
 
 const PAGE_LIMIT = 10;
@@ -23,6 +24,7 @@ export default function LeaveTypesPage() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingLeaveType, setEditingLeaveType] = useState<LeaveType | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<LeaveType | null>(null);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [activeDropdown, setActiveDropdown] = useState<number | string | null>(null);
@@ -127,19 +129,24 @@ export default function LeaveTypesPage() {
         }
     };
 
-    const handleDelete = async (lt: LeaveType) => {
-        const id = lt.id;
-        if (id == null) {
+    const handleDelete = (lt: LeaveType) => {
+        if (lt.id == null) {
             toast.error("Missing id; cannot delete this record");
             return;
         }
-        if (!window.confirm(`Delete "${lt.name}"? This cannot be undone.`)) return;
+        setPendingDelete(lt);
+    };
 
-        setIsDeleting(String(id));
+    const confirmDelete = async () => {
+        if (!pendingDelete || pendingDelete.id == null) return;
+        const id = String(pendingDelete.id);
+
+        setIsDeleting(id);
         try {
-            await userService.deleteLeaveType(String(id));
+            await userService.deleteLeaveType(id);
             toast.success("Leave type removed");
             const nextPage = leaveTypes.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage;
+            setPendingDelete(null);
             fetchLeaveTypes(nextPage);
         } catch (error: any) {
             toast.error(error.message || "Failed to remove leave type");
@@ -433,6 +440,21 @@ export default function LeaveTypesPage() {
                     </button>
                 </form>
             </Drawer>
+
+            <ConfirmDialog
+                isOpen={!!pendingDelete}
+                title="Remove leave type"
+                message={
+                    pendingDelete
+                        ? `Delete "${pendingDelete.name}"? This cannot be undone.`
+                        : ""
+                }
+                confirmText="Remove"
+                variant="danger"
+                isLoading={!!isDeleting}
+                onConfirm={confirmDelete}
+                onCancel={() => setPendingDelete(null)}
+            />
         </div>
     );
 }

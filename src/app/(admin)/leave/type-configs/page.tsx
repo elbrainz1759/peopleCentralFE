@@ -12,6 +12,7 @@ import { PlusIcon, SearchIcon, HorizontaLDots, PencilIcon, TrashBinIcon } from "
 import { Drawer } from "@/components/ui/drawer/Drawer";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog/ConfirmDialog";
 import { userService } from "@/services/user.service";
 
 const PAGE_LIMIT = 10;
@@ -52,6 +53,7 @@ export default function LeaveTypeConfigsPage() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingConfig, setEditingConfig] = useState<LeaveTypeConfig | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<LeaveTypeConfig | null>(null);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [activeDropdown, setActiveDropdown] = useState<number | string | null>(null);
@@ -223,21 +225,23 @@ export default function LeaveTypeConfigsPage() {
         }
     };
 
-    const handleDelete = async (config: LeaveTypeConfig) => {
+    const handleDelete = (config: LeaveTypeConfig) => {
         if (!config.unique_id) {
             toast.error("Missing unique_id; cannot delete this record");
             return;
         }
-        const confirmed = window.confirm(
-            `Delete the configuration for "${config.name}" (${config.country})? This cannot be undone.`
-        );
-        if (!confirmed) return;
+        setPendingDelete(config);
+    };
 
-        setIsDeleting(config.unique_id);
+    const confirmDelete = async () => {
+        if (!pendingDelete?.unique_id) return;
+
+        setIsDeleting(pendingDelete.unique_id);
         try {
-            await userService.deleteLeaveTypeConfig(config.unique_id);
+            await userService.deleteLeaveTypeConfig(pendingDelete.unique_id);
             toast.success("Configuration removed");
             const nextPage = configs.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage;
+            setPendingDelete(null);
             fetchConfigs(nextPage);
         } catch (error: any) {
             console.error('Failed to delete configuration:', error);
@@ -553,6 +557,21 @@ export default function LeaveTypeConfigsPage() {
                     </button>
                 </form>
             </Drawer>
+
+            <ConfirmDialog
+                isOpen={!!pendingDelete}
+                title="Remove configuration"
+                message={
+                    pendingDelete
+                        ? `Delete the configuration for "${pendingDelete.name}" (${pendingDelete.country})? This cannot be undone.`
+                        : ""
+                }
+                confirmText="Remove"
+                variant="danger"
+                isLoading={!!isDeleting}
+                onConfirm={confirmDelete}
+                onCancel={() => setPendingDelete(null)}
+            />
         </div>
     );
 }

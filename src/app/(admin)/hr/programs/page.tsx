@@ -14,6 +14,7 @@ import { PlusIcon, SearchIcon, HorizontaLDots, PencilIcon, TrashBinIcon } from "
 import { Drawer } from "@/components/ui/drawer/Drawer";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog/ConfirmDialog";
 
 export default function ProgramsPage() {
     const [programs, setPrograms] = useState<any[]>([]);
@@ -21,6 +22,7 @@ export default function ProgramsPage() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingProgram, setEditingProgram] = useState<any | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -147,18 +149,23 @@ export default function ProgramsPage() {
         }
     };
 
-    const handleDelete = async (prog: any) => {
-        const uniqueId = prog.unique_id;
-        if (!uniqueId) {
+    const handleDelete = (prog: any) => {
+        if (!prog?.unique_id) {
             toast.error("Missing unique_id; cannot delete this record");
             return;
         }
-        if (!window.confirm(`Delete "${prog.name}"? This cannot be undone.`)) return;
+        setPendingDelete(prog);
+    };
+
+    const confirmDelete = async () => {
+        if (!pendingDelete?.unique_id) return;
+        const uniqueId = pendingDelete.unique_id;
 
         setIsDeleting(uniqueId);
         try {
             await userService.deleteProgram(uniqueId);
             toast.success("Program removed");
+            setPendingDelete(null);
             fetchPrograms();
         } catch (error: any) {
             toast.error(error.message || "Failed to remove program");
@@ -411,6 +418,21 @@ export default function ProgramsPage() {
                     </div>
                 </form>
             </Drawer>
+
+            <ConfirmDialog
+                isOpen={!!pendingDelete}
+                title="Remove program"
+                message={
+                    pendingDelete
+                        ? `Delete "${pendingDelete.name}"? This cannot be undone.`
+                        : ""
+                }
+                confirmText="Remove"
+                variant="danger"
+                isLoading={!!isDeleting}
+                onConfirm={confirmDelete}
+                onCancel={() => setPendingDelete(null)}
+            />
         </div>
     );
 }

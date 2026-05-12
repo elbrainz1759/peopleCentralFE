@@ -14,6 +14,7 @@ import { PlusIcon, SearchIcon, HorizontaLDots, PencilIcon, TrashBinIcon } from "
 import { Drawer } from "@/components/ui/drawer/Drawer";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog/ConfirmDialog";
 
 export default function DepartmentsPage() {
     const [departments, setDepartments] = useState<any[]>([]);
@@ -21,6 +22,7 @@ export default function DepartmentsPage() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingDept, setEditingDept] = useState<any | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -104,18 +106,23 @@ export default function DepartmentsPage() {
         }
     };
 
-    const handleDelete = async (dept: any) => {
-        const uniqueId = dept.unique_id;
-        if (!uniqueId) {
+    const handleDelete = (dept: any) => {
+        if (!dept?.unique_id) {
             toast.error("Missing unique_id; cannot delete this record");
             return;
         }
-        if (!window.confirm(`Delete "${dept.name}"? This cannot be undone.`)) return;
+        setPendingDelete(dept);
+    };
+
+    const confirmDelete = async () => {
+        if (!pendingDelete?.unique_id) return;
+        const uniqueId = pendingDelete.unique_id;
 
         setIsDeleting(uniqueId);
         try {
             await userService.deleteDepartment(uniqueId);
             toast.success("Department removed");
+            setPendingDelete(null);
             fetchDepartments();
         } catch (error: any) {
             toast.error(error.message || "Failed to remove department");
@@ -300,6 +307,21 @@ export default function DepartmentsPage() {
                     </button>
                 </form>
             </Drawer>
+
+            <ConfirmDialog
+                isOpen={!!pendingDelete}
+                title="Remove department"
+                message={
+                    pendingDelete
+                        ? `Delete "${pendingDelete.name}"? This cannot be undone.`
+                        : ""
+                }
+                confirmText="Remove"
+                variant="danger"
+                isLoading={!!isDeleting}
+                onConfirm={confirmDelete}
+                onCancel={() => setPendingDelete(null)}
+            />
         </div>
     );
 }
