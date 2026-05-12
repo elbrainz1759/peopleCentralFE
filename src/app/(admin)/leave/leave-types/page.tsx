@@ -104,13 +104,13 @@ export default function LeaveTypesPage() {
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-        const uniqueId = (editingLeaveType as any)?.unique_id;
-        if (!uniqueId) return;
+        const id = editingLeaveType?.id;
+        if (id == null) return;
         if (!form.name.trim() || !form.description.trim() || !form.country.trim()) return;
 
         setIsSubmitting(true);
         try {
-            await userService.updateLeaveType(uniqueId, {
+            await userService.updateLeaveType(String(id), {
                 name: form.name,
                 description: form.description,
                 country: form.country,
@@ -128,16 +128,16 @@ export default function LeaveTypesPage() {
     };
 
     const handleDelete = async (lt: LeaveType) => {
-        const uniqueId = (lt as any).unique_id;
-        if (!uniqueId) {
-            toast.error("Missing unique_id; cannot delete this record");
+        const id = lt.id;
+        if (id == null) {
+            toast.error("Missing id; cannot delete this record");
             return;
         }
         if (!window.confirm(`Delete "${lt.name}"? This cannot be undone.`)) return;
 
-        setIsDeleting(uniqueId);
+        setIsDeleting(String(id));
         try {
-            await userService.deleteLeaveType(uniqueId);
+            await userService.deleteLeaveType(String(id));
             toast.success("Leave type removed");
             const nextPage = leaveTypes.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage;
             fetchLeaveTypes(nextPage);
@@ -303,7 +303,7 @@ export default function LeaveTypesPage() {
                                                         <div className="flex items-center gap-2">
                                                             <TrashBinIcon className="w-4 h-4" />
                                                             <span>
-                                                                {isDeleting === (lt as any).unique_id ? "Removing..." : "Remove Record"}
+                                                                {isDeleting === String(lt.id) ? "Removing..." : "Remove Record"}
                                                             </span>
                                                         </div>
                                                     </DropdownItem>
