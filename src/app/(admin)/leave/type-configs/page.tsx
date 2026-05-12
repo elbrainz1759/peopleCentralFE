@@ -71,13 +71,35 @@ export default function LeaveTypeConfigsPage() {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const normalizeConfig = (item: any): LeaveTypeConfig => ({
+        id: item.id,
+        unique_id: item.unique_id,
+        name: item.leave_type_name ?? item.name ?? "—",
+        description: item.description ?? "",
+        country: item.country,
+        leavePolicyId: item.leave_type_id != null ? String(item.leave_type_id) : item.unique_id,
+        annualHours: item.annual_hours != null ? Number(item.annual_hours) : item.annualHours,
+        monthlyAccrualHours:
+            item.monthly_accrual_hours != null
+                ? Number(item.monthly_accrual_hours)
+                : item.monthlyAccrualHours,
+        approvalWorkflow: item.approval_workflow ?? item.approvalWorkflow,
+        createdAt: item.created_at ?? item.createdAt,
+        updatedAt: item.updated_at ?? item.updatedAt,
+    });
+
     const fetchConfigs = useCallback(async (page = 1) => {
         setIsLoading(true);
         try {
-            const response = await userService.getAllLeaveTypeConfigs(page, PAGE_LIMIT);
-            setConfigs(response.data || []);
-            const meta = response.meta;
-            setTotalRecords(meta?.total ?? 0);
+            const response: any = await userService.getAllLeaveTypeConfigs(page, PAGE_LIMIT);
+            const rawList = Array.isArray(response)
+                ? response
+                : Array.isArray(response?.data)
+                    ? response.data
+                    : [];
+            setConfigs(rawList.map(normalizeConfig));
+            const meta = response?.meta;
+            setTotalRecords(meta?.total ?? rawList.length);
             setTotalPages(meta?.last_page ?? meta?.totalPages ?? 1);
             setCurrentPage(page);
         } catch (error: any) {
