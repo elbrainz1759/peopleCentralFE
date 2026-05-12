@@ -29,73 +29,7 @@ interface LeaveRequest {
     appliedOn: string;
 }
 
-const tableData: LeaveRequest[] = [
-    {
-        id: 1,
-        employeeName: "Amara Okoro",
-        role: "Software Engineer",
-        department: "Engineering",
-        leaveType: "Annual Leave",
-        startDate: "2025-03-10",
-        endDate: "2025-03-15",
-        duration: "5 Days",
-        reason: "Personal vacation",
-        status: "Pending",
-        appliedOn: "2025-03-01",
-    },
-    {
-        id: 2,
-        employeeName: "Kwame Asante",
-        role: "Product Manager",
-        department: "Product",
-        leaveType: "Sick Leave",
-        startDate: "2025-02-12",
-        endDate: "2025-02-14",
-        duration: "3 Days",
-        reason: "Personal illness",
-        status: "Approved",
-        appliedOn: "2025-02-11",
-    },
-    {
-        id: 3,
-        employeeName: "Fatima Zahra",
-        role: "HR Specialist",
-        department: "Human Resources",
-        leaveType: "Casual Leave",
-        startDate: "2025-02-28",
-        endDate: "2025-02-28",
-        duration: "1 Day",
-        reason: "Family emergency",
-        status: "Rejected",
-        appliedOn: "2025-02-25",
-    },
-    {
-        id: 4,
-        employeeName: "Yuki Tanaka",
-        role: "Marketing Lead",
-        department: "Marketing",
-        leaveType: "Annual Leave",
-        startDate: "2025-04-01",
-        endDate: "2025-04-10",
-        duration: "10 Days",
-        reason: "Spring break",
-        status: "Pending",
-        appliedOn: "2025-03-05",
-    },
-    {
-        id: 5,
-        employeeName: "Carlos Mendez",
-        role: "Frontend Developer",
-        department: "Engineering",
-        leaveType: "Paternity Leave",
-        startDate: "2025-05-15",
-        endDate: "2025-05-30",
-        duration: "15 Days",
-        reason: "Family event",
-        status: "Pending",
-        appliedOn: "2025-05-01",
-    },
-];
+
 
 export default function LeaveApprovalsTable() {
     const [tableData, setTableData] = useState<LeaveRequest[]>([]);
@@ -126,7 +60,7 @@ export default function LeaveApprovalsTable() {
             // Map API data to LeaveRequest format
             const mappedData = response.data.map((item: any) => ({
                 id: item.id,
-                employeeName: item.staff?.employee_name ? `${item.staff.first_name} ${item.staff.last_name || ""}` : "Unknown Employee",
+                employeeName: item.employee_name ?? item.staff?.employee_name ?? "—",
                 role: item.staff?.employment_detail?.job_title || "Staff",
                 department: item.staff?.employment_detail?.department?.name || "Unit",
                 leaveType: item.leaveType?.name || "Other",
