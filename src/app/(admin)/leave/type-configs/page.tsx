@@ -18,7 +18,7 @@ const PAGE_LIMIT = 10;
 
 // DTO Structure matching the backend
 interface LeaveTypeConfigDto {
-    leaveTypeId: number;
+    leaveTypeId: string | number;
     country: string;
     annualHours: number;
     monthlyAccrualHours?: number | null;
@@ -124,8 +124,13 @@ export default function LeaveTypeConfigsPage() {
 
         setIsSubmitting(true);
         try {
+            const selectedType = leaveTypes.find(
+                (lt) => String(lt.unique_id ?? lt.id) === String(form.leavePolicyId)
+            );
+            const leaveTypeUniqueId = selectedType?.unique_id ?? form.leavePolicyId;
+
             const response = await userService.createLeaveTypeConfig({
-                leaveTypeId: Number(form.leavePolicyId),
+                leaveTypeId: leaveTypeUniqueId,
                 country: form.country,
                 annualHours: form.annualHours,
                 ...(form.monthlyAccrualHours ? { monthlyAccrualHours: form.monthlyAccrualHours } : {}),
@@ -383,7 +388,7 @@ export default function LeaveTypeConfigsPage() {
                         >
                             <option value="">Select a leave type</option>
                             {leaveTypes.map((lt) => (
-                                <option key={lt.id} value={lt.id}>
+                                <option key={lt.id} value={lt.unique_id ?? lt.id}>
                                     {lt.name}
                                 </option>
                             ))}
