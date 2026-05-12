@@ -19,6 +19,9 @@ export default function LocationsPage() {
     const [countries, setCountries] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingLocation, setEditingLocation] = useState<any | null>(null);
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
 
     const [newLocationName, setNewLocationName] = useState("");
@@ -80,6 +83,57 @@ export default function LocationsPage() {
             toast.error(error.message || "Failed to create location");
         } finally {
             setIsSubmittingNew(false);
+        }
+    };
+
+    const openEdit = (location: any) => {
+        setEditingLocation(location);
+        setNewLocationName(location.name ?? "");
+        setNewCountryId(location.country?.unique_id ?? location.countryId ?? location.country_id ?? "");
+        setIsEditOpen(true);
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingLocation?.unique_id) return;
+        if (!newLocationName.trim() || !newCountryId) return;
+
+        setIsSubmittingNew(true);
+        try {
+            await userService.updateLocation(editingLocation.unique_id, {
+                name: newLocationName,
+                countryId: newCountryId,
+            });
+            toast.success("Location updated");
+            setIsEditOpen(false);
+            setEditingLocation(null);
+            setNewLocationName("");
+            setNewCountryId("");
+            fetchLocations();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update location");
+        } finally {
+            setIsSubmittingNew(false);
+        }
+    };
+
+    const handleDelete = async (location: any) => {
+        const uniqueId = location.unique_id;
+        if (!uniqueId) {
+            toast.error("Missing unique_id; cannot delete this record");
+            return;
+        }
+        if (!window.confirm(`Delete "${location.name}"? This cannot be undone.`)) return;
+
+        setIsDeleting(uniqueId);
+        try {
+            await userService.deleteLocation(uniqueId);
+            toast.success("Location removed");
+            fetchLocations();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to remove location");
+        } finally {
+            setIsDeleting(null);
         }
     };
 
@@ -204,19 +258,21 @@ export default function LocationsPage() {
                                                 className="absolute right-0 top-10 pointer-events-auto"
                                             >
                                                 <div className="w-48 py-2">
-                                                    <DropdownItem onClick={() => { toast.success(`Edit ${location.name}`); setActiveDropdown(null); }}>
+                                                    <DropdownItem onClick={() => { setActiveDropdown(null); openEdit(location); }}>
                                                         <div className="flex items-center gap-2">
                                                             <PencilIcon className="w-4 h-4 text-gray-400" />
                                                             <span>Edit Location</span>
                                                         </div>
                                                     </DropdownItem>
                                                     <DropdownItem
-                                                        onClick={() => { toast.error(`Delete ${location.name}`); setActiveDropdown(null); }}
+                                                        onClick={() => { setActiveDropdown(null); handleDelete(location); }}
                                                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
                                                     >
                                                         <div className="flex items-center gap-2">
                                                             <TrashBinIcon className="w-4 h-4" />
-                                                            <span>Remove Location</span>
+                                                            <span>
+                                                                {isDeleting === location.unique_id ? "Removing..." : "Remove Location"}
+                                                            </span>
                                                         </div>
                                                     </DropdownItem>
                                                 </div>
@@ -231,11 +287,17 @@ export default function LocationsPage() {
             </div>
 
             <Drawer
-                isOpen={isAddOpen}
-                onClose={() => setIsAddOpen(false)}
-                title="Add New Location"
+                isOpen={isAddOpen || isEditOpen}
+                onClose={() => {
+                    setIsAddOpen(false);
+                    setIsEditOpen(false);
+                    setEditingLocation(null);
+                    setNewLocationName("");
+                    setNewCountryId("");
+                }}
+                title={isEditOpen ? "Edit Location" : "Add New Location"}
             >
-                <form onSubmit={handleCreate} className="p-6 space-y-6">
+                <form onSubmit={isEditOpen ? handleUpdate : handleCreate} className="p-6 space-y-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location Name</label>
                         <input
@@ -267,7 +329,11 @@ export default function LocationsPage() {
                         className="w-full py-4 bg-brand-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/20 hover:bg-brand-600 transition-all mt-4 flex items-center justify-center gap-2"
                     >
                         {isSubmittingNew ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div> : null}
-                        {isSubmittingNew ? "Creating..." : "Create Location"}
+                        {isSubmittingNew
+                            ? "Processing..."
+                            : isEditOpen
+                                ? "Update Location"
+                                : "Create Location"}
                     </button>
                 </form>
             </Drawer>

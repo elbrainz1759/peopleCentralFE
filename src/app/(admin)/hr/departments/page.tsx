@@ -19,6 +19,9 @@ export default function DepartmentsPage() {
     const [departments, setDepartments] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingDept, setEditingDept] = useState<any | null>(null);
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
 
     const [newDeptName, setNewDeptName] = useState("");
@@ -72,6 +75,52 @@ export default function DepartmentsPage() {
             toast.error(error.message || "Failed to create department");
         } finally {
             setIsSubmittingNew(false);
+        }
+    };
+
+    const openEdit = (dept: any) => {
+        setEditingDept(dept);
+        setNewDeptName(dept.name ?? "");
+        setIsEditOpen(true);
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingDept?.unique_id) return;
+        if (!newDeptName.trim()) return;
+
+        setIsSubmittingNew(true);
+        try {
+            await userService.updateDepartment(editingDept.unique_id, { name: newDeptName });
+            toast.success("Department updated");
+            setIsEditOpen(false);
+            setEditingDept(null);
+            setNewDeptName("");
+            fetchDepartments();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update department");
+        } finally {
+            setIsSubmittingNew(false);
+        }
+    };
+
+    const handleDelete = async (dept: any) => {
+        const uniqueId = dept.unique_id;
+        if (!uniqueId) {
+            toast.error("Missing unique_id; cannot delete this record");
+            return;
+        }
+        if (!window.confirm(`Delete "${dept.name}"? This cannot be undone.`)) return;
+
+        setIsDeleting(uniqueId);
+        try {
+            await userService.deleteDepartment(uniqueId);
+            toast.success("Department removed");
+            fetchDepartments();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to remove department");
+        } finally {
+            setIsDeleting(null);
         }
     };
 
@@ -187,19 +236,21 @@ export default function DepartmentsPage() {
                                                 className="absolute right-0 top-10 pointer-events-auto"
                                             >
                                                 <div className="w-48 py-2">
-                                                    <DropdownItem onClick={() => { toast.success(`Edit ${dept.name}`); setActiveDropdown(null); }}>
+                                                    <DropdownItem onClick={() => { setActiveDropdown(null); openEdit(dept); }}>
                                                         <div className="flex items-center gap-2">
                                                             <PencilIcon className="w-4 h-4 text-gray-400" />
                                                             <span>Edit Details</span>
                                                         </div>
                                                     </DropdownItem>
                                                     <DropdownItem
-                                                        onClick={() => { toast.error(`Delete ${dept.name}`); setActiveDropdown(null); }}
+                                                        onClick={() => { setActiveDropdown(null); handleDelete(dept); }}
                                                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
                                                     >
                                                         <div className="flex items-center gap-2">
                                                             <TrashBinIcon className="w-4 h-4" />
-                                                            <span>Remove Record</span>
+                                                            <span>
+                                                                {isDeleting === dept.unique_id ? "Removing..." : "Remove Record"}
+                                                            </span>
                                                         </div>
                                                     </DropdownItem>
                                                 </div>
@@ -214,11 +265,16 @@ export default function DepartmentsPage() {
             </div>
 
             <Drawer
-                isOpen={isAddOpen}
-                onClose={() => setIsAddOpen(false)}
-                title="Add New Department"
+                isOpen={isAddOpen || isEditOpen}
+                onClose={() => {
+                    setIsAddOpen(false);
+                    setIsEditOpen(false);
+                    setEditingDept(null);
+                    setNewDeptName("");
+                }}
+                title={isEditOpen ? "Edit Department" : "Add New Department"}
             >
-                <form onSubmit={handleCreate} className="p-6 space-y-4">
+                <form onSubmit={isEditOpen ? handleUpdate : handleCreate} className="p-6 space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department Name</label>
                         <input
@@ -236,7 +292,11 @@ export default function DepartmentsPage() {
                         className="w-full py-4 bg-brand-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/20 hover:bg-brand-600 transition-all flex items-center justify-center gap-2"
                     >
                         {isSubmittingNew ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div> : null}
-                        {isSubmittingNew ? "Processing..." : "Create Department"}
+                        {isSubmittingNew
+                            ? "Processing..."
+                            : isEditOpen
+                                ? "Update Department"
+                                : "Create Department"}
                     </button>
                 </form>
             </Drawer>

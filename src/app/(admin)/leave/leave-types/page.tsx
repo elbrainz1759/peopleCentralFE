@@ -21,6 +21,9 @@ export default function LeaveTypesPage() {
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingLeaveType, setEditingLeaveType] = useState<LeaveType | null>(null);
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [activeDropdown, setActiveDropdown] = useState<number | string | null>(null);
 
@@ -86,6 +89,62 @@ export default function LeaveTypesPage() {
             toast.error(error.message || "Failed to create leave type");
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const openEdit = (lt: LeaveType) => {
+        setEditingLeaveType(lt);
+        setForm({
+            name: lt.name ?? "",
+            description: (lt as any).description ?? "",
+            country: lt.country ?? "",
+        });
+        setIsEditOpen(true);
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const uniqueId = (editingLeaveType as any)?.unique_id;
+        if (!uniqueId) return;
+        if (!form.name.trim() || !form.description.trim() || !form.country.trim()) return;
+
+        setIsSubmitting(true);
+        try {
+            await userService.updateLeaveType(uniqueId, {
+                name: form.name,
+                description: form.description,
+                country: form.country,
+            });
+            toast.success("Leave type updated");
+            setIsEditOpen(false);
+            setEditingLeaveType(null);
+            setForm({ name: "", description: "", country: "" });
+            fetchLeaveTypes(currentPage);
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update leave type");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDelete = async (lt: LeaveType) => {
+        const uniqueId = (lt as any).unique_id;
+        if (!uniqueId) {
+            toast.error("Missing unique_id; cannot delete this record");
+            return;
+        }
+        if (!window.confirm(`Delete "${lt.name}"? This cannot be undone.`)) return;
+
+        setIsDeleting(uniqueId);
+        try {
+            await userService.deleteLeaveType(uniqueId);
+            toast.success("Leave type removed");
+            const nextPage = leaveTypes.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage;
+            fetchLeaveTypes(nextPage);
+        } catch (error: any) {
+            toast.error(error.message || "Failed to remove leave type");
+        } finally {
+            setIsDeleting(null);
         }
     };
 
@@ -225,8 +284,8 @@ export default function LeaveTypesPage() {
                                                 <div className="w-48 py-2">
                                                     <DropdownItem
                                                         onClick={() => {
-                                                            toast.success(`Edit ${lt.name}`);
                                                             setActiveDropdown(null);
+                                                            openEdit(lt);
                                                         }}
                                                     >
                                                         <div className="flex items-center gap-2">
@@ -236,14 +295,16 @@ export default function LeaveTypesPage() {
                                                     </DropdownItem>
                                                     <DropdownItem
                                                         onClick={() => {
-                                                            toast.error(`Delete ${lt.name}`);
                                                             setActiveDropdown(null);
+                                                            handleDelete(lt);
                                                         }}
                                                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
                                                     >
                                                         <div className="flex items-center gap-2">
                                                             <TrashBinIcon className="w-4 h-4" />
-                                                            <span>Remove Record</span>
+                                                            <span>
+                                                                {isDeleting === (lt as any).unique_id ? "Removing..." : "Remove Record"}
+                                                            </span>
                                                         </div>
                                                     </DropdownItem>
                                                 </div>
@@ -297,13 +358,18 @@ export default function LeaveTypesPage() {
                 )}
             </div>
 
-            {/* Add Leave Type Drawer */}
+            {/* Add / Edit Leave Type Drawer */}
             <Drawer
-                isOpen={isAddOpen}
-                onClose={() => setIsAddOpen(false)}
-                title="Add New Leave Type"
+                isOpen={isAddOpen || isEditOpen}
+                onClose={() => {
+                    setIsAddOpen(false);
+                    setIsEditOpen(false);
+                    setEditingLeaveType(null);
+                    setForm({ name: "", description: "", country: "" });
+                }}
+                title={isEditOpen ? "Edit Leave Type" : "Add New Leave Type"}
             >
-                <form onSubmit={handleCreate} className="p-6 space-y-5">
+                <form onSubmit={isEditOpen ? handleUpdate : handleCreate} className="p-6 space-y-5">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Leave Type Name <span className="text-red-500">*</span>
@@ -359,7 +425,11 @@ export default function LeaveTypesPage() {
                         {isSubmitting ? (
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                         ) : null}
-                        {isSubmitting ? "Processing..." : "Create Leave Type"}
+                        {isSubmitting
+                            ? "Processing..."
+                            : isEditOpen
+                                ? "Update Leave Type"
+                                : "Create Leave Type"}
                     </button>
                 </form>
             </Drawer>

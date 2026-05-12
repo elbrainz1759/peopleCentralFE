@@ -94,6 +94,14 @@ export class UserService {
         return api.post('/departments', data);
     }
 
+    public async updateDepartment(uniqueId: string, data: { name: string }): Promise<any> {
+        return api.put(`/departments/${uniqueId}`, data);
+    }
+
+    public async deleteDepartment(uniqueId: string): Promise<any> {
+        return api.delete(`/departments/${uniqueId}`);
+    }
+
     public async createProgram(data: {
         name: string,
         fundCode?: number,
@@ -104,8 +112,30 @@ export class UserService {
         return api.post('/programs', data);
     }
 
+    public async updateProgram(uniqueId: string, data: {
+        name: string,
+        fundCode?: number,
+        startDate?: string,
+        endDate?: string,
+        country?: string,
+    }): Promise<any> {
+        return api.put(`/programs/${uniqueId}`, data);
+    }
+
+    public async deleteProgram(uniqueId: string): Promise<any> {
+        return api.delete(`/programs/${uniqueId}`);
+    }
+
     public async createCountry(data: { name: string, unique_id?: string, created_by?: string }): Promise<any> {
         return api.post('/countries', data);
+    }
+
+    public async updateCountry(uniqueId: string, data: { name: string }): Promise<any> {
+        return api.put(`/countries/${uniqueId}`, data);
+    }
+
+    public async deleteCountry(uniqueId: string): Promise<any> {
+        return api.delete(`/countries/${uniqueId}`);
     }
 
     public async getAllDepartments(): Promise<any[]> {
@@ -128,8 +158,24 @@ export class UserService {
         return api.post('/locations', data);
     }
 
+    public async updateLocation(uniqueId: string, data: { name: string; countryId: string }): Promise<any> {
+        return api.put(`/locations/${uniqueId}`, data);
+    }
+
+    public async deleteLocation(uniqueId: string): Promise<any> {
+        return api.delete(`/locations/${uniqueId}`);
+    }
+
     public async createLeaveType(data: CreateLeaveTypeRequest): Promise<any> {
         return api.post('/leave-types', data);
+    }
+
+    public async updateLeaveType(uniqueId: string, data: Partial<CreateLeaveTypeRequest>): Promise<any> {
+        return api.put(`/leave-types/${uniqueId}`, data);
+    }
+
+    public async deleteLeaveType(uniqueId: string): Promise<any> {
+        return api.delete(`/leave-types/${uniqueId}`);
     }
 
     public async getAllLeaveTypes(page = 1, limit = 10): Promise<PaginatedResponse<LeaveType>> {

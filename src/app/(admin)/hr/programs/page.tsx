@@ -19,6 +19,9 @@ export default function ProgramsPage() {
     const [programs, setPrograms] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingProgram, setEditingProgram] = useState<any | null>(null);
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
 
     const [newProgName, setNewProgName] = useState("");
@@ -98,6 +101,69 @@ export default function ProgramsPage() {
             toast.error(error.message || "Failed to create program");
         } finally {
             setIsSubmittingNew(false);
+        }
+    };
+
+    const openEdit = (prog: any) => {
+        setEditingProgram(prog);
+        setNewProgName(prog.name ?? "");
+        setNewFundCode(prog.fund_code != null ? String(prog.fund_code) : (prog.fundCode != null ? String(prog.fundCode) : ""));
+        setStartDate(prog.start_date ? new Date(prog.start_date).toISOString().slice(0, 10) : "");
+        setEndDate(prog.end_date ? new Date(prog.end_date).toISOString().slice(0, 10) : "");
+        setSelectedCountry(prog.country ?? "");
+        setIsEditOpen(true);
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingProgram?.unique_id) return;
+        if (!newProgName.trim() || !newFundCode || !startDate || !endDate || !selectedCountry) {
+            toast.error("Please fill all required fields");
+            return;
+        }
+
+        setIsSubmittingNew(true);
+        try {
+            await userService.updateProgram(editingProgram.unique_id, {
+                name: newProgName,
+                fundCode: parseInt(newFundCode, 10),
+                startDate: new Date(startDate).toISOString(),
+                endDate: new Date(endDate).toISOString(),
+                country: selectedCountry,
+            });
+            toast.success("Program updated");
+            setIsEditOpen(false);
+            setEditingProgram(null);
+            setNewProgName("");
+            setNewFundCode("");
+            setStartDate("");
+            setEndDate("");
+            setSelectedCountry("");
+            fetchPrograms();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update program");
+        } finally {
+            setIsSubmittingNew(false);
+        }
+    };
+
+    const handleDelete = async (prog: any) => {
+        const uniqueId = prog.unique_id;
+        if (!uniqueId) {
+            toast.error("Missing unique_id; cannot delete this record");
+            return;
+        }
+        if (!window.confirm(`Delete "${prog.name}"? This cannot be undone.`)) return;
+
+        setIsDeleting(uniqueId);
+        try {
+            await userService.deleteProgram(uniqueId);
+            toast.success("Program removed");
+            fetchPrograms();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to remove program");
+        } finally {
+            setIsDeleting(null);
         }
     };
 
@@ -229,19 +295,21 @@ export default function ProgramsPage() {
                                                 className="absolute right-0 top-10 pointer-events-auto"
                                             >
                                                 <div className="w-48 py-2">
-                                                    <DropdownItem onClick={() => { toast.success(`Edit ${prog.name}`); setActiveDropdown(null); }}>
+                                                    <DropdownItem onClick={() => { setActiveDropdown(null); openEdit(prog); }}>
                                                         <div className="flex items-center gap-2">
                                                             <PencilIcon className="w-4 h-4 text-gray-400" />
                                                             <span>Edit Program</span>
                                                         </div>
                                                     </DropdownItem>
                                                     <DropdownItem
-                                                        onClick={() => { toast.error(`Delete ${prog.name}`); setActiveDropdown(null); }}
+                                                        onClick={() => { setActiveDropdown(null); handleDelete(prog); }}
                                                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
                                                     >
                                                         <div className="flex items-center gap-2">
                                                             <TrashBinIcon className="w-4 h-4" />
-                                                            <span>Delete Program</span>
+                                                            <span>
+                                                                {isDeleting === prog.unique_id ? "Removing..." : "Delete Program"}
+                                                            </span>
                                                         </div>
                                                     </DropdownItem>
                                                 </div>
@@ -256,11 +324,20 @@ export default function ProgramsPage() {
             </div>
 
             <Drawer
-                isOpen={isAddOpen}
-                onClose={() => setIsAddOpen(false)}
-                title="Create New Program"
+                isOpen={isAddOpen || isEditOpen}
+                onClose={() => {
+                    setIsAddOpen(false);
+                    setIsEditOpen(false);
+                    setEditingProgram(null);
+                    setNewProgName("");
+                    setNewFundCode("");
+                    setStartDate("");
+                    setEndDate("");
+                    setSelectedCountry("");
+                }}
+                title={isEditOpen ? "Edit Program" : "Create New Program"}
             >
-                <form onSubmit={handleCreate} className="p-6 space-y-4">
+                <form onSubmit={isEditOpen ? handleUpdate : handleCreate} className="p-6 space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Program Name/Title</label>
                         <input
@@ -327,7 +404,9 @@ export default function ProgramsPage() {
                             className="w-full py-4 bg-brand-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/20 hover:bg-brand-600 transition-all flex items-center justify-center gap-2"
                         >
                             {isSubmittingNew ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div> : <PlusIcon className="w-5 h-5" />}
-                            {isSubmittingNew ? "Registering Program..." : "Add Program to System"}
+                            {isSubmittingNew
+                                ? (isEditOpen ? "Updating Program..." : "Registering Program...")
+                                : (isEditOpen ? "Update Program" : "Add Program to System")}
                         </button>
                     </div>
                 </form>

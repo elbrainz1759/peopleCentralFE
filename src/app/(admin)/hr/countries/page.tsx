@@ -19,6 +19,9 @@ export default function CountriesPage() {
     const [countries, setCountries] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingCountry, setEditingCountry] = useState<any | null>(null);
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
 
     const [newCountryName, setNewCountryName] = useState("");
@@ -68,6 +71,54 @@ export default function CountriesPage() {
             toast.error(error.message || "Failed to register country");
         } finally {
             setIsSubmittingNew(false);
+        }
+    };
+
+    const openEdit = (country: any) => {
+        setEditingCountry(country);
+        setNewCountryName(country.name ?? "");
+        setNewCountryCode(country.code ?? "");
+        setIsEditOpen(true);
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingCountry?.unique_id) return;
+        if (!newCountryName.trim()) return;
+
+        setIsSubmittingNew(true);
+        try {
+            await userService.updateCountry(editingCountry.unique_id, { name: newCountryName });
+            toast.success("Country updated");
+            setIsEditOpen(false);
+            setEditingCountry(null);
+            setNewCountryName("");
+            setNewCountryCode("");
+            fetchCountries();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update country");
+        } finally {
+            setIsSubmittingNew(false);
+        }
+    };
+
+    const handleDelete = async (country: any) => {
+        const uniqueId = country.unique_id;
+        if (!uniqueId) {
+            toast.error("Missing unique_id; cannot delete this record");
+            return;
+        }
+        if (!window.confirm(`Delete "${country.name}"? This cannot be undone.`)) return;
+
+        setIsDeleting(uniqueId);
+        try {
+            await userService.deleteCountry(uniqueId);
+            toast.success("Country removed");
+            fetchCountries();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to remove country");
+        } finally {
+            setIsDeleting(null);
         }
     };
 
@@ -184,19 +235,21 @@ export default function CountriesPage() {
                                                 className="absolute right-0 top-10 pointer-events-auto"
                                             >
                                                 <div className="w-48 py-2">
-                                                    <DropdownItem onClick={() => { toast.success(`Edit ${country.name}`); setActiveDropdown(null); }}>
+                                                    <DropdownItem onClick={() => { setActiveDropdown(null); openEdit(country); }}>
                                                         <div className="flex items-center gap-2">
                                                             <PencilIcon className="w-4 h-4 text-gray-400" />
                                                             <span>Edit Country</span>
                                                         </div>
                                                     </DropdownItem>
                                                     <DropdownItem
-                                                        onClick={() => { toast.error(`Delete ${country.name}`); setActiveDropdown(null); }}
+                                                        onClick={() => { setActiveDropdown(null); handleDelete(country); }}
                                                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
                                                     >
                                                         <div className="flex items-center gap-2">
                                                             <TrashBinIcon className="w-4 h-4" />
-                                                            <span>Remove Country</span>
+                                                            <span>
+                                                                {isDeleting === country.unique_id ? "Removing..." : "Remove Country"}
+                                                            </span>
                                                         </div>
                                                     </DropdownItem>
                                                 </div>
@@ -211,11 +264,17 @@ export default function CountriesPage() {
             </div>
 
             <Drawer
-                isOpen={isAddOpen}
-                onClose={() => setIsAddOpen(false)}
-                title="Register New Country"
+                isOpen={isAddOpen || isEditOpen}
+                onClose={() => {
+                    setIsAddOpen(false);
+                    setIsEditOpen(false);
+                    setEditingCountry(null);
+                    setNewCountryName("");
+                    setNewCountryCode("");
+                }}
+                title={isEditOpen ? "Edit Country" : "Register New Country"}
             >
-                <form onSubmit={handleCreate} className="p-6 space-y-6">
+                <form onSubmit={isEditOpen ? handleUpdate : handleCreate} className="p-6 space-y-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Country</label>
                         <select
@@ -255,7 +314,11 @@ export default function CountriesPage() {
                         className="w-full py-4 bg-brand-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/20 hover:bg-brand-600 transition-all mt-4 flex items-center justify-center gap-2"
                     >
                         {isSubmittingNew ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div> : null}
-                        {isSubmittingNew ? "Processing..." : "Finish Registration"}
+                        {isSubmittingNew
+                            ? "Processing..."
+                            : isEditOpen
+                                ? "Update Country"
+                                : "Finish Registration"}
                     </button>
                 </form>
             </Drawer>
