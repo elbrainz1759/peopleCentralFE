@@ -106,7 +106,7 @@ const AppHeader: React.FC = () => {
 
           <div className="hidden lg:block">
             <h1 className="text-xl font-bold text-gray-800 dark:text-white uppercase tracking-tight">
-              HR Notification System
+              People Central  
             </h1>
           </div>
         </div>
