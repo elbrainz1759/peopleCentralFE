@@ -23,7 +23,7 @@ const STATIC_LEAVE_TYPES: LeaveType[] = [
     { id: "bereavement_leave", name: "Bereavement Leave", description: "", country: "" },
 ];
 
-export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: () => void, initialData?: any }) {
+export default function MultiStepLeaveForm({ onClose, initialData, compact = false }: { onClose: () => void, initialData?: any, compact?: boolean }) {
     const [step, setStep] = useState(1);
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [isLoadingTypes, setIsLoadingTypes] = useState(false);
@@ -472,6 +472,94 @@ export default function MultiStepLeaveForm({ onClose, initialData }: { onClose: 
                 return null;
         }
     };
+
+    if (compact) {
+        return (
+            <div className="flex flex-col h-full">
+                {/* Top Horizontal Stepper */}
+                <div className="px-6 pt-4 pb-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/30">
+                    <div className="flex items-center justify-between gap-2">
+                        {steps.map((s, index) => {
+                            const stepNumber = index + 1;
+                            const isActive = step === stepNumber;
+                            const isCompleted = step > stepNumber;
+                            return (
+                                <React.Fragment key={index}>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <div
+                                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-medium transition-colors duration-300 ${
+                                                isActive
+                                                    ? "border-brand-500 bg-brand-500 text-white"
+                                                    : isCompleted
+                                                        ? "border-brand-500 bg-brand-500 text-white"
+                                                        : "border-gray-300 bg-white text-gray-500 dark:bg-gray-800 dark:border-gray-600"
+                                            }`}
+                                        >
+                                            {isCompleted ? <CheckCircleIcon className="w-5 h-5" /> : stepNumber}
+                                        </div>
+                                        <span
+                                            className={`hidden sm:inline text-sm font-medium ${
+                                                isActive
+                                                    ? "text-gray-800 dark:text-white"
+                                                    : "text-gray-500"
+                                            }`}
+                                        >
+                                            {s.title}
+                                        </span>
+                                    </div>
+                                    {index !== steps.length - 1 && (
+                                        <div className="flex-1 h-0.5 bg-gray-200 dark:bg-gray-700"></div>
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Form Content */}
+                <div className="flex-1 overflow-y-auto p-6">
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6">
+                        {steps[step - 1].title}
+                    </h2>
+                    {renderStep()}
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between">
+                    {step > 1 ? (
+                        <button
+                            onClick={prevStep}
+                            className="flex items-center gap-2 px-5 py-2.5 font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 dark:hover:bg-white/5 transition-colors"
+                        >
+                            <ChevronLeftIcon className="w-5 h-5" />
+                            Back
+                        </button>
+                    ) : (
+                        <div></div>
+                    )}
+
+                    {step < 3 ? (
+                        <button
+                            onClick={nextStep}
+                            className="flex items-center gap-2 px-5 py-2.5 font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors shadow-lg shadow-brand-500/20"
+                        >
+                            Next
+                            <ArrowRightIcon className="w-5 h-5" />
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            className="flex items-center gap-2 px-5 py-2.5 font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-green-500/20"
+                        >
+                            {isSubmitting ? "Submitting..." : "Submit"}
+                            <PaperPlaneIcon className="w-5 h-5" />
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col md:flex-row h-full">

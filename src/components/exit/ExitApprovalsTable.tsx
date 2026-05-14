@@ -298,7 +298,7 @@ export default function ExitApprovalsTable() {
         try {
             if (stage === 'Supervisor') {
                 await exitServiceInstance.updateExitInterview(selectedInterview.uniqueId as any, { stage: 'HR' } as any);
-                toast.success("Supervisor approval submitted. Forwarded to HR.");
+                toast.success(" approval submitted. Forwarded to HR.");
                 setIsReviewOpen(false);
                 fetchInterviews();
 

@@ -242,7 +242,7 @@ export default function MultiStepExitForm() {
         companyImprovement: formData.companyImprovement || "N/A",
         wouldRecommend: formData.wouldRecommend,
         status: 'Pending',
-        stage: 'Supervisor',
+        stage: 'hr',
       };
 
       await exitServiceInstance.createExitInterview(exitInterviewData);
