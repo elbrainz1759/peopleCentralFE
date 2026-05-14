@@ -395,6 +395,7 @@ export default function LeaveHistoryTable() {
                 isOpen={isEditOpen}
                 onClose={() => setIsEditOpen(false)}
                 title="Edit Leave Request"
+                width="w-full md:w-[720px] lg:w-[960px] xl:w-[1100px]"
             >
                 {selectedLeave && (
                     <MultiStepLeaveForm
