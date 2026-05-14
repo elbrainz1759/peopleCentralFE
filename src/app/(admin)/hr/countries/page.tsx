@@ -283,24 +283,15 @@ export default function CountriesPage() {
             >
                 <form onSubmit={isEditOpen ? handleUpdate : handleCreate} className="p-6 space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Country</label>
-                        <select
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country Name</label>
+                        <input
+                            type="text"
                             value={newCountryName}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setNewCountryName(val);
-                                // Auto-fill ISO code for user convenience
-                                if (val === "Nigeria") setNewCountryCode("NG");
-                                else if (val === "Liberia") setNewCountryCode("LR");
-                                else setNewCountryCode("");
-                            }}
+                            onChange={(e) => setNewCountryName(e.target.value)}
                             className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800"
+                            placeholder="Enter country name"
                             required
-                        >
-                            <option value="">Choose Country</option>
-                            <option value="Nigeria">Nigeria</option>
-                            <option value="Liberia">Liberia</option>
-                        </select>
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country ISO Code (2-letter)</label>
@@ -309,8 +300,7 @@ export default function CountriesPage() {
                             value={newCountryCode}
                             onChange={(e) => setNewCountryCode(e.target.value.toUpperCase())}
                             maxLength={2}
-                            readOnly
-                            className="w-full rounded-lg border border-gray-100 bg-gray-50 px-4 py-2.5 outline-none dark:bg-gray-800/50 dark:border-gray-800 font-mono text-gray-500 cursor-not-allowed"
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 font-mono"
                             placeholder="e.g. NG"
                             required
                         />
