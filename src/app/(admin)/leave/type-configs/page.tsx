@@ -80,11 +80,11 @@ export default function LeaveTypeConfigsPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const applyHoursAndPeriod = (rawHours: number, period: "month" | "year") => {
-        const annual = period === "month" ? rawHours * 12 : rawHours;
-        const monthly = period === "month" ? rawHours : rawHours / 12;
+        const multiplier = period === "month" ? 12 : 1;
+        const monthly = rawHours * multiplier;
         setForm((prev) => ({
             ...prev,
-            annualHours: annual,
+            annualHours: rawHours,
             monthlyAccrualHours: rawHours ? Number(monthly.toFixed(2)) : null,
         }));
     };
@@ -573,9 +573,7 @@ export default function LeaveTypeConfigsPage() {
                             className="w-full rounded-lg border border-gray-100 bg-gray-50 px-4 py-2.5 outline-none dark:bg-gray-800/50 dark:border-gray-800 text-gray-500 cursor-not-allowed"
                             placeholder="e.g. 13.33"
                         />
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Calculated from Hours × Period (Month × 1 or Year ÷ 12)
-                        </p>
+                       
                     </div>
 
                     <button
