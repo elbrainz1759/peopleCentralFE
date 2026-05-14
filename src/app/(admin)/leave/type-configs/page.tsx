@@ -74,7 +74,20 @@ export default function LeaveTypeConfigsPage() {
         monthlyAccrualHours: null,
         leavePolicyId: "",
     });
+    // UI-only fields (not sent to the backend)
+    const [hoursInput, setHoursInput] = useState<number>(0);
+    const [hoursPeriod, setHoursPeriod] = useState<"month" | "year">("year");
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const applyHoursAndPeriod = (rawHours: number, period: "month" | "year") => {
+        const annual = period === "month" ? rawHours * 12 : rawHours;
+        const monthly = period === "month" ? rawHours : rawHours / 12;
+        setForm((prev) => ({
+            ...prev,
+            annualHours: annual,
+            monthlyAccrualHours: rawHours ? Number(monthly.toFixed(2)) : null,
+        }));
+    };
 
     const normalizeConfig = (item: any): LeaveTypeConfig => ({
         id: item.id,
@@ -173,6 +186,8 @@ export default function LeaveTypeConfigsPage() {
                 monthlyAccrualHours: null,
                 leavePolicyId: "",
             });
+            setHoursInput(0);
+            setHoursPeriod("year");
             fetchConfigs(1);
         } catch (error: any) {
             console.error('Failed to create configuration:', error);
@@ -191,6 +206,8 @@ export default function LeaveTypeConfigsPage() {
             monthlyAccrualHours: config.monthlyAccrualHours ?? null,
             leavePolicyId: config.leavePolicyId ?? "",
         });
+        setHoursPeriod("year");
+        setHoursInput(Number(config.annualHours ?? 0));
         setIsEditOpen(true);
     };
 
@@ -250,6 +267,8 @@ export default function LeaveTypeConfigsPage() {
             setIsDeleting(null);
         }
     };
+
+    
 
     const filtered = configs.filter((config) =>
         (config.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -311,9 +330,7 @@ export default function LeaveTypeConfigsPage() {
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                     Country
                                 </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Policy ID
-                                </TableCell>
+                                
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                     Annual Hours
                                 </TableCell>
@@ -358,9 +375,7 @@ export default function LeaveTypeConfigsPage() {
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {config.country}
                                         </TableCell>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {config.leavePolicyId}
-                                        </TableCell>
+                                       
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {config.annualHours}
                                         </TableCell>
@@ -511,12 +526,16 @@ export default function LeaveTypeConfigsPage() {
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Annual Hours <span className="text-red-500">*</span>
+                             Hours <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="number"
-                            value={form.annualHours}
-                            onChange={(e) => setForm({ ...form, annualHours: Number(e.target.value) })}
+                            value={hoursInput || ""}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setHoursInput(val);
+                                applyHoursAndPeriod(val, hoursPeriod);
+                            }}
                             className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
                             placeholder="e.g. 160"
                             min={0}
@@ -526,18 +545,36 @@ export default function LeaveTypeConfigsPage() {
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Monthly Accrual Hours <span className="text-gray-400">(optional)</span>
+                            Period <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            value={hoursPeriod}
+                            onChange={(e) => {
+                                const period = e.target.value as "month" | "year";
+                                setHoursPeriod(period);
+                                applyHoursAndPeriod(hoursInput, period);
+                            }}
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
+                            required
+                        >
+                            <option value="year">Year</option>
+                            <option value="month">Month</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Monthly Accrual Hours <span className="text-gray-400">(auto-calculated)</span>
                         </label>
                         <input
                             type="number"
-                            value={form.monthlyAccrualHours || ""}
-                            onChange={(e) => setForm({ ...form, monthlyAccrualHours: e.target.value ? Number(e.target.value) : null })}
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
+                            value={form.monthlyAccrualHours ?? ""}
+                            readOnly
+                            className="w-full rounded-lg border border-gray-100 bg-gray-50 px-4 py-2.5 outline-none dark:bg-gray-800/50 dark:border-gray-800 text-gray-500 cursor-not-allowed"
                             placeholder="e.g. 13.33"
-                            min={0}
                         />
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            If not provided, will be calculated automatically from annual hours
+                            Calculated from Hours × Period (Month × 1 or Year ÷ 12)
                         </p>
                     </div>
 
