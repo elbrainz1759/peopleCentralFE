@@ -148,7 +148,7 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
         console.log("Form data:", formData);
 
         let currentUser = authService.getCurrentUser();
-        let employeeId = currentUser?.staff_id || currentUser?.id || currentUser?.unique_id;
+        let employeeId = currentUser?.unique_id || currentUser?.staff_id;
         
         console.log("Current user:", currentUser);
         console.log("Employee ID:", employeeId);
@@ -163,7 +163,7 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                 try {
                     const payload = JSON.parse(atob(authToken.split('.')[1]));
                     console.log('Token payload:', payload);
-                    employeeId = payload.staff_id || payload.staffId || payload.id || payload.sub;
+                    employeeId = payload.unique_id || payload.uniqueId || payload.staff_id || payload.staffId || payload.sub;
                     console.log('Employee ID from token:', employeeId);
                 } catch (e) {
                     console.error("Token decode error:", e);
@@ -180,7 +180,7 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                     console.log('Staff data from API:', staffData);
                     
                     if (staffData) {
-                        employeeId = staffData.staff_id || staffData.id || staffData.unique_id;
+                        employeeId = staffData.unique_id || staffData.staff_id;
                         currentUser = staffData;
                         
                         // Update localStorage if it was empty
@@ -214,9 +214,14 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
         
         console.log("Validation passed, preparing to submit...");
 
+        const selectedType = leaveTypes.find(
+            (t: any) => String(t.unique_id ?? t.id) === String(formData.leaveTypeId)
+        );
+        const leaveTypeUniqueId = (selectedType as any)?.unique_id ?? formData.leaveTypeId;
+
         const leaveData: LeaveRequest = {
-            staffId: typeof employeeId === 'number' ? employeeId : parseInt(String(employeeId)),
-            leaveTypeId: parseInt(formData.leaveTypeId),
+            staffId: String(employeeId),
+            leaveTypeId: String(leaveTypeUniqueId),
             reason: formData.comment,
             handoverNote: formData.handoverNotes,
             leaveDuration: formData.dates.map((d: any) => ({
@@ -309,8 +314,8 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                                 className={`w-full rounded-lg border bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500 ${errors.leaveTypeId ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-700"}`}
                             >
                                 <option value="">{isLoadingTypes ? "Loading types..." : "Select Leave Type"}</option>
-                                {leaveTypes.map((type) => (
-                                    <option key={type.id} value={type.id}>
+                                {leaveTypes.map((type: any) => (
+                                    <option key={type.id} value={type.unique_id ?? type.id}>
                                         {type.name}
                                     </option>
                                 ))}
@@ -440,7 +445,7 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                             <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-700">
                                 <span className="text-gray-500">Type:</span>
                                 <span className="font-medium text-gray-800 dark:text-white">
-                                    {leaveTypes.find(t => String(t.id) === formData.leaveTypeId)?.name || "-"}
+                                    {leaveTypes.find((t: any) => String(t.unique_id ?? t.id) === String(formData.leaveTypeId))?.name || "-"}
                                 </span>
                             </div>
                             <div className="space-y-2 border-b border-gray-200 pb-2 dark:border-gray-700">

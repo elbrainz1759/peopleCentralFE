@@ -108,12 +108,12 @@ export interface LeaveType {
 }
 
 export interface LeaveRequest {
-    staffId: number;
-    leaveTypeId: number;
+    staffId: string | number;
+    leaveTypeId: string | number;
     reason: string;
     handoverNote: string;
     leaveDuration: {
         startDate: string;
         endDate: string;
     }[];
-}   
+}
