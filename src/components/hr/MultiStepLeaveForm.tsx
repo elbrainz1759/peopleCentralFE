@@ -148,7 +148,7 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
         console.log("Form data:", formData);
 
         let currentUser = authService.getCurrentUser();
-        let employeeId = currentUser?.unique_id || currentUser?.staff_id;
+        let employeeId = currentUser?.staff_id || currentUser?.staffId;
         
         console.log("Current user:", currentUser);
         console.log("Employee ID:", employeeId);
@@ -163,7 +163,7 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                 try {
                     const payload = JSON.parse(atob(authToken.split('.')[1]));
                     console.log('Token payload:', payload);
-                    employeeId = payload.unique_id || payload.uniqueId || payload.staff_id || payload.staffId || payload.sub;
+                    employeeId = payload.staff_id || payload.staffId || payload.sub;
                     console.log('Employee ID from token:', employeeId);
                 } catch (e) {
                     console.error("Token decode error:", e);
@@ -180,7 +180,7 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                     console.log('Staff data from API:', staffData);
                     
                     if (staffData) {
-                        employeeId = staffData.unique_id || staffData.staff_id;
+                        employeeId = staffData.staff_id || staffData.staffId;
                         currentUser = staffData;
                         
                         // Update localStorage if it was empty
@@ -214,13 +214,13 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
         
         console.log("Validation passed, preparing to submit...");
 
-        const selectedType = leaveTypes.find(
-            (t: any) => String(t.unique_id ?? t.id) === String(formData.leaveTypeId)
+        const selectedType: any = leaveTypes.find(
+            (t: any) => String(t.unique_id ?? t.uniqueId ?? t.id) === String(formData.leaveTypeId)
         );
-        const leaveTypeUniqueId = (selectedType as any)?.unique_id ?? formData.leaveTypeId;
-
+        const leaveTypeUniqueId =
+            selectedType?.unique_id ?? selectedType?.uniqueId ?? formData.leaveTypeId;
         const leaveData: LeaveRequest = {
-            staffId: String(employeeId),
+            staffId: typeof employeeId === 'number' ? employeeId : parseInt(String(employeeId)),
             leaveTypeId: String(leaveTypeUniqueId),
             reason: formData.comment,
             handoverNote: formData.handoverNotes,
@@ -229,6 +229,8 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                 endDate: d.endDate
             }))
         };
+
+        console.log("[applyForLeave] POST payload:", leaveData);
 
         setIsSubmitting(true);
         try {
@@ -315,7 +317,7 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                             >
                                 <option value="">{isLoadingTypes ? "Loading types..." : "Select Leave Type"}</option>
                                 {leaveTypes.map((type: any) => (
-                                    <option key={type.id} value={type.unique_id ?? type.id}>
+                                    <option key={type.id} value={type.unique_id ?? type.uniqueId ?? type.id}>
                                         {type.name}
                                     </option>
                                 ))}
