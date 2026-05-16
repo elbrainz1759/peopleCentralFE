@@ -60,6 +60,7 @@ const navItems: NavItem[] = [
       { name: "Employee Database", path: "/hr/employees" },
       { name: "User Management", path: "/hr/users" },
       { name: "Departments", path: "/hr/departments" },
+      { name: "Roles", path: "/hr/roles" },
       { name: "Programs", path: "/hr/programs" },
       { name: "Locations", path: "/hr/locations" },
       { name: "Countries", path: "/hr/countries" },

@@ -126,6 +126,22 @@ export class UserService {
         return api.delete(`/programs/${uniqueId}`);
     }
 
+    public async getAllRoles(): Promise<any[]> {
+        return api.get('/roles');
+    }
+
+    public async createRole(data: { name: string; description?: string }): Promise<any> {
+        return api.post('/roles', data);
+    }
+
+    public async updateRole(uniqueId: string, data: { name: string; description?: string }): Promise<any> {
+        return api.put(`/roles/${uniqueId}`, data);
+    }
+
+    public async deleteRole(uniqueId: string): Promise<any> {
+        return api.delete(`/roles/${uniqueId}`);
+    }
+
     public async createCountry(data: { name: string, unique_id?: string, created_by?: string }): Promise<any> {
         return api.post('/countries', data);
     }
