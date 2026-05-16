@@ -237,7 +237,7 @@ export default function ExitRequestForm({ onClose, initialData }: { onClose: () 
         ratingJob: Number(formData.ratingJob),
         ratingManager: Number(formData.ratingManager),
         wouldRecommend: formData.wouldRecommend as 'Yes' | 'No' | 'Maybe',
-        stage: 'hr' as const,
+        stage: 'HR' as const,
         status: 'Pending' as const,
       };
 

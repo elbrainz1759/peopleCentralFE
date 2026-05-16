@@ -23,7 +23,7 @@ export interface ExitInterview {
   additionalComments?: string;
   signature?: boolean;
   status: 'Pending' | 'Approved' | 'Rejected' | 'Completed';
-  stage: 'Supervisor' | 'Operations' | 'Finance' | 'HR' | 'Completed';
+  stage: 'Employee' | 'Supervisor' | 'Operations' | 'Finance' | 'HR' | 'Completed';
   clearanceChecklistItems?: string[];
   createdBy?: string;
   createdAt?: string;
