@@ -270,10 +270,21 @@ export default function LeaveTypeConfigsPage() {
 
     
 
-    const filtered = configs.filter((config) =>
-        (config.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (config.country || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const getCountryName = (value?: string) => {
+        if (!value) return "—";
+        const match = countries.find(
+            (c: any) => String(c.unique_id ?? c.id) === String(value) || c.name === value
+        );
+        return match?.name ?? value;
+    };
+
+    const filtered = configs.filter((config) => {
+        const term = searchTerm.toLowerCase();
+        return (
+            (config.name || "").toLowerCase().includes(term) ||
+            getCountryName(config.country).toLowerCase().includes(term)
+        );
+    });
 
     const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
     const endRecord = Math.min(currentPage * PAGE_LIMIT, totalRecords);
@@ -373,7 +384,7 @@ export default function LeaveTypeConfigsPage() {
                                             {displayName}
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {config.country}
+                                            {getCountryName(config.country)}
                                         </TableCell>
                                        
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
@@ -517,7 +528,7 @@ export default function LeaveTypeConfigsPage() {
                         >
                             <option value="">Select a country</option>
                             {countries.map((c: any) => (
-                                <option key={c.id} value={c.name}>
+                                <option key={c.id} value={c.unique_id ?? c.id}>
                                     {c.name}
                                 </option>
                             ))}
@@ -598,7 +609,7 @@ export default function LeaveTypeConfigsPage() {
                 title="Remove configuration"
                 message={
                     pendingDelete
-                        ? `Delete the configuration for "${pendingDelete.name}" (${pendingDelete.country})? This cannot be undone.`
+                        ? `Delete the configuration for "${pendingDelete.name}" (${getCountryName(pendingDelete.country)})? This cannot be undone.`
                         : ""
                 }
                 confirmText="Remove"

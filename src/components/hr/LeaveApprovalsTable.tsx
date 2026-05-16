@@ -25,7 +25,7 @@ interface LeaveRequest {
     endDate: string;
     duration: string;
     reason: string;
-    status: "Approved" | "Pending" | "Rejected";
+    status: "Approved" | "Pending" | "Reviewed" | "Rejected";
     appliedOn: string;
 }
 
@@ -142,6 +142,7 @@ export default function LeaveApprovalsTable() {
                     >
                         <option value="All">All Status</option>
                         <option value="Pending">Pending</option>
+                        <option value="Reviewed">Reviewed</option>
                         <option value="Approved">Approved</option>
                         <option value="Rejected">Rejected</option>
                     </select>
@@ -246,9 +247,11 @@ export default function LeaveApprovalsTable() {
                                                     ? "success"
                                                     : record.status === "Pending"
                                                         ? "warning"
-                                                        : record.status === "Rejected"
-                                                            ? "error"
-                                                            : "light"
+                                                        : record.status === "Reviewed"
+                                                            ? "info"
+                                                            : record.status === "Rejected"
+                                                                ? "error"
+                                                                : "light"
                                             }
                                         >
                                             {record.status}
@@ -288,11 +291,22 @@ export default function LeaveApprovalsTable() {
                                                             HR Review
                                                         </DropdownItem>
                                                         <DropdownItem
+                                                            onItemClick={() => handleReject(record.id)}
+                                                            className="flex gap-2 items-center text-red-500 hover:text-red-700"
+                                                        >
+                                                            <CloseIcon className="w-4 h-4" />
+                                                            Reject
+                                                        </DropdownItem>
+                                                    </>
+                                                )}
+                                                {record.status === "Reviewed" && (
+                                                    <>
+                                                        <DropdownItem
                                                             onItemClick={() => handleApprove(record.id)}
                                                             className="flex gap-2 items-center text-green-600 hover:text-green-700"
                                                         >
                                                             <CheckCircleIcon className="w-4 h-4" />
-                                                            Supervisor Approve
+                                                            Approve
                                                         </DropdownItem>
                                                         <DropdownItem
                                                             onItemClick={() => handleReject(record.id)}
@@ -370,22 +384,30 @@ export default function LeaveApprovalsTable() {
                                     <EyeIcon className="w-5 h-5" />
                                     HR Review
                                 </button>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => handleApprove(selectedRequest.id)}
-                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        <CheckCircleIcon className="w-5 h-5" />
-                                        Supervisor Approve
-                                    </button>
-                                    <button
-                                        onClick={() => handleReject(selectedRequest.id)}
-                                        className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2"
-                                    >
-                                        <CloseIcon className="w-5 h-5" />
-                                        Reject Request
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={() => handleReject(selectedRequest.id)}
+                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2"
+                                >
+                                    <CloseIcon className="w-5 h-5" />
+                                    Reject Request
+                                </button>
+                            </div>
+                        ) : selectedRequest.status === "Reviewed" ? (
+                            <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                <button
+                                    onClick={() => handleApprove(selectedRequest.id)}
+                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <CheckCircleIcon className="w-5 h-5" />
+                                    Approve
+                                </button>
+                                <button
+                                    onClick={() => handleReject(selectedRequest.id)}
+                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2"
+                                >
+                                    <CloseIcon className="w-5 h-5" />
+                                    Reject Request
+                                </button>
                             </div>
                         ) : (
                             <div className="pt-4 border-t border-gray-100 dark:border-gray-800">

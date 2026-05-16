@@ -153,7 +153,10 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
         console.log("Current user:", currentUser);
         console.log("Employee ID:", employeeId);
 
-        // If no user found, try to get from token or fetch staff details
+        /**
+         * if not found in localStorage, try to decode from token or fetch from API as fallback
+         * 
+         */
         if (!employeeId) {
             console.log("No user found, trying alternative methods...");
             
