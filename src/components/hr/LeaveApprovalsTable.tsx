@@ -53,11 +53,11 @@ export default function LeaveApprovalsTable() {
         setIsDrawerOpen(true);
     };
 
-    const fetchLeaves = async () => {
+    const fetchLeaves = async (signal?: AbortSignal) => {
         setIsLoading(true);
         try {
-            const response = await leaveService.getInstance().getAllLeaves(1, 100, filterStatus);
-            // Map API data to LeaveRequest format
+            const response = await leaveService.getInstance().getAllLeaves(1, 100, filterStatus, undefined, signal);
+            if (signal?.aborted) return;
             const mappedData = response.data.map((item: any) => ({
                 id: item.id,
                 employeeName: item.employee_name ?? item.staff?.employee_name ?? "—",
@@ -72,16 +72,23 @@ export default function LeaveApprovalsTable() {
                 appliedOn: new Date(item.created_at).toLocaleDateString(),
             }));
             setTableData(mappedData);
-        } catch (error) {
+        } catch (error: any) {
+            if (error?.name === "AbortError" || signal?.aborted) return;
             console.error("Failed to fetch leave approvals:", error);
             toast.error("Could not load leave approvals");
         } finally {
-            setIsLoading(false);
+            if (!signal?.aborted) setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchLeaves();
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 20000);
+        fetchLeaves(ctrl.signal).finally(() => clearTimeout(timeoutId));
+        return () => {
+            clearTimeout(timeoutId);
+            ctrl.abort();
+        };
     }, [filterStatus]);
 
     const handleReview = async (id: number) => {
