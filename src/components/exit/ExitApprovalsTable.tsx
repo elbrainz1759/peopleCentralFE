@@ -617,22 +617,32 @@ export default function ExitApprovalsTable() {
                                 </div>
                             </div>
 
-                            {/* Checklist section — scoped to the stage's department */}
+                            {/* Checklist section — scoped strictly to the stage's department */}
                             {selectedInterview.stage !== 'Completed' && (selectedInterview as any)?.status !== 'Completed' && (() => {
                                 const stage = selectedInterview.stage;
-                                // Map each stage to its corresponding department name
-                                const stageDeptName = stage === 'HR' || stage === 'HR_Final' ? 'HR'
-                                    : stage === 'Operations' ? 'Operations'
-                                    : stage === 'Finance' ? 'Finance'
-                                    : stage === 'Supervisor' ? 'Supervisor'
-                                    : selectedInterview.department;
-                                // Find the department matching this stage
-                                const stageDept = departments.find(
-                                    (d: any) => d.name?.toLowerCase().includes(stageDeptName.toLowerCase())
+
+                                // Stage → canonical department name + accepted synonyms
+                                const stageToDept: Record<string, { canonical: string; synonyms: string[] }> = {
+                                    HR: { canonical: 'HR', synonyms: ['hr', 'human resources', 'human resource'] },
+                                    HR_Final: { canonical: 'HR', synonyms: ['hr', 'human resources', 'human resource'] },
+                                    Operations: { canonical: 'Operations', synonyms: ['operations', 'operation', 'ops'] },
+                                    Finance: { canonical: 'Finance', synonyms: ['finance', 'finances', 'accounts'] },
+                                    Supervisor: { canonical: 'Supervisor', synonyms: ['supervisor'] },
+                                };
+                                const mapping = stageToDept[stage];
+                                // Only Operations/Finance/HR/HR_Final get a department-scoped checklist
+                                if (!mapping || mapping.canonical === 'Supervisor') return null;
+
+                                const normalize = (s: any) => String(s || '').toLowerCase().trim();
+                                const matchesStageDept = (name: any) =>
+                                    !!name && mapping.synonyms.includes(normalize(name));
+
+                                const stageDept = departments.find((d: any) =>
+                                    matchesStageDept(d?.name)
                                 );
                                 const stageDeptId = stageDept?.uniqueId || stageDept?.unique_id || stageDept?.id || '';
-                                const stageDeptLabel = stageDept?.name || stageDeptName;
-                                // Resolve department name from UUID for each item
+                                const stageDeptLabel = stageDept?.name || mapping.canonical;
+
                                 const resolveDeptName = (item: any) => {
                                     if (item.department_name) return item.department_name;
                                     if (item.departmentName) return item.departmentName;
@@ -640,15 +650,13 @@ export default function ExitApprovalsTable() {
                                     const match = departments.find((d: any) => d.uniqueId === deptId || d.unique_id === deptId || d.id === deptId);
                                     return match?.name || stageDeptLabel;
                                 };
-                                // Filter checklist items to the stage's department
+
+                                // Strict match: by department UUID first, then by exact synonym name match.
                                 const stageItems = checklistItems.filter((item: any) => {
                                     const itemDeptId = item.departmentId || item.department || '';
-                                    const itemDeptName = (item.departmentName || '').toLowerCase();
-                                    const targetName = stageDeptLabel.toLowerCase();
-                                    return (
-                                        itemDeptName.includes(targetName) || targetName.includes(itemDeptName) ||
-                                        (stageDeptId && (itemDeptId === stageDeptId))
-                                    );
+                                    if (stageDeptId && itemDeptId && itemDeptId === stageDeptId) return true;
+                                    const itemDeptName = item.departmentName || item.department_name;
+                                    return matchesStageDept(itemDeptName);
                                 });
                                 return (
                                     <div className="space-y-4">
