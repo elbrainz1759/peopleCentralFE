@@ -135,6 +135,64 @@ export class ExitService {
   }
 
   /**
+   * Advance the workflow stage on an exit interview.
+   *
+   * The backend's PATCH /exit-interviews/:id DTO requires every field to be
+   * non-empty, so we fetch the current record first, remap snake_case to
+   * camelCase, and resubmit the full payload with only the stage overridden.
+   * Empty-but-required fields fall back to safe placeholders.
+   */
+  async advanceStage(id: number | string, newStage: string): Promise<any> {
+    try {
+      const fetched = await this.getExitInterviewById(id as any);
+      const rec: any = fetched?.data || fetched || {};
+
+      const pick = (...candidates: any[]) => {
+        for (const c of candidates) {
+          if (c !== undefined && c !== null && c !== '') return c;
+        }
+        return undefined;
+      };
+
+      const recommend = pick(rec.wouldRecommend, rec.would_recommend);
+      const validRecommend = ['Yes', 'No', 'Maybe'].includes(recommend) ? recommend : 'Maybe';
+      const status = pick(rec.status);
+      const validStatus = ['Pending', 'Approved', 'Rejected'].includes(status) ? status : 'Pending';
+      const resignationDate = pick(rec.resignationDate, rec.resignation_date);
+      const isoDate = resignationDate ? new Date(resignationDate).toISOString() : new Date().toISOString();
+
+      const payload: any = {
+        staffId: pick(rec.staffId, rec.staff_id),
+        supervisorId: pick(rec.supervisorId, rec.supervisor_id),
+        departmentId: pick(rec.departmentId, rec.department_id),
+        programId: pick(rec.programId, rec.program_id),
+        locationId: pick(rec.locationId, rec.location_id),
+        countryId: pick(rec.countryId, rec.country_id),
+        resignationDate: isoDate,
+        handoverNotes: pick(rec.handoverNotes, rec.handover_notes, 'N/A'),
+        reasonForLeaving: pick(rec.reasonForLeaving, rec.reason_for_leaving, 'Other'),
+        otherReason: pick(rec.otherReason, rec.other_reason, 'N/A'),
+        newEmployer: pick(rec.newEmployer, rec.new_employer, 'N/A'),
+        ratingJob: Math.max(1, Number(pick(rec.ratingJob, rec.rating_job)) || 1),
+        ratingManager: Math.max(1, Number(pick(rec.ratingManager, rec.rating_manager)) || 1),
+        ratingCulture: Math.max(1, Number(pick(rec.ratingCulture, rec.rating_culture)) || 1),
+        mostEnjoyed: pick(rec.mostEnjoyed, rec.most_enjoyed, 'N/A'),
+        companyImprovement: pick(rec.companyImprovement, rec.company_improvement, 'N/A'),
+        wouldRecommend: validRecommend,
+        additionalComments: pick(rec.additionalComments, rec.additional_comments) ?? undefined,
+        status: validStatus,
+        stage: newStage,
+      };
+
+      const response = await api.patch<any>(`/exit-interviews/${id}`, payload);
+      return response;
+    } catch (error) {
+      console.error('ExitService advanceStage error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Delete exit interview
    */
   async deleteExitInterview(id: number): Promise<any> {
