@@ -9,29 +9,41 @@ import {
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
 import Button from "../ui/button/Button";
-import { SearchIcon, MoreDotIcon as MoreIcon, PlusIcon } from "@/icons";
+import { SearchIcon, PencilIcon, PlusIcon } from "@/icons";
 import { Modal } from "../ui/modal";
 import { toast } from "react-hot-toast";
 import { trackerService } from "@/services/data-tracker.service";
 
+type FormMode = "create" | "edit";
+
+const emptyForm = {
+    title: "",
+    description: "",
+    start_date: "",
+    end_date: "",
+    recipients_csv: "",
+    periods_csv: "30,15,7",
+};
+
+const toDateInput = (value: any) => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 10);
+};
+
 export default function NotificationTrackerTable() {
     const [searchTerm, setSearchTerm] = useState("");
     const [trackers, setTrackers] = useState<any[]>([]);
-    const [meta, setMeta] = useState<any>(null);
+    const [, setMeta] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [formMode, setFormMode] = useState<FormMode>("create");
+    const [editingId, setEditingId] = useState<string | number | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    // Tracker form state
-    const [trackerData, setTrackerData] = useState({
-        title: "",
-        description: "",
-        start_date: "",
-        end_date: "",
-        recipients_csv: "", // comma separated emails
-        periods_csv: "30,15,7" // comma separated days
-    });
+
+    const [trackerData, setTrackerData] = useState(emptyForm);
 
     useEffect(() => {
         loadTrackers();
@@ -41,12 +53,9 @@ export default function NotificationTrackerTable() {
         setIsLoading(true);
         try {
             const res = await trackerService.getTrackers();
-            // The new API structure returns: { data: [...], meta: {...} }
             const items = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
             setTrackers(items);
-            if (res?.meta) {
-                setMeta(res.meta);
-            }
+            if (res?.meta) setMeta(res.meta);
         } catch (err) {
             console.error("Failed to load trackers", err);
             toast.error("Failed to load trackers");
@@ -74,12 +83,40 @@ export default function NotificationTrackerTable() {
         return { label: "Active", color: "success" as const };
     };
 
-    const handleCreateTracker = async (e: React.FormEvent) => {
+    const openCreate = () => {
+        setFormMode("create");
+        setEditingId(null);
+        setTrackerData(emptyForm);
+        setIsModalOpen(true);
+    };
+
+    const openEdit = (record: any) => {
+        setFormMode("edit");
+        setEditingId(record.unique_id || record.id || null);
+        setTrackerData({
+            title: record.title || "",
+            description: record.description || "",
+            start_date: toDateInput(record.start_date),
+            end_date: toDateInput(record.end_date),
+            recipients_csv: Array.isArray(record.recipients) ? record.recipients.join(", ") : "",
+            periods_csv: Array.isArray(record.notification_periods) ? record.notification_periods.join(", ") : "30,15,7",
+        });
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setFormMode("create");
+        setEditingId(null);
+        setTrackerData(emptyForm);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         const rawRecipients = trackerData.recipients_csv.split(",").map(e => e.trim()).filter(Boolean);
         const rawPeriods = trackerData.periods_csv.split(",").map(p => p.trim()).filter(Boolean);
-        const periods = rawPeriods.map(p => parseInt(p)).filter(p => !isNaN(p));
+        const periods = rawPeriods.map(p => parseInt(p)).filter(p => !isNaN(p) && p >= 1);
 
         if (!trackerData.title) {
             toast.error("Title is required.");
@@ -93,41 +130,34 @@ export default function NotificationTrackerTable() {
             toast.error("Please provide at least one recipient email address.");
             return;
         }
-        if (rawPeriods.length > 0 && periods.length === 0) {
-            toast.error(`Notification periods must be numbers, but received: "${trackerData.periods_csv}"`);
-            return;
-        }
         if (periods.length === 0) {
             toast.error("Please provide at least one valid notification period (e.g., 30, 15, 7).");
             return;
         }
 
+        const payload = {
+            title: trackerData.title,
+            description: trackerData.description || undefined,
+            start_date: trackerData.start_date,
+            end_date: trackerData.end_date,
+            recipients: rawRecipients,
+            notification_periods: periods,
+        };
+
         setIsSubmitting(true);
         try {
-            const payload = {
-                title: trackerData.title,
-                description: trackerData.description || undefined,
-                start_date: trackerData.start_date,
-                end_date: trackerData.end_date,
-                recipients: rawRecipients,
-                notification_periods: periods
-            };
-            
-            await trackerService.createTracker(payload);
-            toast.success("Data Tracker created successfully!");
-            setIsCreateModalOpen(false);
-            setTrackerData({
-                title: "",
-                description: "",
-                start_date: "",
-                end_date: "",
-                recipients_csv: "",
-                periods_csv: "30,15,7"
-            });
+            if (formMode === "edit" && editingId) {
+                await trackerService.updateTracker(editingId, payload);
+                toast.success("Data Tracker updated.");
+            } else {
+                await trackerService.createTracker(payload);
+                toast.success("Data Tracker created successfully!");
+            }
+            closeModal();
             loadTrackers();
         } catch (error: any) {
-            console.error("Failed to create tracker:", error);
-            toast.error(error.message || "Failed to create tracker");
+            console.error("Tracker save failed:", error);
+            toast.error(error.message || "Failed to save tracker");
         } finally {
             setIsSubmitting(false);
         }
@@ -135,7 +165,6 @@ export default function NotificationTrackerTable() {
 
     return (
         <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900 shadow-sm overflow-hidden">
-            {/* Table Header/Filter */}
             <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 dark:border-gray-800">
                 <div>
                     <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Data Trackers</h3>
@@ -154,7 +183,7 @@ export default function NotificationTrackerTable() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <Button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-4 py-2">
+                    <Button onClick={openCreate} className="flex items-center gap-2 px-4 py-2">
                         <PlusIcon className="w-4 h-4" />
                         Create Tracker
                     </Button>
@@ -170,18 +199,19 @@ export default function NotificationTrackerTable() {
                             <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Recipients</TableCell>
                             <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Notification Periods</TableCell>
                             <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500">Status</TableCell>
+                            <TableCell isHeader className="py-4 px-5 text-xs font-semibold uppercase tracking-wider text-gray-500 text-right">Actions</TableCell>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                                <TableCell colSpan={6} className="text-center py-10 text-gray-500">
                                     Loading trackers...
                                 </TableCell>
                             </TableRow>
                         ) : filteredTrackers.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                                <TableCell colSpan={6} className="text-center py-10 text-gray-500">
                                     No data trackers found.
                                 </TableCell>
                             </TableRow>
@@ -189,7 +219,6 @@ export default function NotificationTrackerTable() {
                             const days = getDaysRemaining(record.end_date);
                             const status = getStatus(days);
                             const isUrgent = days <= 60;
-
                             const uniqueKey = record.unique_id || record.id || index;
 
                             return (
@@ -234,6 +263,15 @@ export default function NotificationTrackerTable() {
                                             {status.label}
                                         </Badge>
                                     </TableCell>
+                                    <TableCell className="py-4 px-5 text-right">
+                                        <button
+                                            onClick={() => openEdit(record)}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                        >
+                                            <PencilIcon className="w-3.5 h-3.5" />
+                                            Edit
+                                        </button>
+                                    </TableCell>
                                 </TableRow>
                             );
                         })}
@@ -241,17 +279,23 @@ export default function NotificationTrackerTable() {
                 </Table>
             </div>
 
-            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} className="max-w-2xl p-0">
+            <Modal isOpen={isModalOpen} onClose={closeModal} className="max-w-2xl p-0">
                 <div className="flex flex-col h-full bg-white dark:bg-gray-900 rounded-2xl overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                         <div>
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Create Data Tracker</h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Setup an automated notification tracker for important dates.</p>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                                {formMode === "edit" ? "Edit Data Tracker" : "Create Data Tracker"}
+                            </h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {formMode === "edit"
+                                    ? "Update the tracker details below."
+                                    : "Setup an automated notification tracker for important dates."}
+                            </p>
                         </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6">
-                        <form id="tracker-form" onSubmit={handleCreateTracker} className="space-y-5">
+                        <form id="tracker-form" onSubmit={handleSubmit} className="space-y-5">
                             <div>
                                 <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Title <span className="text-red-500">*</span></label>
                                 <input
@@ -326,11 +370,13 @@ export default function NotificationTrackerTable() {
                     </div>
 
                     <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20 flex justify-end gap-3">
-                        <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                        <Button variant="outline" onClick={closeModal}>
                             Cancel
                         </Button>
                         <button type="submit" form="tracker-form" disabled={isSubmitting} className="px-5 py-2 bg-brand-500 text-white rounded-lg text-sm font-medium hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 transition-all">
-                            {isSubmitting ? "Creating..." : "Create Tracker"}
+                            {isSubmitting
+                                ? (formMode === "edit" ? "Saving..." : "Creating...")
+                                : (formMode === "edit" ? "Save Changes" : "Create Tracker")}
                         </button>
                     </div>
                 </div>

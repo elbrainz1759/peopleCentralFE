@@ -9,6 +9,8 @@ export interface CreateDataTrackerDto {
   notification_periods: number[];
 }
 
+export type UpdateDataTrackerDto = Partial<CreateDataTrackerDto>;
+
 export class DataTrackerService {
     private static instance: DataTrackerService;
 
@@ -27,6 +29,10 @@ export class DataTrackerService {
 
     async getTrackers(): Promise<any> {
         return api.get<any>('/data-tracker');
+    }
+
+    async updateTracker(id: string | number, data: UpdateDataTrackerDto): Promise<any> {
+        return api.put<any>(`/data-tracker/${id}`, data);
     }
 }
 
