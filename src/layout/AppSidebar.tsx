@@ -54,11 +54,6 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    icon: <BellIcon />,
-    name: "Notification Tracker",
-    path: "/hr/notifications",
-  },
-  {
     icon: <UserCircleIcon />,
     name: "HR Administration",
     subItems: [
@@ -70,6 +65,11 @@ const navItems: NavItem[] = [
       { name: "Locations", path: "/hr/locations" },
       { name: "Countries", path: "/hr/countries" },
     ],
+  },
+  {
+    icon: <BellIcon />,
+    name: "Notification Tracker",
+    path: "/hr/notifications",
   },
 ];
 
