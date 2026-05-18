@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import {
+  BellIcon,
   BoxCubeIcon,
   CalenderIcon,
   ChevronDownIcon,
@@ -53,10 +54,14 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    icon: <BellIcon />,
+    name: "Notification Tracker",
+    path: "/hr/notifications",
+  },
+  {
     icon: <UserCircleIcon />,
     name: "HR Administration",
     subItems: [
-      { name: "Notification Tracker", path: "/hr/notifications" },
       { name: "Employee Database", path: "/hr/employees" },
       { name: "User Management", path: "/hr/users" },
       { name: "Departments", path: "/hr/departments" },
