@@ -233,6 +233,7 @@ export default function LeaveApprovalsTable() {
                                                 {record.role}
                                             </span>
                                         </div>
+                                        //rhis
                                     </TableCell>
                                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                                         {record.leaveType}
