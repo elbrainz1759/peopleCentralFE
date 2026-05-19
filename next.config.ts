@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
     return config;
   },
 
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
+      },
+    },
+  },
+
   async rewrites() {
     return [
       {
@@ -20,9 +29,6 @@ const nextConfig: NextConfig = {
 
   output: "standalone",
 
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
