@@ -5,9 +5,9 @@ import { Metadata } from "next";
 import React from "react";
 
 export const metadata: Metadata = {
-  title: "Next.js Bar Chart | TailAdmin - Next.js Dashboard Template",
+  title: "Mercy Corps  | People Central - Bar Chart",
   description:
-    "This is Next.js Bar Chart page for TailAdmin - Next.js Tailwind CSS Admin Dashboard Template",
+    "Bar Chart page of People Central Admin Dashboard, showcasing data visualization using bar charts for insights and analysis.",
 };
 
 export default function page() {
