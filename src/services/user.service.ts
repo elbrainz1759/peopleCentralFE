@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import { UserCreateRequest, EmployeeCreateRequest, Employee, PaginatedResponse, CreateLeaveTypeRequest, LeaveType } from '@/types/service.types';
+import { UserCreateRequest, EmployeeCreateRequest, Employee, PaginatedResponse, CreateLeaveTypeRequest, LeaveType, ApproveUserRequest } from '@/types/service.types';
 
 export class UserService {
     private static instance: UserService;
@@ -37,6 +37,21 @@ export class UserService {
             console.error('UserService createEmployee error:', error);
             throw error;
         }
+    }
+
+    /**
+     * Approves a pending user account and assigns role and supervisor
+     */
+    public async approveEmployee(approveData: ApproveUserRequest): Promise<any> {
+
+        try { 
+            const response = await api.post<any>('/auth/approve', approveData);
+            return response;
+        } catch (error) {
+            console.error('UserService approveUser error:', error);
+            throw error;
+        }
+
     }
 
     /**

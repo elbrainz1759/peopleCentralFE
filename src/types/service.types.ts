@@ -20,7 +20,7 @@ export interface LoginRequest {
 export interface RegisterRequest {
     email: string;
     password: string;
-    role: 'User' | 'Admin' | 'Superadmin';
+    role?: 'User' | 'Admin' | 'Superadmin';
 }
 
 export interface RefreshRequest {
@@ -34,12 +34,19 @@ export interface EmployeeCreateRequest {
     lastName: string;
     staffId: number;
     email: string;
+    status: string;
     designation?: string;
-    locationId?: string;
+    locationId: string;
     supervisorId?: string;
-    programId?: string;
-    departmentId?: string;
-    countryId?: string;
+    programId: string;
+    departmentId: string;
+    countryId: string;
+}
+
+export interface ApproveUserRequest {
+    email: string;
+    role: string;
+    supervisorEmail?: string;
 }
 
 export interface Employee {
@@ -62,7 +69,7 @@ export interface Employee {
     supervisor_first_name?: string | null;
     supervisor_last_name?: string | null;
     supervisor_name?: string | null;
-
+    supervisor_email?: string | null;
     // Optional fields that might be mapped or provided by transition
     designation?: string;
     supervisor_id?: number;

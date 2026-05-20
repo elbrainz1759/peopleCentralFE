@@ -1,11 +1,11 @@
 import { Metadata } from "next";
-import { redirect } from "next/navigation";
+import SignUpForm from "@/components/auth/SignUpForm";
 
 export const metadata: Metadata = {
-  title: "User Management | HR Dashboard",
-  description: "User management has been moved to HR Administration",
+  title: "Create Employee Account | PeopleCentral",
+  description: "Create a new employee user account",
 };
 
-export default function SignUp() {
-  redirect("/hr/users");
+export default function SignUpPage() {
+  return <SignUpForm />;
 }

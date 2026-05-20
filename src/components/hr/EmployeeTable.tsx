@@ -11,12 +11,13 @@ import {
     TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
-import { EyeIcon, PencilIcon, TrashBinIcon, MoreDotIcon } from "@/icons";
+import { EyeIcon, PencilIcon, TrashBinIcon, MoreDotIcon, CheckCircleIcon } from "@/icons";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Drawer } from "../ui/drawer/Drawer";
 import EmployeeProfile from "./EmployeeProfile";
 import EditEmployeeForm from "./EditEmployeeForm";
+import ApproveEmployee from "./ApproveEmployee";
 
 
 
@@ -27,7 +28,7 @@ export default function EmployeeTable() {
     const [filterDepartment, setFilterDepartment] = useState("All");
     const [filterLocation, setFilterLocation] = useState("All");
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-
+    const [isApproveOpen, setIsApproveOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
     const [isViewOpen, setIsViewOpen] = useState(false);
 
@@ -43,6 +44,7 @@ export default function EmployeeTable() {
         try {
             const response = await userService.getAllEmployees();
             setEmployees(response.data || []);
+            console.log("Fetched employees:", response.data);
         } catch (error: any) {
             console.error("Error fetching employees:", error);
             toast.error("Failed to load employees");
@@ -66,6 +68,11 @@ export default function EmployeeTable() {
         setEditEmployee(employee);
         setIsEditOpen(true);
     };
+
+    const handleApprove =  (employee: Employee) => {
+        setSelectedEmployee(employee);
+        setIsApproveOpen(true);
+    }
 
     const filteredEmployees = employees.filter((emp) => {
         const fullName = `${emp.first_name || ''} ${emp.last_name || ''}`.toLowerCase();
@@ -258,6 +265,17 @@ export default function EmployeeTable() {
                                                     Edit Record
                                                 </DropdownItem>
                                                 <DropdownItem
+                                                onItemClick={()=>{
+                                                    closeDropdown();
+                                                    handleApprove(emp);
+                                                }}
+                                                className="flex gap-2 items-center"
+                                                >
+                                                    <CheckCircleIcon className="w-4 h-4" />
+                                                    Approve Employee 
+
+                                                </DropdownItem>
+                                                <DropdownItem
                                                     onItemClick={() => {
                                                         closeDropdown();
                                                         alert("Deleting " + emp.first_name);
@@ -287,6 +305,16 @@ export default function EmployeeTable() {
                 </div>
             </Drawer>
 
+
+            <Drawer
+                isOpen={isApproveOpen}
+                onClose={() => setIsApproveOpen(false)}
+                title="Approve Employee"
+            >
+                    <div className= "p-6">
+                        {selectedEmployee && <ApproveEmployee employee={selectedEmployee} onSuccess= {()=>{}} />}
+                </div>
+                </Drawer>
             <Drawer
                 isOpen={isEditOpen}
                 onClose={() => setIsEditOpen(false)}

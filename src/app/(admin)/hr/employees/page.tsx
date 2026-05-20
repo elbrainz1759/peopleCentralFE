@@ -19,15 +19,7 @@ export default function EmployeePage() {
                     </p>
                 </div>
 
-                <button
-                    onClick={() => setIsAddOpen(true)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add New Employee
-                </button>
+               
             </div>
 
             <EmployeeTable />
