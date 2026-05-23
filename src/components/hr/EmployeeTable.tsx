@@ -28,6 +28,8 @@ export default function EmployeeTable() {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterDepartment, setFilterDepartment] = useState("All");
     const [filterLocation, setFilterLocation] = useState("All");
+    const [departments, setDepartments] = useState<any[]>([]);
+    const [locations, setLocations] = useState<any[]>([]);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
     const [isApproveOpen, setIsApproveOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -38,6 +40,8 @@ export default function EmployeeTable() {
 
     useEffect(() => {
         fetchEmployees();
+        userService.getAllDepartments().then((data) => setDepartments(Array.isArray(data) ? data : (data as any)?.data || [])).catch(() => {});
+        userService.getAllLocations().then((data) => setLocations(Array.isArray(data) ? data : (data as any)?.data || [])).catch(() => {});
     }, []);
 
     const fetchEmployees = async () => {
@@ -116,11 +120,7 @@ const PENDING_STATUSES = ["On-boarding", "Pending", "pending"];
                         onChange={(v) => setFilterDepartment(v)}
                         options={[
                             { value: "All", label: "All Departments" },
-                            { value: "Engineering", label: "Engineering" },
-                            { value: "HR", label: "HR" },
-                            { value: "Product", label: "Product" },
-                            { value: "Finance", label: "Finance" },
-                            { value: "Marketing", label: "Marketing" },
+                            ...departments.map((d) => ({ value: d.name, label: d.name })),
                         ]}
                         placeholder="All Departments"
                     />
@@ -131,8 +131,7 @@ const PENDING_STATUSES = ["On-boarding", "Pending", "pending"];
                         onChange={(v) => setFilterLocation(v)}
                         options={[
                             { value: "All", label: "All Locations" },
-                            { value: "Abuja", label: "Abuja" },
-                            { value: "Lagos", label: "Lagos" },
+                            ...locations.map((l) => ({ value: l.name, label: l.name })),
                         ]}
                         placeholder="All Locations"
                     />
