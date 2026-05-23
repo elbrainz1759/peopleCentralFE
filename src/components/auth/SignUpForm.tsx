@@ -76,7 +76,7 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
         countryId: formData.countryId,
       });
 
-      toast.success("Employee account created successfully!");
+      toast.success("Employee account created successfully! Kindly reach out to HR for account approval.");
       if (onSuccess) onSuccess();
     } catch (err: any) {
       const message = err.message || "Failed to create employee account";
