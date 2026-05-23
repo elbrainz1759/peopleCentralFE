@@ -4,9 +4,7 @@ import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import { userService } from "@/services/user.service";
 import { toast } from "react-hot-toast";
-
-const selectClass =
-  "w-full h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300";
+import CustomSelect from "@/components/form/CustomSelect";
 
 export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -141,10 +139,15 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
             <div>
               <Label>Status <span className="text-error-500">*</span></Label>
-              <select name="status" value={formData.status} onChange={handleInputChange} className={selectClass} required>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
+              <CustomSelect
+                value={formData.status}
+                onChange={(v) => setFormData((prev) => ({ ...prev, status: v }))}
+                options={[
+                  { value: "Active", label: "Active" },
+                  { value: "Inactive", label: "Inactive" },
+                ]}
+                placeholder="Select Status"
+              />
             </div>
           </div>
 
@@ -166,21 +169,21 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Country <span className="text-error-500">*</span></Label>
-              <select name="countryId" value={formData.countryId} onChange={handleInputChange} className={selectClass} required>
-                <option value="">Select Country</option>
-                {countries.map((c: any) => (
-                  <option key={c.unique_id || c.id} value={c.unique_id}>{c.name}</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={formData.countryId}
+                onChange={(v) => setFormData((prev) => ({ ...prev, countryId: v }))}
+                options={countries.map((c: any) => ({ value: c.unique_id, label: c.name }))}
+                placeholder="Select Country"
+              />
             </div>
             <div>
               <Label>Department <span className="text-error-500">*</span></Label>
-              <select name="departmentId" value={formData.departmentId} onChange={handleInputChange} className={selectClass} required>
-                <option value="">Select Department</option>
-                {departments.map((d: any) => (
-                  <option key={d.unique_id || d.id} value={d.unique_id}>{d.name}</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={formData.departmentId}
+                onChange={(v) => setFormData((prev) => ({ ...prev, departmentId: v }))}
+                options={departments.map((d: any) => ({ value: d.unique_id, label: d.name }))}
+                placeholder="Select Department"
+              />
             </div>
           </div>
 
@@ -188,21 +191,21 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Location <span className="text-error-500">*</span></Label>
-              <select name="locationId" value={formData.locationId} onChange={handleInputChange} className={selectClass} required>
-                <option value="">Select Location</option>
-                {locations.map((l: any) => (
-                  <option key={l.unique_id || l.id} value={l.unique_id}>{l.name}</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={formData.locationId}
+                onChange={(v) => setFormData((prev) => ({ ...prev, locationId: v }))}
+                options={locations.map((l: any) => ({ value: l.unique_id, label: l.name }))}
+                placeholder="Select Location"
+              />
             </div>
             <div>
               <Label>Program <span className="text-error-500">*</span></Label>
-              <select name="programId" value={formData.programId} onChange={handleInputChange} className={selectClass} required>
-                <option value="">Select Program</option>
-                {programs.map((p: any) => (
-                  <option key={p.unique_id || p.id} value={p.unique_id}>{p.name}</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={formData.programId}
+                onChange={(v) => setFormData((prev) => ({ ...prev, programId: v }))}
+                options={programs.map((p: any) => ({ value: p.unique_id, label: p.name }))}
+                placeholder="Select Program"
+              />
             </div>
           </div>
 

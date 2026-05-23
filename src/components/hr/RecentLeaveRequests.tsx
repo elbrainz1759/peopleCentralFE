@@ -123,7 +123,7 @@ export default function RecentLeaveRequests() {
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {tableData.map((request, index) => (
                             <TableRow key={request.id} className="">
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                     {index + 1}
                                 </TableCell>
                                 <TableCell className="py-3">
@@ -138,13 +138,13 @@ export default function RecentLeaveRequests() {
                                         </div>
                                     </div>
                                 </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                     {request.leaveType}
                                 </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                     {request.duration}
                                 </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                     <Badge
                                         size="sm"
                                         color={

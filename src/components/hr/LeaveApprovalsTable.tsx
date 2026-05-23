@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { leaveService } from "@/services/leave.service";
 import { toast } from "react-hot-toast";
+import CustomSelect from "@/components/form/CustomSelect";
 import {
     Table,
     TableBody,
@@ -64,9 +65,9 @@ export default function LeaveApprovalsTable() {
                 role: item.staff?.employment_detail?.job_title || "Staff",
                 department: item.staff?.employment_detail?.department?.name || "Unit",
                 leaveType: item.leaveType?.name || "Other",
-                startDate: item.leaveDuration?.[0]?.startDate || "-",
-                endDate: item.leaveDuration?.[0]?.endDate || "-",
-                duration: `${item.leaveDuration?.length || 0} Periods`,
+                startDate: item.start_date ? new Date(item.start_date).toLocaleDateString() : new Date(item.created_at).toLocaleDateString(),
+                endDate: item.end_date ? new Date(item.end_date).toLocaleDateString() : "-",
+                duration: item.total_hours ? `${item.total_hours} hrs` : "-",
                 reason: item.reason,
                 status: item.status,
                 appliedOn: new Date(item.created_at).toLocaleDateString(),
@@ -141,18 +142,19 @@ export default function LeaveApprovalsTable() {
                     Leave Approvals
                 </h3>
 
-                <div className="flex items-center gap-3">
-                    <select
+                <div className="flex flex-wrap items-center gap-3">
+                    <CustomSelect
                         value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:focus:border-brand-500"
-                    >
-                        <option value="All">All Status</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Reviewed">Reviewed</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Rejected">Rejected</option>
-                    </select>
+                        onChange={(v) => setFilterStatus(v)}
+                        options={[
+                            { value: "All", label: "All Status" },
+                            { value: "Pending", label: "Pending" },
+                            { value: "Reviewed", label: "Reviewed" },
+                            { value: "Approved", label: "Approved" },
+                            { value: "Rejected", label: "Rejected" },
+                        ]}
+                        placeholder="All Status"
+                    />
                 </div>
             </div>
 
@@ -182,12 +184,6 @@ export default function LeaveApprovalsTable() {
                                 isHeader
                                 className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                             >
-                                Dates
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
                                 Duration
                             </TableCell>
                             <TableCell
@@ -208,20 +204,20 @@ export default function LeaveApprovalsTable() {
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="py-10 text-center text-gray-400">
+                                <TableCell colSpan={6} className="py-10 text-center text-gray-400">
                                     Loading leave approvals...
                                 </TableCell>
                             </TableRow>
                         ) : filteredData.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="py-10 text-center text-gray-400">
+                                <TableCell colSpan={6} className="py-10 text-center text-gray-400">
                                     No leave requests found.
                                 </TableCell>
                             </TableRow>
                         ) : (
                             filteredData.map((record, index) => (
                                 <TableRow key={record.id} className="">
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {index + 1}
                                     </TableCell>
                                     <TableCell className="py-3">
@@ -233,18 +229,11 @@ export default function LeaveApprovalsTable() {
                                                 {record.role}
                                             </span>
                                         </div>
-                                        //rhis
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {record.leaveType}
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                        <div className="flex flex-col">
-                                            <span>{record.startDate}</span>
-                                            <span className="text-xs text-gray-400">to {record.endDate}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {record.duration}
                                     </TableCell>
                                     <TableCell className="py-3 text-theme-sm">
@@ -265,7 +254,7 @@ export default function LeaveApprovalsTable() {
                                             {record.status}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         <div className="relative">
                                             <button
                                                 onClick={() => toggleDropdown(record.id)}

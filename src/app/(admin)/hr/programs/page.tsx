@@ -15,6 +15,8 @@ import { Drawer } from "@/components/ui/drawer/Drawer";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog/ConfirmDialog";
+import DatePicker from "@/components/form/date-picker";
+import CustomSelect from "@/components/form/CustomSelect";
 
 export default function ProgramsPage() {
     const [programs, setPrograms] = useState<any[]>([]);
@@ -370,38 +372,35 @@ export default function ProgramsPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
-                            <input
-                                type="date"
+                            <DatePicker
+                                id="program-start-date"
                                 value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-brand-500 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                required
+                                onChange={(_, dateStr) => setStartDate(dateStr)}
+                                placeholder="YYYY-MM-DD"
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
-                            <input
-                                type="date"
+                            <DatePicker
+                                id="program-end-date"
                                 value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-brand-500 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                required
+                                onChange={(_, dateStr) => setEndDate(dateStr)}
+                                placeholder="YYYY-MM-DD"
                             />
                         </div>
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Country</label>
-                        <select
+                        <CustomSelect
                             value={selectedCountry}
-                            onChange={(e) => setSelectedCountry(e.target.value)}
-                            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-brand-500 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                            required
-                        >
-                            <option value="">Choose Country</option>
-                            <option value="Nigeria">Nigeria</option>
-                            <option value="Liberia">Liberia</option>
-                        </select>
+                            onChange={(v) => setSelectedCountry(v)}
+                            options={[
+                                { value: "Nigeria", label: "Nigeria" },
+                                { value: "Liberia", label: "Liberia" },
+                            ]}
+                            placeholder="Choose Country"
+                        />
                     </div>
 
                     <div className="pt-4 border-t border-gray-100 dark:border-gray-800">

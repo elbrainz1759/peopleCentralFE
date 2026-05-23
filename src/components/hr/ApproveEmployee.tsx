@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import {Employee} from "@/types/service.types";
 import { userService } from "@/services/user.service";
 import { toast } from "react-hot-toast";
+import CustomSelect from "@/components/form/CustomSelect";
 
 type ApproveEmployeeProps = {
     employee: Employee;
@@ -77,38 +78,30 @@ return (
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Supervisor <span className="text-red-500">*</span>
             </label>
-            <select
+            <CustomSelect
                 value={supervisorEmail}
-                onChange={(e) => setSupervisorEmail(e.target.value)}
-                className="w-full h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                required
-            >
-                <option value="">Select Supervisor</option>
-                {employees.map((emp) => (
-                    <option key={emp.unique_id} value={emp.email}>
-                        {emp.first_name} {emp.last_name} ({emp.email})
-                    </option>
-                ))}
-            </select>
+                onChange={(v) => setSupervisorEmail(v)}
+                options={employees.map((emp) => ({
+                    value: emp.email,
+                    label: `${emp.first_name} ${emp.last_name} (${emp.email})`,
+                }))}
+                placeholder="Select Supervisor"
+            />
         </div>
 
         <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Role <span className="text-red-500">*</span>
             </label>
-            <select
+            <CustomSelect
                 value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                required
-            >
-                <option value="">Select Role</option>
-                {roles.map((r: any) => (
-                    <option key={r.unique_id || r.id} value={r.name}>
-                        {r.name}
-                    </option>
-                ))}
-            </select>
+                onChange={(v) => setRole(v)}
+                options={roles.map((r: any) => ({
+                    value: r.name,
+                    label: r.name,
+                }))}
+                placeholder="Select Role"
+            />
         </div>
         <button
             onClick={handleApprove}

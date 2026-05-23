@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { userService } from "@/services/user.service";
 import { Employee } from "@/types/service.types";
 import { toast } from "react-hot-toast";
+import CustomSelect from "@/components/form/CustomSelect";
 import {
     Table,
     TableBody,
@@ -99,42 +100,44 @@ export default function EmployeeTable() {
                     </span>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                     {/* Search */}
-                    <div className="relative">
+                    <div className="relative w-full sm:w-auto">
                         <input
                             type="text"
                             placeholder="Search by ID or Name..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-60 rounded-lg border border-gray-300 bg-white px-4 py-2 text-theme-sm text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:focus:border-brand-500"
+                            className="w-full sm:w-60 rounded-lg border border-gray-300 bg-white px-4 py-2 text-theme-sm text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:focus:border-brand-500"
                         />
                     </div>
 
                     {/* Department */}
-                    <select
+                    <CustomSelect
                         value={filterDepartment}
-                        onChange={(e) => setFilterDepartment(e.target.value)}
-                        className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-theme-sm text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                    >
-                        <option value="All">All Departments</option>
-                        <option value="Engineering">Engineering</option>
-                        <option value="HR">HR</option>
-                        <option value="Product">Product</option>
-                        <option value="Finance">Finance</option>
-                        <option value="Marketing">Marketing</option>
-                    </select>
+                        onChange={(v) => setFilterDepartment(v)}
+                        options={[
+                            { value: "All", label: "All Departments" },
+                            { value: "Engineering", label: "Engineering" },
+                            { value: "HR", label: "HR" },
+                            { value: "Product", label: "Product" },
+                            { value: "Finance", label: "Finance" },
+                            { value: "Marketing", label: "Marketing" },
+                        ]}
+                        placeholder="All Departments"
+                    />
 
                     {/* Location */}
-                    <select
+                    <CustomSelect
                         value={filterLocation}
-                        onChange={(e) => setFilterLocation(e.target.value)}
-                        className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-theme-sm text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                    >
-                        <option value="All">All Locations</option>
-                        <option value="Abuja">Abuja</option>
-                        <option value="Lagos">Lagos</option>
-                    </select>
+                        onChange={(v) => setFilterLocation(v)}
+                        options={[
+                            { value: "All", label: "All Locations" },
+                            { value: "Abuja", label: "Abuja" },
+                            { value: "Lagos", label: "Lagos" },
+                        ]}
+                        placeholder="All Locations"
+                    />
                 </div>
             </div>
 
@@ -206,31 +209,31 @@ export default function EmployeeTable() {
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {String(emp.staff_id || emp.id)}
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {emp.email}
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {emp.designation || 'N/A'}
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {emp.location_name || emp.location || 'N/A'}
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {emp.program_name || emp.program || 'N/A'}
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {emp.department_name || emp.department || 'N/A'}
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {emp.supervisor_name || emp.supervisor || 'N/A'}
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {emp.created_at ? new Date(emp.created_at).toLocaleDateString() : "N/A"}
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         <div className="relative">
                                             <button
                                                 onClick={() => toggleDropdown(String(emp.id || emp.staff_id))}

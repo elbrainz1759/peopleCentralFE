@@ -1,6 +1,8 @@
 "use client";
 import React, { useState } from "react";
-import { CalenderIcon, PaperPlaneIcon } from "@/icons";
+import { PaperPlaneIcon } from "@/icons";
+import DatePicker from "@/components/form/date-picker";
+import CustomSelect from "@/components/form/CustomSelect";
 
 export default function LeaveApplicationForm() {
     const [formData, setFormData] = useState({
@@ -41,20 +43,19 @@ export default function LeaveApplicationForm() {
                             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Leave Type
                             </label>
-                            <select
-                                name="leaveType"
+                            <CustomSelect
                                 value={formData.leaveType}
-                                onChange={handleChange}
-                                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500"
-                            >
-                                <option value="">Select Leave Type</option>
-                                <option value="Annual Leave">Annual Leave</option>
-                                <option value="Sick Leave">Sick Leave</option>
-                                <option value="Study Leave">Study Leave</option>
-                                <option value="Casual Leave">Casual Leave</option>
-                                <option value="Maternity Leave">Maternity Leave</option>
-                                <option value="Paternity Leave">Paternity Leave</option>
-                            </select>
+                                onChange={(v) => setFormData((prev) => ({ ...prev, leaveType: v }))}
+                                options={[
+                                    { value: "Annual Leave", label: "Annual Leave" },
+                                    { value: "Sick Leave", label: "Sick Leave" },
+                                    { value: "Study Leave", label: "Study Leave" },
+                                    { value: "Casual Leave", label: "Casual Leave" },
+                                    { value: "Maternity Leave", label: "Maternity Leave" },
+                                    { value: "Paternity Leave", label: "Paternity Leave" },
+                                ]}
+                                placeholder="Select Leave Type"
+                            />
                         </div>
 
                         <div>
@@ -75,36 +76,24 @@ export default function LeaveApplicationForm() {
                             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Start Date
                             </label>
-                            <div className="relative">
-                                <input
-                                    type="date"
-                                    name="startDate"
-                                    value={formData.startDate}
-                                    onChange={handleChange}
-                                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500"
-                                />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                    <CalenderIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                                </span>
-                            </div>
+                            <DatePicker
+                                id="startDate"
+                                value={formData.startDate}
+                                onChange={(_, dateStr) => setFormData(prev => ({ ...prev, startDate: dateStr }))}
+                                placeholder="YYYY-MM-DD"
+                            />
                         </div>
 
                         <div>
                             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
                                 End Date
                             </label>
-                            <div className="relative">
-                                <input
-                                    type="date"
-                                    name="endDate"
-                                    value={formData.endDate}
-                                    onChange={handleChange}
-                                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500"
-                                />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                    <CalenderIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                                </span>
-                            </div>
+                            <DatePicker
+                                id="endDate"
+                                value={formData.endDate}
+                                onChange={(_, dateStr) => setFormData(prev => ({ ...prev, endDate: dateStr }))}
+                                placeholder="YYYY-MM-DD"
+                            />
                         </div>
 
                         <div className="col-span-1 xl:col-span-2">

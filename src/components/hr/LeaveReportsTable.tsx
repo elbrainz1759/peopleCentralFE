@@ -14,6 +14,8 @@ import {
     ChevronLeftIcon,
     FileIcon
 } from "@/icons";
+import DatePicker from "@/components/form/date-picker";
+import CustomSelect from "@/components/form/CustomSelect";
 
 // Interface for Leave Report Record
 interface LeaveReportRecord {
@@ -158,38 +160,40 @@ export default function LeaveReportsTable() {
                     />
 
                     {/* Department Filter */}
-                    <select
+                    <CustomSelect
                         value={filterDepartment}
-                        onChange={(e) => setFilterDepartment(e.target.value)}
-                        className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:focus:border-brand-500"
-                    >
-                        <option value="All">All Departments</option>
-                        <option value="Engineering">Engineering</option>
-                        <option value="Product">Product</option>
-                        <option value="HR">HR</option>
-                        <option value="Marketing">Marketing</option>
-                        <option value="Finance">Finance</option>
-                    </select>
+                        onChange={(v) => setFilterDepartment(v)}
+                        options={[
+                            { value: "All", label: "All Departments" },
+                            { value: "Engineering", label: "Engineering" },
+                            { value: "Product", label: "Product" },
+                            { value: "HR", label: "HR" },
+                            { value: "Marketing", label: "Marketing" },
+                            { value: "Finance", label: "Finance" },
+                        ]}
+                        placeholder="All Departments"
+                    />
 
                     {/* Status Filter */}
-                    <select
+                    <CustomSelect
                         value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:focus:border-brand-500"
-                    >
-                        <option value="All">All Status</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Rejected">Rejected</option>
-                    </select>
+                        onChange={(v) => setFilterStatus(v)}
+                        options={[
+                            { value: "All", label: "All Status" },
+                            { value: "Approved", label: "Approved" },
+                            { value: "Pending", label: "Pending" },
+                            { value: "Rejected", label: "Rejected" },
+                        ]}
+                        placeholder="All Status"
+                    />
 
                     {/* Date Filter (Simplified) */}
                     <div className="flex items-center gap-2">
-                        <input
-                            type="date"
+                        <DatePicker
+                            id="reports-start-date"
                             value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                            onChange={(_, dateStr) => setStartDate(dateStr)}
+                            placeholder="Filter by date"
                         />
                     </div>
                 </div>

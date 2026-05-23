@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { ExitService, ChecklistItem, ExitInterview } from "@/services/exit.service";
 import { leaveServiceInstance } from "@/services/leave.service";
 import { authService } from "@/services/auth.service";
+import { userService } from "@/services/user.service";
 import Button from "@/components/ui/button/Button";
+import DatePicker from "@/components/form/date-picker";
+import CustomSelect from "@/components/form/CustomSelect";
 
 interface ExitFormData {
   departmentId: string;
@@ -63,6 +67,7 @@ export default function MultiStepExitForm() {
   });
 
   const exitServiceInstance = ExitService.getInstance();
+  const router = useRouter();
 
   useEffect(() => {
     fetchChecklistItems();
@@ -147,9 +152,25 @@ export default function MultiStepExitForm() {
       // Update currentUser AND try to update auth_user in localStorage if it was null
       setCurrentUser(staffData);
       if (staffData) {
-        const resolvedSupervisorName = staffData.supervisor_name ||
+        let resolvedSupervisorName = staffData.supervisor_name ||
           `${staffData.supervisor_first_name || ""} ${staffData.supervisor_last_name || ""}`.trim() ||
           "";
+
+        if (!resolvedSupervisorName && staffData.supervisor) {
+          try {
+            const empsRes = await userService.getAllEmployees();
+            const employees = empsRes.data || [];
+            const supervisor = employees.find(
+              (e: any) => e.unique_id === staffData.supervisor || String(e.id) === String(staffData.supervisor)
+            );
+            if (supervisor) {
+              resolvedSupervisorName = `${supervisor.first_name || ""} ${supervisor.last_name || ""}`.trim();
+            }
+          } catch {
+            // silently fall back to showing the ID
+          }
+        }
+
         setSupervisorName(resolvedSupervisorName);
         setFormData(prev => ({
           ...prev,
@@ -247,6 +268,7 @@ export default function MultiStepExitForm() {
 
       await exitServiceInstance.createExitInterview(exitInterviewData);
       toast.success("Exit interview submitted successfully!");
+      router.push("/exit/approvals");
 
       // Reset form
       setFormData({
@@ -396,9 +418,7 @@ export default function MultiStepExitForm() {
                   <div className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50/50 dark:bg-gray-800/20 dark:border-gray-800 px-6 py-5 font-bold text-gray-900 dark:text-white shadow-sm min-h-16 flex items-center">
                     {supervisorName
                       ? supervisorName
-                      : formData.supervisorId
-                        ? <span className="text-gray-500 font-normal text-sm">ID: {formData.supervisorId}</span>
-                        : <span className="text-gray-400 font-normal">Loading...</span>
+                      : <span className="text-gray-400 font-normal">Not assigned</span>
                     }
                   </div>
                 </div>
@@ -407,13 +427,11 @@ export default function MultiStepExitForm() {
                   <label className="text-sm font-black text-gray-800 dark:text-gray-200 ml-1 tracking-tight">
                     Resignation Date * <span className="text-xs font-normal text-gray-400">(MM/DD/YY)</span>
                   </label>
-                  <input
-                    type="date"
-                    name="resignationDate"
+                  <DatePicker
+                    id="resignationDate"
                     value={formData.resignationDate}
-                    onChange={handleInputChange}
-                    className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-5 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all font-bold shadow-sm"
-                    required
+                    onChange={(_, dateStr) => setFormData(prev => ({ ...prev, resignationDate: dateStr }))}
+                    placeholder="YYYY-MM-DD"
                   />
                   {formData.resignationDate && (
                     <div className="flex flex-col gap-1.5">
@@ -435,28 +453,19 @@ export default function MultiStepExitForm() {
                   <label className="text-sm font-black text-gray-800 dark:text-gray-200 ml-1 tracking-tight">
                     Primary Reason for Leaving *
                   </label>
-                  <div className="relative">
-                    <select
-                      name="reasonForLeaving"
-                      value={formData.reasonForLeaving}
-                      onChange={handleInputChange}
-                      className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-5 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all font-bold appearance-none shadow-sm"
-                      required
-                    >
-                      <option value="">Select a reason</option>
-                      <option value="Better Opportunity">Better Opportunity</option>
-                      <option value="Career Change">Career Change</option>
-                      <option value="Further Education">Further Education</option>
-                      <option value="Personal Reasons">Personal Reasons</option>
-                      <option value="Retirement">Retirement</option>
-                      <option value="Other">Other</option>
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center px-6 pointer-events-none text-gray-400">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
+                  <CustomSelect
+                    value={formData.reasonForLeaving}
+                    onChange={(v) => setFormData(prev => ({ ...prev, reasonForLeaving: v }))}
+                    options={[
+                      { value: "Better Opportunity", label: "Better Opportunity" },
+                      { value: "Career Change", label: "Career Change" },
+                      { value: "Further Education", label: "Further Education" },
+                      { value: "Personal Reasons", label: "Personal Reasons" },
+                      { value: "Retirement", label: "Retirement" },
+                      { value: "Other", label: "Other" },
+                    ]}
+                    placeholder="Select a reason"
+                  />
                 </div>
               </div>
 

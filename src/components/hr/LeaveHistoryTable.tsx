@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { leaveService } from "@/services/leave.service";
 import { authService } from "@/services/auth.service";
 import { toast } from "react-hot-toast";
+import CustomSelect from "@/components/form/CustomSelect";
 import {
     Table,
     TableBody,
@@ -90,8 +91,8 @@ export default function LeaveHistoryTable() {
     useEffect(() => {
         const fetchUserLeaves = async () => {
             const currentUser = authService.getCurrentUser();
-            const staffIdRaw = currentUser?.id || currentUser?.unique_id || 'test-user-001';
-            const staffId = parseInt(staffIdRaw.replace('test-user-', '')) || 1;
+            const staffIdRaw = currentUser?.id || currentUser?.unique_id || 1;
+            const staffId = parseInt(String(staffIdRaw).replace('test-user-', '')) || 1;
 
             setIsLoading(true);
             try {
@@ -168,17 +169,18 @@ export default function LeaveHistoryTable() {
                     My Leave History
                 </h3>
 
-                <div className="flex items-center gap-3">
-                    <select
+                <div className="flex flex-wrap items-center gap-3">
+                    <CustomSelect
                         value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:focus:border-brand-500"
-                    >
-                        <option value="All">All Status</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Rejected">Rejected</option>
-                    </select>
+                        onChange={(v) => setFilterStatus(v)}
+                        options={[
+                            { value: "All", label: "All Status" },
+                            { value: "Approved", label: "Approved" },
+                            { value: "Pending", label: "Pending" },
+                            { value: "Rejected", label: "Rejected" },
+                        ]}
+                        placeholder="All Status"
+                    />
                 </div>
             </div>
 
@@ -247,7 +249,7 @@ export default function LeaveHistoryTable() {
                         ) : (
                             filteredData.map((record, index) => (
                                 <TableRow key={record.id} className="">
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {index + 1}
                                     </TableCell>
                                     <TableCell className="py-3">
@@ -255,16 +257,16 @@ export default function LeaveHistoryTable() {
                                             {record.leaveType}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         <div className="flex flex-col">
                                             <span>{record.startDate}</span>
                                             <span className="text-xs text-gray-400">to {record.endDate}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {record.duration}
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {record.appliedOn}
                                     </TableCell>
                                     <TableCell className="py-3 text-theme-sm">
@@ -283,7 +285,7 @@ export default function LeaveHistoryTable() {
                                             {record.status}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         <div className="relative">
                                             <button
                                                 onClick={() => toggleDropdown(record.id)}

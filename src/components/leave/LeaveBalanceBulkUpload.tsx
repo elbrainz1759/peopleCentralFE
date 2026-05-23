@@ -1,11 +1,13 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { leaveBalanceService, BulkUploadRequest } from "@/services/leave-balance.service";
 import { userService } from "@/services/user.service";
 import { leaveServiceInstance } from "@/services/leave.service";
 import { Employee } from "@/types/service.types";
 import { toast } from "react-hot-toast";
 import { PlusIcon, TrashBinIcon, PaperPlaneIcon } from "@/icons";
+import * as XLSX from "xlsx";
+import CustomSelect from "@/components/form/CustomSelect";
 
 export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () => void }) {
   const [balances, setBalances] = useState<BulkUploadRequest[]>([
@@ -16,6 +18,8 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
     }
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isParsingFile, setIsParsingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [leaveTypes, setLeaveTypes] = useState<{ id: number; name: string }[]>([]);
@@ -75,6 +79,67 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
     setBalances(newBalances);
   };
 
+  const handleDownloadTemplate = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["staffId", "leaveTypeId", "totalHours"],
+      [1001, 1, 40],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "LeaveBalances");
+    XLSX.writeFile(wb, "leave_balances_template.xlsx");
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "text/csv",
+    ];
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
+      toast.error("Please upload a valid Excel or CSV file");
+      return;
+    }
+
+    setIsParsingFile(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+
+        if (rows.length === 0) {
+          toast.error("The file is empty or has no data rows");
+          return;
+        }
+
+        const parsed: BulkUploadRequest[] = rows.map((row: any, i: number) => {
+          const staffId = Number(row.staffId || row["Staff ID"] || row["staff_id"] || 0);
+          const leaveTypeId = Number(row.leaveTypeId || row["Leave Type ID"] || row["leave_type_id"] || 0);
+          const totalHours = Number(row.totalHours || row["Total Hours"] || row["total_hours"] || 0);
+
+          if (!staffId || !leaveTypeId || !totalHours) {
+            throw new Error(`Row ${i + 2} is missing required fields (staffId, leaveTypeId, totalHours)`);
+          }
+          return { staffId, leaveTypeId, totalHours };
+        });
+
+        setBalances(parsed);
+        toast.success(`${parsed.length} row(s) loaded from file`);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to parse file");
+      } finally {
+        setIsParsingFile(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -119,6 +184,32 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
         </button>
       </div>
 
+      {/* Excel Upload */}
+      <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Upload Excel / CSV</p>
+          <p className="text-xs text-gray-400 mt-0.5">Columns: staffId, leaveTypeId, totalHours</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleDownloadTemplate}
+          className="px-3 py-2 text-xs font-medium text-brand-500 border border-brand-300 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors whitespace-nowrap"
+        >
+          Download Template
+        </button>
+        <label className="px-3 py-2 text-xs font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors cursor-pointer whitespace-nowrap">
+          {isParsingFile ? "Parsing..." : "Choose File"}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleFileUpload}
+            className="hidden"
+            disabled={isParsingFile}
+          />
+        </label>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="w-full">
           {/* Header Row */}
@@ -141,35 +232,27 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
           {balances.map((balance, index) => (
             <div key={index} className="grid grid-cols-[1fr_2fr_1fr_60px] gap-2 pb-4 items-center">
               <div>
-                <select
+                <CustomSelect
                   value={balance.staffId}
-                  onChange={(e) => updateBalance(index, 'staffId', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                  required
+                  onChange={(v) => updateBalance(index, 'staffId', v)}
+                  options={employees.map(emp => ({
+                    value: emp.id,
+                    label: `${emp.first_name} ${emp.last_name} (${emp.staff_id || emp.id})`,
+                  }))}
+                  placeholder={isLoadingEmployees ? "Loading employees..." : "Select Staff"}
                   disabled={isLoadingEmployees}
-                >
-                  <option value="">{isLoadingEmployees ? "Loading employees..." : "Select Staff"}</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.first_name} {emp.last_name} ({emp.staff_id || emp.id})
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div>
-                <select
+                <CustomSelect
                   value={balance.leaveTypeId}
-                  onChange={(e) => updateBalance(index, 'leaveTypeId', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                  required
-                >
-                  <option value="">Type</option>
-                  {leaveTypes.map(type => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => updateBalance(index, 'leaveTypeId', v)}
+                  options={leaveTypes.map(type => ({
+                    value: type.id,
+                    label: type.name,
+                  }))}
+                  placeholder="Type"
+                />
               </div>
               <div>
                 <input
@@ -178,7 +261,8 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
                   onChange={(e) => updateBalance(index, 'totalHours', e.target.value)}
                   placeholder="Hrs"
                   className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                  min="1"
+                  min="0.01"
+                  step="any"
                   required
                 />
               </div>

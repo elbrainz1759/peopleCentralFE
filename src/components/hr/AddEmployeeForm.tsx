@@ -4,6 +4,7 @@ import InputField from "../form/input/InputField";
 import { userService } from "@/services/user.service";
 import { Employee } from "@/types/service.types";
 import { toast } from "react-hot-toast";
+import CustomSelect from "@/components/form/CustomSelect";
 
 export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void }) {
     const [formData, setFormData] = useState({
@@ -194,19 +195,12 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Work Location</label>
                             {locations.length > 0 ? (
-                                <select
-                                    name="locationId"
-                                    id="locationId"
+                                <CustomSelect
                                     value={formData.locationId}
-                                    onChange={handleInputChange}
-                                    className="w-full h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                    required
-                                >
-                                    <option value="">Select Location</option>
-                                    {locations.map((l: any) => (
-                                        <option key={l.unique_id || l.id} value={l.unique_id}>{l.name}</option>
-                                    ))}
-                                </select>
+                                    onChange={(v) => setFormData((prev) => ({ ...prev, locationId: v }))}
+                                    options={locations.map((l: any) => ({ value: l.unique_id, label: l.name }))}
+                                    placeholder="Select Location"
+                                />
                             ) : (
                                 <input
                                     name="locationId"
@@ -223,20 +217,15 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supervisor</label>
                             {employees.length > 0 ? (
-                                <select
-                                    name="supervisorId"
-                                    id="supervisorId"
+                                <CustomSelect
                                     value={formData.supervisorId}
-                                    onChange={handleInputChange}
-                                    className="w-full h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                >
-                                    <option value="">Select Supervisor</option>
-                                    {employees.map((e: Employee) => (
-                                        <option key={e.unique_id || e.id} value={e.unique_id}>
-                                            {e.first_name} {e.last_name} ({e.staff_id})
-                                        </option>
-                                    ))}
-                                </select>
+                                    onChange={(v) => setFormData((prev) => ({ ...prev, supervisorId: v }))}
+                                    options={employees.map((e: Employee) => ({
+                                        value: e.unique_id,
+                                        label: `${e.first_name} ${e.last_name} (${e.staff_id})`,
+                                    }))}
+                                    placeholder="Select Supervisor"
+                                />
                             ) : (
                                 <input
                                     name="supervisorId"
@@ -252,53 +241,32 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Country</label>
-                            <select
-                                name="countryId"
-                                id="countryId"
+                            <CustomSelect
                                 value={formData.countryId}
-                                onChange={handleInputChange}
-                                className="w-full h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                required
-                            >
-                                <option value="">Choose Country</option>
-                                {countries.map((c: any) => (
-                                    <option key={c.unique_id || c.id} value={c.unique_id}>{c.name}</option>
-                                ))}
-                            </select>
+                                onChange={(v) => setFormData((prev) => ({ ...prev, countryId: v }))}
+                                options={countries.map((c: any) => ({ value: c.unique_id, label: c.name }))}
+                                placeholder="Choose Country"
+                            />
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Department</label>
-                            <select
-                                name="departmentId"
-                                id="departmentId"
+                            <CustomSelect
                                 value={formData.departmentId}
-                                onChange={handleInputChange}
-                                className="w-full h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                required
-                            >
-                                <option value="">Choose Department</option>
-                                {departments.map((d: any) => (
-                                    <option key={d.unique_id || d.id} value={d.unique_id}>{d.name}</option>
-                                ))}
-                            </select>
+                                onChange={(v) => setFormData((prev) => ({ ...prev, departmentId: v }))}
+                                options={departments.map((d: any) => ({ value: d.unique_id, label: d.name }))}
+                                placeholder="Choose Department"
+                            />
                         </div>
 
                         <div className="sm:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Program</label>
-                            <select
-                                name="programId"
-                                id="programId"
+                            <CustomSelect
                                 value={formData.programId}
-                                onChange={handleInputChange}
-                                className="w-full h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
-                                required
-                            >
-                                <option value="">Select a Program</option>
-                                {programs.map((p: any) => (
-                                    <option key={p.unique_id || p.id} value={p.unique_id}>{p.name}</option>
-                                ))}
-                            </select>
+                                onChange={(v) => setFormData((prev) => ({ ...prev, programId: v }))}
+                                options={programs.map((p: any) => ({ value: p.unique_id, label: p.name }))}
+                                placeholder="Select a Program"
+                            />
                         </div>
                     </div>
                 </div>

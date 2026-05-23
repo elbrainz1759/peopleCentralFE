@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { PlusIcon, SearchIcon, HorizontaLDots, PencilIcon, TrashBinIcon } from "@/icons";
 import { Drawer } from "@/components/ui/drawer/Drawer";
+import CustomSelect from "@/components/form/CustomSelect";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog/ConfirmDialog";
@@ -501,38 +502,24 @@ export default function LeaveTypeConfigsPage() {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Leave Type <span className="text-red-500">*</span>
                         </label>
-                        <select
+                        <CustomSelect
                             value={form.leavePolicyId}
-                            onChange={(e) => setForm({ ...form, leavePolicyId: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
-                            required
-                        >
-                            <option value="">Select a leave type</option>
-                            {leaveTypes.map((lt) => (
-                                <option key={lt.id} value={lt.unique_id ?? lt.id}>
-                                    {lt.name}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(v) => setForm({ ...form, leavePolicyId: v })}
+                            options={leaveTypes.map((lt) => ({ value: lt.unique_id ?? lt.id, label: lt.name }))}
+                            placeholder="Select a leave type"
+                        />
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Country <span className="text-red-500">*</span>
                         </label>
-                        <select
+                        <CustomSelect
                             value={form.country}
-                            onChange={(e) => setForm({ ...form, country: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
-                            required
-                        >
-                            <option value="">Select a country</option>
-                            {countries.map((c: any) => (
-                                <option key={c.id} value={c.unique_id ?? c.id}>
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(v) => setForm({ ...form, country: v })}
+                            options={countries.map((c: any) => ({ value: c.unique_id ?? c.id, label: c.name }))}
+                            placeholder="Select a country"
+                        />
                     </div>
 
                     <div>
@@ -550,6 +537,7 @@ export default function LeaveTypeConfigsPage() {
                             className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
                             placeholder="e.g. 160"
                             min={0}
+                            step="any"
                             required
                         />
                     </div>
@@ -558,19 +546,19 @@ export default function LeaveTypeConfigsPage() {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Period <span className="text-red-500">*</span>
                         </label>
-                        <select
+                        <CustomSelect
                             value={hoursPeriod}
-                            onChange={(e) => {
-                                const period = e.target.value as "month" | "year";
+                            onChange={(v) => {
+                                const period = v as "month" | "year";
                                 setHoursPeriod(period);
                                 applyHoursAndPeriod(hoursInput, period);
                             }}
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
-                            required
-                        >
-                            <option value="year">Year</option>
-                            <option value="month">Month</option>
-                        </select>
+                            options={[
+                                { value: "year", label: "Year" },
+                                { value: "month", label: "Month" },
+                            ]}
+                            placeholder="Select period"
+                        />
                     </div>
 
                     <div>
@@ -581,6 +569,7 @@ export default function LeaveTypeConfigsPage() {
                             type="number"
                             value={form.monthlyAccrualHours ?? ""}
                             readOnly
+                            step="any"
                             className="w-full rounded-lg border border-gray-100 bg-gray-50 px-4 py-2.5 outline-none dark:bg-gray-800/50 dark:border-gray-800 text-gray-500 cursor-not-allowed"
                             placeholder="e.g. 13.33"
                         />

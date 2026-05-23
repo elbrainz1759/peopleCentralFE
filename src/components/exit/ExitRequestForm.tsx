@@ -8,6 +8,7 @@ import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/themes/light.css";
 import { DownloadIcon, PlusIcon, TrashBinIcon } from "@/icons";
 import DatePicker from "@/components/form/date-picker";
+import CustomSelect from "@/components/form/CustomSelect";
 
 export default function ExitRequestForm({ onClose, initialData }: { onClose: () => void, initialData?: any }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -348,30 +349,21 @@ export default function ExitRequestForm({ onClose, initialData }: { onClose: () 
 
             <div className="space-y-3">
               <label className="text-sm font-black text-gray-800 dark:text-gray-200 ml-1">Reason for Leaving *</label>
-              <div className="relative">
-                <select
-                  name="reasonForLeaving"
-                  value={formData.reasonForLeaving}
-                  onChange={handleInputChange}
-                  className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-4 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 transition-all font-bold appearance-none shadow-sm"
-                  required
-                >
-                  <option value="">Select primary factor</option>
-                  <option value="Better Opportunity">Better Opportunity</option>
-                  <option value="Career Change">Career Change</option>
-                  <option value="Further Education">Further Education</option>
-                  <option value="Relocation">Relocation</option>
-                  <option value="Personal Reasons">Personal Reasons</option>
-                  <option value="Health Reasons">Health Reasons</option>
-                  <option value="Retirement">Retirement</option>
-                  <option value="Other">Other</option>
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center px-6 pointer-events-none text-gray-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
+              <CustomSelect
+                value={formData.reasonForLeaving}
+                onChange={(v) => setFormData(prev => ({ ...prev, reasonForLeaving: v }))}
+                options={[
+                  { value: "Better Opportunity", label: "Better Opportunity" },
+                  { value: "Career Change", label: "Career Change" },
+                  { value: "Further Education", label: "Further Education" },
+                  { value: "Relocation", label: "Relocation" },
+                  { value: "Personal Reasons", label: "Personal Reasons" },
+                  { value: "Health Reasons", label: "Health Reasons" },
+                  { value: "Retirement", label: "Retirement" },
+                  { value: "Other", label: "Other" },
+                ]}
+                placeholder="Select primary factor"
+              />
             </div>
 
             <div className="md:col-span-2 space-y-3">
@@ -397,21 +389,30 @@ export default function ExitRequestForm({ onClose, initialData }: { onClose: () 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             <div className="space-y-3">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block ml-1">Job Satisfaction</label>
-              <select name="ratingJob" value={formData.ratingJob} onChange={handleInputChange} className="w-full rounded-xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-5 py-3.5 text-gray-900 dark:text-white font-bold outline-none focus:border-brand-500 transition-all appearance-none">
-                {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} - {n === 5 ? 'Excellent' : n === 1 ? 'Poor' : ''}</option>)}
-              </select>
+              <CustomSelect
+                value={formData.ratingJob}
+                onChange={(v) => setFormData(prev => ({ ...prev, ratingJob: v }))}
+                options={[1, 2, 3, 4, 5].map(n => ({ value: String(n), label: `${n}${n === 5 ? ' - Excellent' : n === 1 ? ' - Poor' : ''}` }))}
+                placeholder="Select"
+              />
             </div>
             <div className="space-y-3">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block ml-1">Manager Effectiveness</label>
-              <select name="ratingManager" value={formData.ratingManager} onChange={handleInputChange} className="w-full rounded-xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-5 py-3.5 text-gray-900 dark:text-white font-bold outline-none focus:border-brand-500 transition-all appearance-none">
-                {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} - {n === 5 ? 'Excellent' : n === 1 ? 'Poor' : ''}</option>)}
-              </select>
+              <CustomSelect
+                value={formData.ratingManager}
+                onChange={(v) => setFormData(prev => ({ ...prev, ratingManager: v }))}
+                options={[1, 2, 3, 4, 5].map(n => ({ value: String(n), label: `${n}${n === 5 ? ' - Excellent' : n === 1 ? ' - Poor' : ''}` }))}
+                placeholder="Select"
+              />
             </div>
             <div className="space-y-3">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block ml-1">Culture Rating</label>
-              <select name="ratingCulture" value={formData.ratingCulture} onChange={handleInputChange} className="w-full rounded-xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-5 py-3.5 text-gray-900 dark:text-white font-bold outline-none focus:border-brand-500 transition-all appearance-none">
-                {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} - {n === 5 ? 'Excellent' : n === 1 ? 'Poor' : ''}</option>)}
-              </select>
+              <CustomSelect
+                value={formData.ratingCulture}
+                onChange={(v) => setFormData(prev => ({ ...prev, ratingCulture: v }))}
+                options={[1, 2, 3, 4, 5].map(n => ({ value: String(n), label: `${n}${n === 5 ? ' - Excellent' : n === 1 ? ' - Poor' : ''}` }))}
+                placeholder="Select"
+              />
             </div>
 
             <div className="md:col-span-3 space-y-4">

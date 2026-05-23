@@ -7,7 +7,7 @@ export default function ApplyForLeavePage() {
     const router = useRouter();
 
     const handleClose = () => {
-        router.push("/");
+        router.push("/leave/history");
     };
 
     return (

@@ -12,6 +12,7 @@ import {
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
 import { EyeIcon, PencilIcon, TrashBinIcon, MoreDotIcon, PlusIcon } from "@/icons";
+import CustomSelect from "@/components/form/CustomSelect";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Drawer } from "../ui/drawer/Drawer";
@@ -299,23 +300,13 @@ export default function ChecklistItemsManager() {
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Department *
               </label>
-              <select
-                name="departmentId"
+              <CustomSelect
                 value={formData.departmentId}
-                onChange={handleInputChange}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500"
-                required
+                onChange={(v) => setFormData(prev => ({ ...prev, departmentId: v }))}
+                options={departments.map((dept: any) => ({ value: dept.unique_id, label: dept.name }))}
+                placeholder={isLoadingDepartments ? "Loading departments..." : "Select Department"}
                 disabled={isLoadingDepartments}
-              >
-                <option value="">
-                  {isLoadingDepartments ? "Loading departments..." : "Select Department"}
-                </option>
-                {departments.map((dept: any) => (
-                  <option key={dept.unique_id} value={dept.unique_id}>
-                    {dept.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>

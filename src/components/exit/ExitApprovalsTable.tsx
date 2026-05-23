@@ -9,6 +9,7 @@ import {
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
 import { EyeIcon, CheckCircleIcon, CloseIcon, MoreDotIcon, PencilIcon, PlusIcon, TrashBinIcon } from "@/icons";
+import CustomSelect from "@/components/form/CustomSelect";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Drawer } from "../ui/drawer/Drawer";
@@ -442,17 +443,15 @@ export default function ExitApprovalsTable() {
                             />
                         </div>
                         <div>
-                            <select
+                            <CustomSelect
                                 value={selectedDeptId}
-                                onChange={(e) => setSelectedDeptId(e.target.value)}
-                                className="w-full rounded-xl border border-gray-200 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm outline-none focus:border-brand-500 appearance-none"
-                            >
-                                {departments.map((dept) => (
-                                    <option key={dept.uniqueId || dept.id} value={dept.uniqueId || dept.id}>
-                                        {dept.name}
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={(v) => setSelectedDeptId(v)}
+                                options={departments.map((dept) => ({
+                                    value: dept.uniqueId || dept.id,
+                                    label: dept.name,
+                                }))}
+                                placeholder="Select Department"
+                            />
                         </div>
                         <Button
                             onClick={handleAddItem}

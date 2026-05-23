@@ -14,6 +14,7 @@ import { Drawer } from "@/components/ui/drawer/Drawer";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog/ConfirmDialog";
+import CustomSelect from "@/components/form/CustomSelect";
 
 export default function LocationsPage() {
     const [locations, setLocations] = useState<any[]>([]);
@@ -318,17 +319,12 @@ export default function LocationsPage() {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
-                        <select
+                        <CustomSelect
                             value={newCountryId}
-                            onChange={(e) => setNewCountryId(e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-gray-300"
-                            required
-                        >
-                            <option value="">Select Country</option>
-                            {countries.map((c: any) => (
-                                <option key={c.id} value={c.unique_id}>{c.name}</option>
-                            ))}
-                        </select>
+                            onChange={(v) => setNewCountryId(v)}
+                            options={countries.map((c: any) => ({ value: c.unique_id, label: c.name }))}
+                            placeholder="Select Country"
+                        />
                     </div>
                     <button
                         type="submit"

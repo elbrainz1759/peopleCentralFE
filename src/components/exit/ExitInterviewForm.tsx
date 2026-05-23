@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { DownloadIcon } from "@/icons"; // Assuming you have an icon, or use text
+import CustomSelect from "@/components/form/CustomSelect";
 
 export default function ExitInterviewForm() {
     const [formData, setFormData] = useState({
@@ -122,21 +123,19 @@ export default function ExitInterviewForm() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Primary Reason <span className="text-red-500">*</span></label>
-                            <select
-                                name="reasonForLeaving"
+                            <CustomSelect
                                 value={formData.reasonForLeaving}
-                                onChange={handleInputChange}
-                                required
-                                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-700 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                            >
-                                <option value="">Select a reason...</option>
-                                <option value="Career Advancement">Career Advancement / Better Opportunity</option>
-                                <option value="Salary">Salary / Compensation</option>
-                                <option value="Management">Dissatisfaction with Management</option>
-                                <option value="Work Environment">Work Environment / Culture</option>
-                                <option value="Personal">Personal Reasons (Relocation, Health, Family)</option>
-                                <option value="Other">Other</option>
-                            </select>
+                                onChange={(v) => setFormData((prev) => ({ ...prev, reasonForLeaving: v }))}
+                                options={[
+                                    { value: "Career Advancement", label: "Career Advancement / Better Opportunity" },
+                                    { value: "Salary", label: "Salary / Compensation" },
+                                    { value: "Management", label: "Dissatisfaction with Management" },
+                                    { value: "Work Environment", label: "Work Environment / Culture" },
+                                    { value: "Personal", label: "Personal Reasons (Relocation, Health, Family)" },
+                                    { value: "Other", label: "Other" },
+                                ]}
+                                placeholder="Select a reason..."
+                            />
                         </div>
                         {formData.reasonForLeaving === "Other" && (
                             <div>

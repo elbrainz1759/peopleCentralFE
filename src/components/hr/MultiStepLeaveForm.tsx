@@ -7,6 +7,7 @@ import { authService } from "@/services/auth.service";
 import { LeaveType, LeaveRequest } from "@/types/service.types";
 import { toast } from "react-hot-toast";
 import DatePicker from "@/components/form/date-picker";
+import CustomSelect from "@/components/form/CustomSelect";
 import {
     PaperPlaneIcon,
     ArrowRightIcon,
@@ -312,19 +313,19 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Leave Type <span className="text-red-500">*</span>
                             </label>
-                            <select
-                                name="leaveTypeId"
+                            <CustomSelect
                                 value={formData.leaveTypeId}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg border bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500 ${errors.leaveTypeId ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-700"}`}
-                            >
-                                <option value="">{isLoadingTypes ? "Loading types..." : "Select Leave Type"}</option>
-                                {leaveTypes.map((type: any) => (
-                                    <option key={type.id} value={type.unique_id ?? type.uniqueId ?? type.id}>
-                                        {type.name}
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={(v) => {
+                                    setFormData((prev) => ({ ...prev, leaveTypeId: v }));
+                                    if (errors.leaveTypeId) setErrors((prev) => { const next = { ...prev }; delete next.leaveTypeId; return next; });
+                                }}
+                                options={leaveTypes.map((type: any) => ({
+                                    value: type.unique_id ?? type.uniqueId ?? type.id,
+                                    label: type.name,
+                                }))}
+                                placeholder={isLoadingTypes ? "Loading types..." : "Select Leave Type"}
+                                disabled={isLoadingTypes}
+                            />
                             {errors.leaveTypeId && <p className="mt-1 text-xs text-red-500">{errors.leaveTypeId}</p>}
                         </div>
 

@@ -13,6 +13,7 @@ import { SearchIcon, PencilIcon, PlusIcon } from "@/icons";
 import { Modal } from "../ui/modal";
 import { toast } from "react-hot-toast";
 import { trackerService } from "@/services/data-tracker.service";
+import DatePicker from "@/components/form/date-picker";
 
 type FormMode = "create" | "edit";
 
@@ -321,22 +322,20 @@ export default function NotificationTrackerTable() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">Start Date <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="date"
-                                        required
+                                    <DatePicker
+                                        id="tracker-start-date"
                                         value={trackerData.start_date}
-                                        onChange={(e) => setTrackerData({ ...trackerData, start_date: e.target.value })}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none"
+                                        onChange={(_, dateStr) => setTrackerData({ ...trackerData, start_date: dateStr })}
+                                        placeholder="YYYY-MM-DD"
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">End Date <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="date"
-                                        required
+                                    <DatePicker
+                                        id="tracker-end-date"
                                         value={trackerData.end_date}
-                                        onChange={(e) => setTrackerData({ ...trackerData, end_date: e.target.value })}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none"
+                                        onChange={(_, dateStr) => setTrackerData({ ...trackerData, end_date: dateStr })}
+                                        placeholder="YYYY-MM-DD"
                                     />
                                 </div>
                             </div>

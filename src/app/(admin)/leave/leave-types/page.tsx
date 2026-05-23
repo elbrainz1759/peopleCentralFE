@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { PlusIcon, SearchIcon, HorizontaLDots, PencilIcon, TrashBinIcon } from "@/icons";
 import { Drawer } from "@/components/ui/drawer/Drawer";
+import CustomSelect from "@/components/form/CustomSelect";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog/ConfirmDialog";
@@ -409,19 +410,12 @@ export default function LeaveTypesPage() {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Country <span className="text-red-500">*</span>
                         </label>
-                        <select
+                        <CustomSelect
                             value={form.country}
-                            onChange={(e) => setForm({ ...form, country: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
-                            required
-                        >
-                            <option value="">Select a country</option>
-                            {countries.map((c: any) => (
-                                <option key={c.id} value={c.name}>
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(v) => setForm({ ...form, country: v })}
+                            options={countries.map((c: any) => ({ value: c.name, label: c.name }))}
+                            placeholder="Select a country"
+                        />
                     </div>
 
                     <button
