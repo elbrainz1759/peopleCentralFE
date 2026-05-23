@@ -13,26 +13,20 @@ export default function AdminLayout({
 }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
-  // Dynamic class for main content margin based on sidebar state
-  const mainContentMargin = isMobileOpen
-    ? "ml-0"
-    : isExpanded || isHovered
-    ? "lg:ml-[290px]"
-    : "lg:ml-[90px]";
+  const sidebarWidth = isExpanded || isHovered ? 290 : 90;
 
   return (
-    <div className="min-h-screen lg:flex">
-      {/* Sidebar and Backdrop */}
+    <div className="min-h-screen">
       <AppSidebar />
       <Backdrop />
-      {/* Main Content Area */}
       <div
-        className={`flex-1 transition-all  duration-300 ease-in-out ${mainContentMargin}`}
+        className="flex-1 transition-all duration-300 ease-in-out"
+        style={{
+          marginLeft: isMobileOpen ? 0 : `${sidebarWidth}px`,
+        }}
       >
-        {/* Header */}
         <AppHeader />
-        {/* Page Content */}
-        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
+        <div className="p-4 mx-auto max-w-screen-2xl md:p-6">{children}</div>
       </div>
     </div>
   );
