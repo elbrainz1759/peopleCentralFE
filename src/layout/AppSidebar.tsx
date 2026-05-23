@@ -58,6 +58,7 @@ const navItems: NavItem[] = [
     name: "HR Administration",
     subItems: [
       { name: "Employee Database", path: "/hr/employees" },
+      { name: "Pending Approvals", path: "/hr/pending-approvals" },
       { name: "User Management", path: "/hr/users" },
       { name: "Departments", path: "/hr/departments" },
       { name: "Roles", path: "/hr/roles" },
