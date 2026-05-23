@@ -1,13 +1,6 @@
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHeader,
-    TableRow,
-} from "../ui/table";
+import Link from "next/link";
 import Badge from "../ui/badge/Badge";
 
-// Define the TypeScript interface for the table rows
 interface LeaveRequest {
     id: number;
     name: string;
@@ -15,153 +8,66 @@ interface LeaveRequest {
     leaveType: string;
     duration: string;
     status: "Approved" | "Pending" | "Rejected";
+    initials: string;
+    avatarColor: string;
 }
 
-// Define the table data using the interface
 const tableData: LeaveRequest[] = [
-    {
-        id: 1,
-        name: "Amara Okoro",
-        role: "Software Engineer",
-        leaveType: "Annual Leave",
-        duration: "5 Days",
-        status: "Approved",
-    },
-    {
-        id: 2,
-        name: "Kwame Asante",
-        role: "Product Manager",
-        leaveType: "Sick Leave",
-        duration: "2 Days",
-        status: "Pending",
-    },
-    {
-        id: 3,
-        name: "Fatima Zahra",
-        role: "HR Specialist",
-        leaveType: "Study Leave",
-        duration: "10 Days",
-        status: "Approved",
-    },
-    {
-        id: 4,
-        name: "Yuki Tanaka",
-        role: "Finance Officer",
-        leaveType: "Casual Leave",
-        duration: "1 Day",
-        status: "Rejected",
-    },
-    {
-        id: 5,
-        name: "Carlos Mendez",
-        role: "Operations Manager",
-        leaveType: "Annual Leave",
-        duration: "15 Days",
-        status: "Pending",
-    },
+    { id: 1, name: "Amara Okoro", role: "Software Engineer", leaveType: "Annual Leave", duration: "5 Days", status: "Approved", initials: "AO", avatarColor: "bg-brand-100 text-brand-600" },
+    { id: 2, name: "Kwame Asante", role: "Product Manager", leaveType: "Sick Leave", duration: "2 Days", status: "Pending", initials: "KA", avatarColor: "bg-blue-100 text-blue-600" },
+    { id: 3, name: "Fatima Zahra", role: "HR Specialist", leaveType: "Study Leave", duration: "10 Days", status: "Approved", initials: "FZ", avatarColor: "bg-purple-100 text-purple-600" },
+    { id: 4, name: "Yuki Tanaka", role: "Finance Officer", leaveType: "Casual Leave", duration: "1 Day", status: "Rejected", initials: "YT", avatarColor: "bg-amber-100 text-amber-600" },
+    { id: 5, name: "Carlos Mendez", role: "Operations Manager", leaveType: "Annual Leave", duration: "15 Days", status: "Pending", initials: "CM", avatarColor: "bg-teal-100 text-teal-600" },
 ];
 
 export default function RecentLeaveRequests() {
     return (
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
-            <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 sm:px-6">
                 <div>
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-                        Recent Leave Requests
-                    </h3>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">Recent Leave Requests</h3>
+                    <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">Latest 5 submissions</p>
                 </div>
-
-                <div className="flex items-center gap-3">
-                    <button className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">
-                        Filter
-                    </button>
-                    <button className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">
-                        See all
-                    </button>
-                </div>
+                <Link
+                    href="/leave/approvals"
+                    className="rounded-lg border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                    View all →
+                </Link>
             </div>
-            <div className="max-w-full overflow-x-auto">
-                <Table>
-                    {/* Table Header */}
-                    <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
-                        <TableRow>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                S/N
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                Employee
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                Leave Type
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                Duration
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                Status
-                            </TableCell>
-                        </TableRow>
-                    </TableHeader>
 
-                    {/* Table Body */}
+            <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                {tableData.map((request) => (
+                    <div key={request.id} className="flex items-center justify-between px-5 py-3.5 transition hover:bg-gray-50/50 dark:hover:bg-white/[0.02] sm:px-6">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${request.avatarColor}`}>
+                                {request.initials}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{request.name}</p>
+                                <p className="truncate text-xs text-gray-400 dark:text-gray-500">{request.leaveType} · {request.duration}</p>
+                            </div>
+                        </div>
+                        <div className="ml-4 flex-shrink-0">
+                            <Badge
+                                size="sm"
+                                color={
+                                    request.status === "Approved" ? "success"
+                                    : request.status === "Pending" ? "warning"
+                                    : "error"
+                                }
+                            >
+                                {request.status}
+                            </Badge>
+                        </div>
+                    </div>
+                ))}
+            </div>
 
-                    <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {tableData.map((request, index) => (
-                            <TableRow key={request.id} className="">
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                    {index + 1}
-                                </TableCell>
-                                <TableCell className="py-3">
-                                    <div className="flex items-center gap-3">
-                                        <div>
-                                            <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                                {request.name}
-                                            </p>
-                                            <span className="text-gray-500 text-theme-xs dark:text-gray-400">
-                                                {request.role}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                    {request.leaveType}
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                    {request.duration}
-                                </TableCell>
-                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                    <Badge
-                                        size="sm"
-                                        color={
-                                            request.status === "Approved"
-                                                ? "success"
-                                                : request.status === "Pending"
-                                                    ? "warning"
-                                                    : "error"
-                                        }
-                                    >
-                                        {request.status}
-                                    </Badge>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+            <div className="border-t border-gray-50 px-5 py-3 dark:border-gray-800 sm:px-6">
+                <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+                    Showing 5 of 18 pending requests
+                </p>
             </div>
         </div>
     );

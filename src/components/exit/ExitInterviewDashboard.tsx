@@ -133,96 +133,121 @@ export const ExitInterviewDashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-          Exit Interview Overview
-        </h3>
-      </div>
-
+    <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       {/* Summary stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 md:gap-6">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3 md:p-6">
-          <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-xl dark:bg-blue-900/20">
-            <GroupIcon className="text-blue-600 size-6 dark:text-blue-400" />
+      <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-gray-800 md:grid-cols-4 md:divide-y-0">
+        <div className="flex flex-col gap-3 p-5 md:p-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-500/10">
+            <GroupIcon className="text-blue-500 size-5" />
           </div>
-          <div className="flex items-end justify-between mt-5">
-            <div>
-              <span className="text-sm text-gray-500 dark:text-gray-400">Total Exit Interviews</span>
-              <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">{stats.total || 0}</h4>
+          <div>
+            <span className="text-xs text-gray-400 dark:text-gray-500">Total Exit Interviews</span>
+            <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{stats.total || 0}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 p-5 md:p-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-500/10">
+            <AlertIcon className="text-amber-500 size-5" />
+          </div>
+          <div>
+            <span className="text-xs text-gray-400 dark:text-gray-500">Pending Interviews</span>
+            <div className="mt-1 flex items-end gap-2">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{pendingCount}</p>
+              {pendingCount > 0 && <Badge color="warning">{pendingCount}</Badge>}
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3 md:p-6">
-          <div className="flex items-center justify-center w-12 h-12 bg-orange-100 rounded-xl dark:bg-orange-900/20">
-            <AlertIcon className="text-orange-600 size-6 dark:text-orange-400" />
+        <div className="flex flex-col gap-3 p-5 md:p-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 dark:bg-green-500/10">
+            <CheckCircleIcon className="text-green-500 size-5" />
           </div>
-          <div className="flex items-end justify-between mt-5">
-            <div>
-              <span className="text-sm text-gray-500 dark:text-gray-400">Pending Interviews</span>
-              <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">{pendingCount}</h4>
+          <div>
+            <span className="text-xs text-gray-400 dark:text-gray-500">Completed Interviews</span>
+            <div className="mt-1 flex items-end gap-2">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedCount}</p>
+              {completedCount > 0 && <Badge color="success">{completedCount}</Badge>}
             </div>
-            {pendingCount > 0 && <Badge color="warning">{pendingCount}</Badge>}
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3 md:p-6">
-          <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-xl dark:bg-green-900/20">
-            <CheckCircleIcon className="text-green-600 size-6 dark:text-green-400" />
+        <div className="flex flex-col gap-3 p-5 md:p-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 dark:bg-purple-500/10">
+            <DocsIcon className="text-purple-500 size-5" />
           </div>
-          <div className="flex items-end justify-between mt-5">
-            <div>
-              <span className="text-sm text-gray-500 dark:text-gray-400">Completed Interviews</span>
-              <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">{completedCount}</h4>
+          <div>
+            <span className="text-xs text-gray-400 dark:text-gray-500">This Month</span>
+            <div className="mt-1 flex items-end gap-2">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{thisMonthCount}</p>
+              {thisMonthCount > 0 && <Badge color="info">New</Badge>}
             </div>
-            {completedCount > 0 && <Badge color="success">{completedCount}</Badge>}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3 md:p-6">
-          <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-xl dark:bg-purple-900/20">
-            <DocsIcon className="text-purple-600 size-6 dark:text-purple-400" />
-          </div>
-          <div className="flex items-end justify-between mt-5">
-            <div>
-              <span className="text-sm text-gray-500 dark:text-gray-400">This Month</span>
-              <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">{thisMonthCount}</h4>
-            </div>
-            {thisMonthCount > 0 && <Badge color="info">New</Badge>}
           </div>
         </div>
       </div>
 
       {/* Chart cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {stats.by_department.length > 0 && (
-          <DonutCard
-            title="By Department"
-            labels={stats.by_department.map((d) => d.department)}
-            series={stats.by_department.map((d) => d.count)}
-            colors={stats.by_department.map((_, i) => DEPARTMENT_COLORS[i % DEPARTMENT_COLORS.length])}
-          />
-        )}
-
-        {stats.by_status.length > 0 && (
-          <DonutCard
-            title="By Status"
-            labels={stats.by_status.map((s) => s.status)}
-            series={stats.by_status.map((s) => s.count)}
-            colors={stats.by_status.map((s) => STATUS_COLORS[s.status] || "#6B7280")}
-          />
-        )}
-
-        {stats.would_recommend.length > 0 && (
-          <DonutCard
-            title="Would Recommend Company"
-            labels={stats.would_recommend.map((r) => r.would_recommend)}
-            series={stats.would_recommend.map((r) => r.count)}
-            colors={stats.would_recommend.map((r) => RECOMMEND_COLORS[r.would_recommend] || "#6B7280")}
-          />
-        )}
-      </div>
+      {(stats.by_department.length > 0 || stats.by_status.length > 0 || stats.would_recommend.length > 0) && (
+        <div className="grid grid-cols-1 gap-0 border-t border-gray-100 dark:border-gray-800 md:grid-cols-2 lg:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-800">
+          {stats.by_department.length > 0 && (
+            <div className="p-5 md:p-6">
+              <h4 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">By Department</h4>
+              <ReactApexChart
+                type="donut"
+                options={{
+                  chart: { type: "donut", toolbar: { show: false } },
+                  labels: stats.by_department.map((d) => d.department),
+                  colors: stats.by_department.map((_, i) => DEPARTMENT_COLORS[i % DEPARTMENT_COLORS.length]),
+                  legend: { position: "bottom", fontSize: "12px" },
+                  dataLabels: { enabled: true, formatter: (val: number) => `${Math.round(val)}%` },
+                  plotOptions: { pie: { donut: { size: "65%", labels: { show: true, total: { show: true, label: "Total", fontSize: "12px", color: "#6B7280", formatter: (w) => w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0) } } } } },
+                  stroke: { width: 2 },
+                }}
+                series={stats.by_department.map((d) => d.count)}
+                height={240}
+              />
+            </div>
+          )}
+          {stats.by_status.length > 0 && (
+            <div className="p-5 md:p-6">
+              <h4 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">By Status</h4>
+              <ReactApexChart
+                type="donut"
+                options={{
+                  chart: { type: "donut", toolbar: { show: false } },
+                  labels: stats.by_status.map((s) => s.status),
+                  colors: stats.by_status.map((s) => STATUS_COLORS[s.status] || "#6B7280"),
+                  legend: { position: "bottom", fontSize: "12px" },
+                  dataLabels: { enabled: true, formatter: (val: number) => `${Math.round(val)}%` },
+                  plotOptions: { pie: { donut: { size: "65%", labels: { show: true, total: { show: true, label: "Total", fontSize: "12px", color: "#6B7280", formatter: (w) => w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0) } } } } },
+                  stroke: { width: 2 },
+                }}
+                series={stats.by_status.map((s) => s.count)}
+                height={240}
+              />
+            </div>
+          )}
+          {stats.would_recommend.length > 0 && (
+            <div className="p-5 md:p-6">
+              <h4 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Would Recommend Company</h4>
+              <ReactApexChart
+                type="donut"
+                options={{
+                  chart: { type: "donut", toolbar: { show: false } },
+                  labels: stats.would_recommend.map((r) => r.would_recommend),
+                  colors: stats.would_recommend.map((r) => RECOMMEND_COLORS[r.would_recommend] || "#6B7280"),
+                  legend: { position: "bottom", fontSize: "12px" },
+                  dataLabels: { enabled: true, formatter: (val: number) => `${Math.round(val)}%` },
+                  plotOptions: { pie: { donut: { size: "65%", labels: { show: true, total: { show: true, label: "Total", fontSize: "12px", color: "#6B7280", formatter: (w) => w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0) } } } } },
+                  stroke: { width: 2 },
+                }}
+                series={stats.would_recommend.map((r) => r.count)}
+                height={240}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
