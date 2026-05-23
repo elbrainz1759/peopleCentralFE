@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
-import { EyeIcon, PencilIcon, TrashBinIcon, MoreDotIcon, CheckCircleIcon } from "@/icons";
+import { EyeIcon, PencilIcon, TrashBinIcon, MoreDotIcon } from "@/icons";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Drawer } from "../ui/drawer/Drawer";
@@ -70,12 +70,10 @@ export default function EmployeeTable() {
         setIsEditOpen(true);
     };
 
-    const handleApprove =  (employee: Employee) => {
-        setSelectedEmployee(employee);
-        setIsApproveOpen(true);
-    }
+const PENDING_STATUSES = ["On-boarding", "Pending", "pending"];
 
     const filteredEmployees = employees.filter((emp) => {
+        if (PENDING_STATUSES.includes(emp.status)) return false;
         const fullName = `${emp.first_name || ''} ${emp.last_name || ''}`.toLowerCase();
         const matchesSearch = fullName.includes(searchTerm.toLowerCase()) ||
             String(emp.staff_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -267,18 +265,7 @@ export default function EmployeeTable() {
                                                     <PencilIcon className="w-4 h-4" />
                                                     Edit Record
                                                 </DropdownItem>
-                                                <DropdownItem
-                                                onItemClick={()=>{
-                                                    closeDropdown();
-                                                    handleApprove(emp);
-                                                }}
-                                                className="flex gap-2 items-center"
-                                                >
-                                                    <CheckCircleIcon className="w-4 h-4" />
-                                                    Approve Employee 
-
-                                                </DropdownItem>
-                                                <DropdownItem
+<DropdownItem
                                                     onItemClick={() => {
                                                         closeDropdown();
                                                         alert("Deleting " + emp.first_name);
