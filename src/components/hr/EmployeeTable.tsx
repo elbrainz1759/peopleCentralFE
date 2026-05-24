@@ -135,49 +135,105 @@ const PENDING_STATUSES = ["On-boarding", "Pending", "pending"];
                 </div>
             </div>
 
-            <div className="max-w-full overflow-x-auto min-h-[400px]">
+            {/* Mobile card grid */}
+            <div className="block md:hidden min-h-[400px]">
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-16">
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                        <span className="text-sm text-gray-500">Loading employees...</span>
+                    </div>
+                ) : filteredEmployees.length === 0 ? (
+                    <div className="py-16 text-center text-sm text-gray-500">
+                        No employees found matching your criteria.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {filteredEmployees.map((emp) => (
+                            <div key={emp.unique_id || String(emp.id)}
+                                className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                                {/* Card header */}
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 font-bold text-sm uppercase">
+                                        {(emp.first_name?.[0] || "") + (emp.last_name?.[0] || "")}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">
+                                            {emp.first_name} {emp.last_name}
+                                        </p>
+                                        <p className="text-xs text-gray-400 truncate">{emp.designation || "—"}</p>
+                                    </div>
+                                </div>
+
+                                {/* Card details */}
+                                <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Staff ID</span>
+                                        <span className="font-medium text-gray-700 dark:text-gray-300">{String(emp.staff_id || emp.id)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Department</span>
+                                        <span className="font-medium text-gray-700 dark:text-gray-300">{emp.department_name || emp.department || "—"}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Location</span>
+                                        <span className="font-medium text-gray-700 dark:text-gray-300">{emp.location_name || emp.location || "—"}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Supervisor</span>
+                                        <span className="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[55%] text-right">{emp.supervisor_name || emp.supervisor || "—"}</span>
+                                    </div>
+                                </div>
+
+                                {/* Card actions */}
+                                <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                                    <button
+                                        onClick={() => handleView(emp)}
+                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                                    >
+                                        <EyeIcon className="w-3.5 h-3.5" /> View
+                                    </button>
+                                    <button
+                                        onClick={() => handleEdit(emp)}
+                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                                    >
+                                        <PencilIcon className="w-3.5 h-3.5" /> Edit
+                                    </button>
+                                    <button
+                                        onClick={() => alert("Deleting " + emp.first_name)}
+                                        className="flex items-center justify-center gap-1.5 rounded-lg border border-red-100 dark:border-red-900/30 py-1.5 px-2.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition"
+                                    >
+                                        <TrashBinIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block max-w-full overflow-x-auto min-h-[400px]">
                 <Table>
                     <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                         <TableRow>
-                            <TableCell isHeader className="sticky left-0 z-10 bg-white dark:bg-gray-900 py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[180px]">
-                                Employee
-                            </TableCell>
-                            <TableCell isHeader className="hidden sm:table-cell py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[90px]">
-                                Staff ID
-                            </TableCell>
-                            <TableCell isHeader className="hidden lg:table-cell py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[200px]">
-                                Email
-                            </TableCell>
-                            <TableCell isHeader className="hidden md:table-cell py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[160px]">
-                                Designation
-                            </TableCell>
-                            <TableCell isHeader className="hidden sm:table-cell py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[100px]">
-                                Location
-                            </TableCell>
-                            <TableCell isHeader className="hidden lg:table-cell py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[140px]">
-                                Program
-                            </TableCell>
-                            <TableCell isHeader className="py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[120px]">
-                                Department
-                            </TableCell>
-                            <TableCell isHeader className="hidden md:table-cell py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[140px]">
-                                Supervisor
-                            </TableCell>
-                            <TableCell isHeader className="hidden lg:table-cell py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[110px]">
-                                Created At
-                            </TableCell>
-                            <TableCell isHeader className="py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[70px]">
-                                Actions
-                            </TableCell>
+                            <TableCell isHeader className="py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[180px]">Employee</TableCell>
+                            <TableCell isHeader className="py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[90px]">Staff ID</TableCell>
+                            <TableCell isHeader className="hidden lg:table-cell py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[200px]">Email</TableCell>
+                            <TableCell isHeader className="py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[160px]">Designation</TableCell>
+                            <TableCell isHeader className="py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[100px]">Location</TableCell>
+                            <TableCell isHeader className="hidden lg:table-cell py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[140px]">Program</TableCell>
+                            <TableCell isHeader className="py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[120px]">Department</TableCell>
+                            <TableCell isHeader className="py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[140px]">Supervisor</TableCell>
+                            <TableCell isHeader className="hidden lg:table-cell py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[110px]">Created At</TableCell>
+                            <TableCell isHeader className="py-3 px-4 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[70px]">Actions</TableCell>
                         </TableRow>
                     </TableHeader>
-
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {isLoading ? (
                             <TableRow>
                                 <TableCell colSpan={10} className="py-10 text-center text-gray-500">
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"></div>
+                                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
                                         <span>Loading employees...</span>
                                     </div>
                                 </TableCell>
@@ -191,42 +247,24 @@ const PENDING_STATUSES = ["On-boarding", "Pending", "pending"];
                         ) : (
                             filteredEmployees.map((emp) => (
                                 <TableRow key={emp.unique_id || String(emp.id)}>
-                                    <TableCell className="sticky left-0 z-10 bg-white dark:bg-gray-900 py-3 px-4">
+                                    <TableCell className="py-3 px-4">
                                         <div className="flex items-center gap-3">
                                             <div className="h-9 w-9 flex items-center justify-center rounded-full shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-bold text-xs uppercase">
                                                 {(emp.first_name?.[0] || "") + (emp.last_name?.[0] || "")}
                                             </div>
-                                            <div>
-                                                <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90 whitespace-nowrap">
-                                                    {emp.first_name} {emp.last_name}
-                                                </span>
-                                            </div>
+                                            <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90 whitespace-nowrap">
+                                                {emp.first_name} {emp.last_name}
+                                            </span>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="hidden sm:table-cell py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {String(emp.staff_id || emp.id)}
-                                    </TableCell>
-                                    <TableCell className="hidden lg:table-cell py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {emp.email}
-                                    </TableCell>
-                                    <TableCell className="hidden md:table-cell py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {emp.designation || 'N/A'}
-                                    </TableCell>
-                                    <TableCell className="hidden sm:table-cell py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {emp.location_name || emp.location || 'N/A'}
-                                    </TableCell>
-                                    <TableCell className="hidden lg:table-cell py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {emp.program_name || emp.program || 'N/A'}
-                                    </TableCell>
-                                    <TableCell className="py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {emp.department_name || emp.department || 'N/A'}
-                                    </TableCell>
-                                    <TableCell className="hidden md:table-cell py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {emp.supervisor_name || emp.supervisor || 'N/A'}
-                                    </TableCell>
-                                    <TableCell className="hidden lg:table-cell py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {emp.created_at ? new Date(emp.created_at).toLocaleDateString() : "N/A"}
-                                    </TableCell>
+                                    <TableCell className="py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{String(emp.staff_id || emp.id)}</TableCell>
+                                    <TableCell className="hidden lg:table-cell py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{emp.email}</TableCell>
+                                    <TableCell className="py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{emp.designation || 'N/A'}</TableCell>
+                                    <TableCell className="py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{emp.location_name || emp.location || 'N/A'}</TableCell>
+                                    <TableCell className="hidden lg:table-cell py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{emp.program_name || emp.program || 'N/A'}</TableCell>
+                                    <TableCell className="py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{emp.department_name || emp.department || 'N/A'}</TableCell>
+                                    <TableCell className="py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{emp.supervisor_name || emp.supervisor || 'N/A'}</TableCell>
+                                    <TableCell className="hidden lg:table-cell py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{emp.created_at ? new Date(emp.created_at).toLocaleDateString() : "N/A"}</TableCell>
                                     <TableCell className="py-3 px-4 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         <div className="relative">
                                             <button
@@ -236,40 +274,15 @@ const PENDING_STATUSES = ["On-boarding", "Pending", "pending"];
                                             >
                                                 <MoreDotIcon className="w-5 h-5" />
                                             </button>
-                                            <Dropdown
-                                                isOpen={openDropdownId === String(emp.id || emp.staff_id)}
-                                                onClose={closeDropdown}
-                                                className="w-40 right-0 mt-2 top-full"
-                                            >
-                                                <DropdownItem
-                                                    onItemClick={() => {
-                                                        closeDropdown();
-                                                        handleView(emp);
-                                                    }}
-                                                    className="flex gap-2 items-center"
-                                                >
-                                                    <EyeIcon className="w-4 h-4" />
-                                                    View Profile
+                                            <Dropdown isOpen={openDropdownId === String(emp.id || emp.staff_id)} onClose={closeDropdown} className="w-40 right-0 mt-2 top-full">
+                                                <DropdownItem onItemClick={() => { closeDropdown(); handleView(emp); }} className="flex gap-2 items-center">
+                                                    <EyeIcon className="w-4 h-4" /> View Profile
                                                 </DropdownItem>
-                                                <DropdownItem
-                                                    onItemClick={() => {
-                                                        closeDropdown();
-                                                        handleEdit(emp);
-                                                    }}
-                                                    className="flex gap-2 items-center"
-                                                >
-                                                    <PencilIcon className="w-4 h-4" />
-                                                    Edit Record
+                                                <DropdownItem onItemClick={() => { closeDropdown(); handleEdit(emp); }} className="flex gap-2 items-center">
+                                                    <PencilIcon className="w-4 h-4" /> Edit Record
                                                 </DropdownItem>
-<DropdownItem
-                                                    onItemClick={() => {
-                                                        closeDropdown();
-                                                        alert("Deleting " + emp.first_name);
-                                                    }}
-                                                    className="flex gap-2 items-center text-red-500"
-                                                >
-                                                    <TrashBinIcon className="w-4 h-4" />
-                                                    Delete
+                                                <DropdownItem onItemClick={() => { closeDropdown(); alert("Deleting " + emp.first_name); }} className="flex gap-2 items-center text-red-500">
+                                                    <TrashBinIcon className="w-4 h-4" /> Delete
                                                 </DropdownItem>
                                             </Dropdown>
                                         </div>
