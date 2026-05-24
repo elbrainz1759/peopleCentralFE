@@ -24,8 +24,13 @@ export default function SignInForm() {
     setError(null);
 
     try {
-      await authService.login({ email, password });
-      router.push("/dashboard"); // Redirect to dashboard on success
+      const response = await authService.login({ email, password });
+      const user = (response as any).user || (response as any).data?.user || response;
+      if (user?.passChanged === 0 || user?.passChanged === false) {
+        router.push("/change-password");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: any) {
       setError(err.message || "Login failed. Please check your credentials.");
     } finally {

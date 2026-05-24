@@ -18,6 +18,11 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/', request.url));
     }
 
+    // Allow authenticated users to access the change-password page freely
+    if (token && pathname === '/change-password') {
+        return NextResponse.next();
+    }
+
     // If the user is authenticated and trying to access an auth route (like login or signup)
     if (token && isPublicRoute) {
         // Redirect to dashboard

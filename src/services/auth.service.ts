@@ -128,6 +128,19 @@ export class AuthService {
     }
 
     /**
+     * changes the user's password (used on forced first-time change)
+     */
+    public async changePassword(data: { newPassword: string }): Promise<any> {
+        try {
+            const response = await api.post<any>('/auth/change-password', data);
+            return response;
+        } catch (error) {
+            console.error('AuthService changePassword error:', error);
+            throw error;
+        }
+    }
+
+    /**
      * logs out the user
      */
     public logout(): void {
