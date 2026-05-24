@@ -13,44 +13,54 @@ export class AuthService {
         return AuthService.instance;
     }
 
+    private decodeToken(token: string): any {
+        try {
+            const payload = token.split('.')[1];
+            return JSON.parse(atob(payload));
+        } catch {
+            return null;
+        }
+    }
+
     /**
      * authenticates a user with email and password
      */
-    public async login(credentials: LoginRequest): Promise<AuthResponse> {
+    public async login(credentials: LoginRequest): Promise<AuthResponse & { user?: any }> {
         try {
             const response = await api.post<AuthResponse>('/auth/login', credentials);
-            console.log('AuthService login response:', response);
 
-            // Store token if found in either accessToken or token field
             const token = response.accessToken || response.token;
             const refreshToken = response.refreshToken;
 
             if (token) {
-                console.log('AuthService: Storing auth_token');
                 localStorage.setItem('auth_token', token);
                 document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`;
             }
 
             if (refreshToken) {
-                console.log('AuthService: Storing refresh_token');
                 localStorage.setItem('refresh_token', refreshToken);
-                document.cookie = `refresh_token=${refreshToken}; path=/; max-age=604800; SameSite=Lax`; // 7 days
+                document.cookie = `refresh_token=${refreshToken}; path=/; max-age=604800; SameSite=Lax`;
             }
 
-            const userToStore = response.user || (response as any).data?.user;
-
-            if (userToStore) {
-                console.log('AuthService: Storing auth_user', userToStore);
-                localStorage.setItem('auth_user', JSON.stringify(userToStore));
-            } else if ((response as any).id || (response as any).staff_id || (response as any).staffId) {
-                // If the response object itself looks like a user object
-                console.log('AuthService: Storing response as auth_user');
-                localStorage.setItem('auth_user', JSON.stringify(response));
-            } else {
-                console.warn('AuthService: No user found in login response keys:', Object.keys(response));
+            // Decode JWT to get user identity, then fetch full profile (includes passChanged)
+            let userProfile: any = null;
+            if (token) {
+                const decoded = this.decodeToken(token);
+                if (decoded?.unique_id) {
+                    try {
+                        userProfile = await api.get<any>(`/users/${decoded.unique_id}`);
+                        localStorage.setItem('auth_user', JSON.stringify(userProfile));
+                    } catch {
+                        userProfile = decoded;
+                        localStorage.setItem('auth_user', JSON.stringify(decoded));
+                    }
+                } else if (decoded) {
+                    userProfile = decoded;
+                    localStorage.setItem('auth_user', JSON.stringify(decoded));
+                }
             }
 
-            return response;
+            return { ...response, user: userProfile };
         } catch (error) {
             console.error('AuthService login error:', error);
             throw error;

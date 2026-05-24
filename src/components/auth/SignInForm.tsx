@@ -25,8 +25,8 @@ export default function SignInForm() {
 
     try {
       const response = await authService.login({ email, password });
-      const user = (response as any).user || (response as any).data?.user || response;
-      if (user?.passChanged === 0 || user?.passChanged === false) {
+      const user = (response as any).user;
+      if (user?.passChanged === 0 || user?.pass_changed === 0 || user?.passChanged === false) {
         router.push("/change-password");
       } else {
         router.push("/dashboard");
