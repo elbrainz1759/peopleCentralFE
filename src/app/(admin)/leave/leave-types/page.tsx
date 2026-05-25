@@ -203,7 +203,52 @@ export default function LeaveTypesPage() {
                     </div>
                 </div>
 
-                <div className="max-w-full overflow-x-auto min-h-[400px]">
+                {/* Mobile card grid */}
+                <div className="block md:hidden min-h-[400px]">
+                    {isLoading ? (
+                        <p className="py-10 text-center text-gray-500">Loading...</p>
+                    ) : filtered.length === 0 ? (
+                        <p className="py-10 text-center text-gray-500">No leave types found.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {filtered.map((lt) => (
+                                <div key={lt.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <p className="font-medium text-gray-800 dark:text-white/90 text-sm">{lt.name}</p>
+                                        <span className="px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-600 rounded-full dark:bg-green-500/10 dark:text-green-400">Active</span>
+                                    </div>
+                                    {lt.description && <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">{lt.description}</p>}
+                                    <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Country</span>
+                                            <span>{lt.country}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Created By</span>
+                                            <span>{lt.created_by || "System"}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Date Added</span>
+                                            <span>{lt.created_at ? new Date(lt.created_at).toLocaleDateString() : "—"}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => openEdit(lt)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
+                                            <PencilIcon className="w-3.5 h-3.5" /> Edit
+                                        </button>
+                                        <button onClick={() => handleDelete(lt)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10">
+                                            <TrashBinIcon className="w-3.5 h-3.5" />
+                                            {isDeleting === String(lt.id) ? "Removing..." : "Remove"}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden md:block max-w-full overflow-x-auto min-h-[400px]">
                     <Table>
                         <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                             <TableRow>

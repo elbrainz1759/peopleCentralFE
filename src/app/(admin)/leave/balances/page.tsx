@@ -15,6 +15,7 @@ import Badge from "@/components/ui/badge/Badge";
 import { EyeIcon, PencilIcon, TrashBinIcon, MoreDotIcon } from "@/icons";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
+import { authService } from "@/services/auth.service";
 
 export default function LeaveBalanceManagement() {
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
@@ -27,15 +28,14 @@ export default function LeaveBalanceManagement() {
   const fetchBalances = async () => {
     setIsLoading(true);
     try {
-      // For now, using a hardcoded staff ID. You should get this from the current user
-      const staffId = 1; // Replace with actual staff ID from auth context
+      const currentUser = authService.getCurrentUser();
+      const staffId = currentUser?.staff_id;
+      if (!staffId) {
+        toast.error("Could not determine staff ID. Please log in again.");
+        return;
+      }
       const response = await leaveBalanceService.getLeaveBalanceByStaffId(staffId);
-      console.log("API Response:", response); // Debug log
-      console.log("Response data:", response.data); // Debug log
-      
-      // Handle different response structures
       const balancesData = response.data || response || [];
-      console.log("Balances to set:", balancesData); // Debug log
       setBalances(Array.isArray(balancesData) ? balancesData : []);
     } catch (error) {
       console.error("Failed to fetch leave balances:", error);
@@ -122,7 +122,64 @@ export default function LeaveBalanceManagement() {
           </div>
         </div>
 
-        <div className="max-w-full overflow-x-auto min-h-[400px]">
+        {/* Mobile card grid */}
+        <div className="block md:hidden min-h-[400px]">
+          {isLoading ? (
+            <p className="py-8 text-center text-gray-500">Loading leave balances...</p>
+          ) : balances.length === 0 ? (
+            <p className="py-8 text-center text-gray-500">No leave balances found. Start by uploading some balances.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {balances.map((balance, index) => {
+                const remainingHours = parseFloat(balance.remaining_hours || '0');
+                const usedHours = parseFloat(balance.used_hours || '0');
+                const totalHours = parseFloat(balance.total_hours || '0');
+                const usagePercentage = totalHours > 0 ? (usedHours / totalHours) * 100 : 0;
+                return (
+                  <div key={balance.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-medium text-gray-800 dark:text-white/90 text-sm">{balance.leave_type_name || `Type ${balance.leave_type_id}`}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">EMP{balance.staff_id?.toString().padStart(4, '0')}</p>
+                      </div>
+                      <Badge size="sm" color={usagePercentage >= 80 ? "error" : usagePercentage >= 60 ? "warning" : "success"}>
+                        {usagePercentage >= 80 ? "Low" : usagePercentage >= 60 ? "Medium" : "Good"}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-600 dark:text-gray-300">Total Hours</span>
+                        <span>{totalHours}h</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-600 dark:text-gray-300">Used Hours</span>
+                        <span>{usedHours}h</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-600 dark:text-gray-300">Remaining</span>
+                        <span className={remainingHours < 20 ? 'text-red-500 font-medium' : 'text-green-500 font-medium'}>{remainingHours}h</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
+                        <EyeIcon className="w-3.5 h-3.5" /> View
+                      </button>
+                      <button className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
+                        <PencilIcon className="w-3.5 h-3.5" /> Edit
+                      </button>
+                      <button onClick={() => handleDelete(balance.id!)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10">
+                        <TrashBinIcon className="w-3.5 h-3.5" /> Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block max-w-full overflow-x-auto min-h-[400px]">
           <Table>
             <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
               <TableRow>

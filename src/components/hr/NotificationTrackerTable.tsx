@@ -127,6 +127,14 @@ export default function NotificationTrackerTable() {
             toast.error("Please enter valid Start and End dates.");
             return;
         }
+        if (trackerData.start_date === trackerData.end_date) {
+            toast.error("Start date and end date cannot be the same.");
+            return;
+        }
+        if (trackerData.end_date < trackerData.start_date) {
+            toast.error("End date must be after the start date.");
+            return;
+        }
         if (rawRecipients.length === 0) {
             toast.error("Please provide at least one recipient email address.");
             return;
@@ -191,7 +199,70 @@ export default function NotificationTrackerTable() {
                 </div>
             </div>
 
-            <div className="max-w-full overflow-x-auto">
+            {/* Mobile card grid */}
+            <div className="block md:hidden">
+                {isLoading ? (
+                    <p className="text-center py-10 text-gray-500">Loading trackers...</p>
+                ) : filteredTrackers.length === 0 ? (
+                    <p className="text-center py-10 text-gray-500">No data trackers found.</p>
+                ) : (
+                    <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
+                        {filteredTrackers.map((record, index) => {
+                            const days = getDaysRemaining(record.end_date);
+                            const status = getStatus(days);
+                            const isUrgent = days <= 60;
+                            const uniqueKey = record.unique_id || record.id || index;
+                            return (
+                                <div key={uniqueKey} className={`rounded-xl border p-4 ${isUrgent ? 'bg-orange-50/50 border-orange-100 dark:bg-orange-900/10 dark:border-orange-900/20' : 'bg-gray-50 border-gray-100 dark:bg-white/[0.03] dark:border-gray-800'}`}>
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="flex-1 mr-2">
+                                            <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{record.title}</p>
+                                            {record.description && (
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{record.description}</p>
+                                            )}
+                                        </div>
+                                        <Badge size="sm" color={status.color}>{status.label}</Badge>
+                                    </div>
+                                    <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Period</span>
+                                            <span>{record.start_date ? new Date(record.start_date).toLocaleDateString() : 'N/A'} - {record.end_date ? new Date(record.end_date).toLocaleDateString() : 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Remaining</span>
+                                            <span className={isUrgent ? 'text-orange-600 dark:text-orange-400 font-medium' : ''}>{days < 0 ? 'Expired' : `${days} days`}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Notify At</span>
+                                            <span>{record.notification_periods ? record.notification_periods.join(', ') + ' days' : 'N/A'}</span>
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-gray-600 dark:text-gray-300 block mb-1">Recipients</span>
+                                            <div className="flex flex-wrap gap-1">
+                                                {(record.recipients || []).slice(0, 2).map((email: string, i: number) => (
+                                                    <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">{email}</span>
+                                                ))}
+                                                {(record.recipients?.length || 0) > 2 && (
+                                                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">+{record.recipients.length - 2} more</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => openEdit(record)}
+                                        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    >
+                                        <PencilIcon className="w-3.5 h-3.5" /> Edit
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block max-w-full overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-gray-50/50 dark:bg-gray-800/50">

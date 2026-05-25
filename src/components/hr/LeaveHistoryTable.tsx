@@ -184,7 +184,67 @@ export default function LeaveHistoryTable() {
                 </div>
             </div>
 
-            <div className="max-w-full overflow-x-auto min-h-[400px]">
+            {/* Mobile card grid */}
+            <div className="block md:hidden min-h-[400px]">
+                {isLoading ? (
+                    <p className="py-10 text-center text-gray-400">Loading your leave history...</p>
+                ) : filteredData.length === 0 ? (
+                    <p className="py-10 text-center text-gray-400">No leave requests found.</p>
+                ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {filteredData.map((record) => (
+                            <div key={record.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                                <div className="flex items-start justify-between mb-2">
+                                    <p className="font-medium text-gray-800 dark:text-white/90 text-sm">{record.leaveType}</p>
+                                    <Badge size="sm" color={record.status === "Approved" ? "success" : record.status === "Pending" ? "warning" : record.status === "Rejected" ? "error" : "light"}>
+                                        {record.status}
+                                    </Badge>
+                                </div>
+                                <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                    <div className="flex justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Dates</span>
+                                        <span>{record.startDate} → {record.endDate}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Duration</span>
+                                        <span>{record.duration}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Applied On</span>
+                                        <span>{record.appliedOn}</span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleView(record)}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                                    >
+                                        <EyeIcon className="w-3.5 h-3.5" /> View
+                                    </button>
+                                    {record.status === "Pending" && (
+                                        <>
+                                            <button
+                                                onClick={() => handleEdit(record)}
+                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                                            >
+                                                <PencilIcon className="w-3.5 h-3.5" /> Edit
+                                            </button>
+                                            <button
+                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10"
+                                            >
+                                                <TrashBinIcon className="w-3.5 h-3.5" /> Cancel
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block max-w-full overflow-x-auto min-h-[400px]">
                 <Table>
                     <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                         <TableRow>

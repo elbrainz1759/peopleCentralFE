@@ -197,7 +197,34 @@ export default function ChecklistItemsManager() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
-        <div className="max-w-full overflow-x-auto">
+        {/* Mobile card grid */}
+        <div className="block md:hidden min-h-[400px]">
+          {isLoading ? (
+            <p className="py-8 text-center text-gray-500">Loading checklist items...</p>
+          ) : checklistItems.length === 0 ? (
+            <p className="py-8 text-center text-gray-500">No checklist items found. Start by adding some items.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {checklistItems.map((item) => (
+                <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                  <p className="font-medium text-gray-800 dark:text-white/90 text-sm mb-1">{item.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{getDepartmentName(item.department, item.departmentName)}</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleEdit(item)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
+                      <PencilIcon className="w-3.5 h-3.5" /> Edit
+                    </button>
+                    <button onClick={() => handleDelete(item.id!)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10">
+                      <TrashBinIcon className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block max-w-full overflow-x-auto min-h-[400px]">
           <Table>
             <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
               <TableRow>
@@ -285,6 +312,7 @@ export default function ChecklistItemsManager() {
               )}
             </TableBody>
           </Table>
+        </div>
         </div>
       </div>
 

@@ -85,7 +85,64 @@ export default function UserTable() {
                 </div>
             </div>
 
-            <div className="max-w-full overflow-x-auto min-h-[400px]">
+            {/* Mobile card grid */}
+            <div className="block md:hidden min-h-[400px]">
+                {isLoading ? (
+                    <div className="flex flex-col items-center gap-2 py-10 text-gray-500">
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"></div>
+                        <span>Loading users...</span>
+                    </div>
+                ) : filteredUsers.length === 0 ? (
+                    <p className="py-10 text-center text-gray-500">No users found.</p>
+                ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {filteredUsers.map((user) => (
+                            <div key={user.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="h-10 w-10 flex items-center justify-center rounded-full shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-bold text-xs uppercase">
+                                        {(user.firstName?.[0] || "") + (user.lastName?.[0] || user.email[0])}
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-800 dark:text-white/90 text-sm">
+                                            {user.firstName ? `${user.firstName} ${user.lastName}` : 'N/A'}
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <Badge size="sm" color={user.role === "Superadmin" ? "error" : user.role === "Admin" ? "warning" : "info"}>
+                                        {user.role}
+                                    </Badge>
+                                    <Badge size="sm" color="success">Active</Badge>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => toast.success("View details for " + user.email)}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                                    >
+                                        <EyeIcon className="w-3.5 h-3.5" /> View
+                                    </button>
+                                    <button
+                                        onClick={() => alert("Editing " + user.email)}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                                    >
+                                        <PencilIcon className="w-3.5 h-3.5" /> Edit
+                                    </button>
+                                    <button
+                                        onClick={() => alert("Deleting " + user.email)}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10"
+                                    >
+                                        <TrashBinIcon className="w-3.5 h-3.5" /> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block max-w-full overflow-x-auto min-h-[400px]">
                 <Table>
                     <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                         <TableRow>
@@ -156,12 +213,7 @@ export default function UserTable() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="py-3">
-                                        <Badge
-                                            size="sm"
-                                            color="success"
-                                        >
-                                            Active
-                                        </Badge>
+                                        <Badge size="sm" color="success">Active</Badge>
                                     </TableCell>
                                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                                         <div className="relative">

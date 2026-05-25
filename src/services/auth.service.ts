@@ -142,7 +142,7 @@ export class AuthService {
      */
     public async changePassword(data: { newPassword: string }): Promise<any> {
         try {
-            const response = await api.post<any>('/auth/change-password', data);
+            const response = await api.post<any>('/auth/reset-password', data);
             return response;
         } catch (error) {
             console.error('AuthService changePassword error:', error);

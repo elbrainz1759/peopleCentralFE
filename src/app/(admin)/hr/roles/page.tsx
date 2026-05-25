@@ -167,91 +167,84 @@ export default function RolesPage() {
                     </div>
                 </div>
 
-                <div className="max-w-full overflow-x-auto min-h-[400px]">
+                {/* Mobile card grid */}
+                <div className="block md:hidden min-h-[400px]">
+                    {isLoading ? (
+                        <p className="py-10 text-center text-gray-500">Loading...</p>
+                    ) : filtered.length === 0 ? (
+                        <p className="py-10 text-center text-gray-500">No roles found.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {filtered.map((role) => (
+                                <div key={role.id ?? role.unique_id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                                    <p className="font-medium text-gray-800 dark:text-white/90 text-sm mb-1">{role.name}</p>
+                                    {role.description && <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">{role.description}</p>}
+                                    <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Created By</span>
+                                            <span>{role.created_by || "System"}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Registration Date</span>
+                                            <span>{role.created_at ? new Date(role.created_at).toLocaleDateString() : "—"}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => openEdit(role)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
+                                            <PencilIcon className="w-3.5 h-3.5" /> Edit
+                                        </button>
+                                        <button onClick={() => handleDelete(role)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10">
+                                            <TrashBinIcon className="w-3.5 h-3.5" />
+                                            {isDeleting === role.unique_id ? "Removing..." : "Remove"}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden md:block max-w-full overflow-x-auto min-h-[400px]">
                     <Table>
                         <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                             <TableRow>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    S/N
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Role Name
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Description
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Created By
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Registration Date
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Actions
-                                </TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">S/N</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Role Name</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Description</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Created By</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Registration Date</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Actions</TableCell>
                             </TableRow>
                         </TableHeader>
                         <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="py-10 text-center text-gray-500">
-                                        Loading...
-                                    </TableCell>
+                                    <TableCell colSpan={6} className="py-10 text-center text-gray-500">Loading...</TableCell>
                                 </TableRow>
                             ) : filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="py-10 text-center text-gray-500">
-                                        No roles found.
-                                    </TableCell>
+                                    <TableCell colSpan={6} className="py-10 text-center text-gray-500">No roles found.</TableCell>
                                 </TableRow>
                             ) : (
                                 filtered.map((role, index) => (
                                     <TableRow key={role.id ?? role.unique_id ?? index}>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {index + 1}
-                                        </TableCell>
-                                        <TableCell className="py-3 font-medium text-gray-800 dark:text-white/90">
-                                            {role.name}
-                                        </TableCell>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500 max-w-md">
-                                            <span className="line-clamp-2">{role.description || "—"}</span>
-                                        </TableCell>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {role.created_by || "System"}
-                                        </TableCell>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {role.created_at ? new Date(role.created_at).toLocaleDateString() : "—"}
-                                        </TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">{index + 1}</TableCell>
+                                        <TableCell className="py-3 font-medium text-gray-800 dark:text-white/90">{role.name}</TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500 max-w-md"><span className="line-clamp-2">{role.description || "—"}</span></TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">{role.created_by || "System"}</TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">{role.created_at ? new Date(role.created_at).toLocaleDateString() : "—"}</TableCell>
                                         <TableCell className="py-3 relative">
-                                            <button
-                                                className="dropdown-toggle flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                                onClick={() => setActiveDropdown(activeDropdown === (role.id ?? role.unique_id) ? null : (role.id ?? role.unique_id))}
-                                            >
+                                            <button className="dropdown-toggle flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" onClick={() => setActiveDropdown(activeDropdown === (role.id ?? role.unique_id) ? null : (role.id ?? role.unique_id))}>
                                                 <HorizontaLDots className="h-4 w-4 text-gray-500" />
                                             </button>
-
-                                            <Dropdown
-                                                isOpen={activeDropdown === (role.id ?? role.unique_id)}
-                                                onClose={() => setActiveDropdown(null)}
-                                                className="absolute right-0 top-10 pointer-events-auto"
-                                            >
+                                            <Dropdown isOpen={activeDropdown === (role.id ?? role.unique_id)} onClose={() => setActiveDropdown(null)} className="absolute right-0 top-10 pointer-events-auto">
                                                 <div className="w-48 py-2">
                                                     <DropdownItem onClick={() => { setActiveDropdown(null); openEdit(role); }}>
-                                                        <div className="flex items-center gap-2">
-                                                            <PencilIcon className="w-4 h-4 text-gray-400" />
-                                                            <span>Edit Details</span>
-                                                        </div>
+                                                        <div className="flex items-center gap-2"><PencilIcon className="w-4 h-4 text-gray-400" /><span>Edit Details</span></div>
                                                     </DropdownItem>
-                                                    <DropdownItem
-                                                        onClick={() => { setActiveDropdown(null); handleDelete(role); }}
-                                                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <TrashBinIcon className="w-4 h-4" />
-                                                            <span>
-                                                                {isDeleting === role.unique_id ? "Removing..." : "Remove Record"}
-                                                            </span>
-                                                        </div>
+                                                    <DropdownItem onClick={() => { setActiveDropdown(null); handleDelete(role); }} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                                                        <div className="flex items-center gap-2"><TrashBinIcon className="w-4 h-4" /><span>{isDeleting === role.unique_id ? "Removing..." : "Remove Record"}</span></div>
                                                     </DropdownItem>
                                                 </div>
                                             </Dropdown>

@@ -186,31 +186,64 @@ export default function LocationsPage() {
                     </div>
                 </div>
 
-                <div className="max-w-full overflow-x-auto min-h-[400px]">
+                {/* Mobile card grid */}
+                <div className="block md:hidden min-h-[400px]">
+                    {isLoading ? (
+                        <div className="flex flex-col items-center gap-2 py-10 text-gray-500">
+                            <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"></div>
+                            <span>Loading locations...</span>
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <p className="py-10 text-center text-gray-500">No locations found.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {filtered.map((location) => (
+                                <div key={location.id || location.unique_id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <p className="font-medium text-gray-800 dark:text-white/90 text-sm">{location.name}</p>
+                                        <span className="px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-600 rounded-full dark:bg-green-500/10 dark:text-green-400">Active</span>
+                                    </div>
+                                    <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Country</span>
+                                            <span>{location.country_name || getCountryName(location.countryId || location.country)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Created By</span>
+                                            <span>{location.created_by || "System"}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Created Date</span>
+                                            <span>{location.created_at ? new Date(location.created_at).toLocaleDateString() : "N/A"}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => openEdit(location)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
+                                            <PencilIcon className="w-3.5 h-3.5" /> Edit
+                                        </button>
+                                        <button onClick={() => handleDelete(location)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10">
+                                            <TrashBinIcon className="w-3.5 h-3.5" />
+                                            {isDeleting === location.unique_id ? "Removing..." : "Remove"}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden md:block max-w-full overflow-x-auto min-h-[400px]">
                     <Table>
                         <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                             <TableRow>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    S/N
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Location Name
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Country
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Created By
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Created Date
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Status
-                                </TableCell>
-                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                                    Actions
-                                </TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">S/N</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Location Name</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Country</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Created By</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Created Date</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Status</TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Actions</TableCell>
                             </TableRow>
                         </TableHeader>
                         <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -225,32 +258,18 @@ export default function LocationsPage() {
                                 </TableRow>
                             ) : filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="py-10 text-center text-gray-500">
-                                        No locations found.
-                                    </TableCell>
+                                    <TableCell colSpan={7} className="py-10 text-center text-gray-500">No locations found.</TableCell>
                                 </TableRow>
                             ) : (
                                 filtered.map((location, index) => (
                                     <TableRow key={location.id || location.unique_id}>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {index + 1}
-                                        </TableCell>
-                                        <TableCell className="py-3 font-medium text-gray-800 dark:text-white/90">
-                                            {location.name}
-                                        </TableCell>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {location.country_name || getCountryName(location.countryId || location.country)}
-                                        </TableCell>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {location.created_by || "System"}
-                                        </TableCell>
-                                        <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {location.created_at ? new Date(location.created_at).toLocaleDateString() : "N/A"}
-                                        </TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">{index + 1}</TableCell>
+                                        <TableCell className="py-3 font-medium text-gray-800 dark:text-white/90">{location.name}</TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">{location.country_name || getCountryName(location.countryId || location.country)}</TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">{location.created_by || "System"}</TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">{location.created_at ? new Date(location.created_at).toLocaleDateString() : "N/A"}</TableCell>
                                         <TableCell className="py-3">
-                                            <span className="px-3 py-1 text-xs font-medium bg-green-100 text-green-600 rounded-full dark:bg-green-500/10 dark:text-green-400">
-                                                Active
-                                            </span>
+                                            <span className="px-3 py-1 text-xs font-medium bg-green-100 text-green-600 rounded-full dark:bg-green-500/10 dark:text-green-400">Active</span>
                                         </TableCell>
                                         <TableCell className="py-3 relative">
                                             <button
@@ -259,29 +278,13 @@ export default function LocationsPage() {
                                             >
                                                 <HorizontaLDots className="h-4 w-4 text-gray-500" />
                                             </button>
-
-                                            <Dropdown
-                                                isOpen={activeDropdown === (location.id || location.unique_id)}
-                                                onClose={() => setActiveDropdown(null)}
-                                                className="absolute right-0 top-10 pointer-events-auto"
-                                            >
+                                            <Dropdown isOpen={activeDropdown === (location.id || location.unique_id)} onClose={() => setActiveDropdown(null)} className="absolute right-0 top-10 pointer-events-auto">
                                                 <div className="w-48 py-2">
                                                     <DropdownItem onClick={() => { setActiveDropdown(null); openEdit(location); }}>
-                                                        <div className="flex items-center gap-2">
-                                                            <PencilIcon className="w-4 h-4 text-gray-400" />
-                                                            <span>Edit Location</span>
-                                                        </div>
+                                                        <div className="flex items-center gap-2"><PencilIcon className="w-4 h-4 text-gray-400" /><span>Edit Location</span></div>
                                                     </DropdownItem>
-                                                    <DropdownItem
-                                                        onClick={() => { setActiveDropdown(null); handleDelete(location); }}
-                                                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <TrashBinIcon className="w-4 h-4" />
-                                                            <span>
-                                                                {isDeleting === location.unique_id ? "Removing..." : "Remove Location"}
-                                                            </span>
-                                                        </div>
+                                                    <DropdownItem onClick={() => { setActiveDropdown(null); handleDelete(location); }} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                                                        <div className="flex items-center gap-2"><TrashBinIcon className="w-4 h-4" /><span>{isDeleting === location.unique_id ? "Removing..." : "Remove Location"}</span></div>
                                                     </DropdownItem>
                                                 </div>
                                             </Dropdown>

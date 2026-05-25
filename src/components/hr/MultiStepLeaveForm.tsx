@@ -123,7 +123,9 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
             formData.dates.forEach((d: any, i: number) => {
                 if (!d.startDate) newErrors[`startDate_${i}`] = "Start date is required.";
                 if (!d.endDate) newErrors[`endDate_${i}`] = "End date is required.";
-                if (d.startDate && d.endDate && d.endDate < d.startDate) {
+                if (d.startDate && d.endDate && d.startDate === d.endDate) {
+                    newErrors[`endDate_${i}`] = "Start date and end date cannot be the same.";
+                } else if (d.startDate && d.endDate && d.endDate < d.startDate) {
                     newErrors[`endDate_${i}`] = "End date must be after start date.";
                 }
             });

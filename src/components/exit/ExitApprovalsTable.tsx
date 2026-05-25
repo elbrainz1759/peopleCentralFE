@@ -481,7 +481,58 @@ export default function ExitApprovalsTable() {
                 </div>
             )}
 
-            <div className="max-w-full overflow-x-auto min-h-[400px]">
+            {/* Mobile card grid */}
+            <div className="block md:hidden min-h-[400px]">
+                {isLoadingInterviews ? (
+                    <p className="py-10 text-center text-gray-500">Loading exit interviews...</p>
+                ) : exitInterviews.length === 0 ? (
+                    <p className="py-10 text-center text-gray-500">No records found for "{currentQueue}"</p>
+                ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {exitInterviews.map((interview: ExitInterviewDisplay, i) => (
+                            <div key={interview.uniqueId || i} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="h-10 w-10 flex items-center justify-center rounded-full shrink-0 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 font-bold text-xs uppercase">
+                                        {interview.employeeName.split(" ").map((n: string) => n[0]).join("")}
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-800 dark:text-white/90 text-sm">{interview.employeeName}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{interview.department}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                    <div className="flex justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Designation</span>
+                                        <span>{interview.designation}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Location</span>
+                                        <span>{interview.location}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Exit Date</span>
+                                        <span>{(interview as any).resignationDate}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Submitted</span>
+                                        <span>{interview.submittedOn}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Stage</span>
+                                        <Badge size="sm" color={getStageColor(interview.stage)}>{interview.stage}</Badge>
+                                    </div>
+                                </div>
+                                <Button size="sm" variant="outline" onClick={() => handleReview(interview)} className="w-full">
+                                    Review
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block max-w-full overflow-x-auto min-h-[400px]">
                 <Table>
                     <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                         <TableRow>

@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { PaperPlaneIcon } from "@/icons";
 import DatePicker from "@/components/form/date-picker";
 import CustomSelect from "@/components/form/CustomSelect";
+import { toast } from "react-hot-toast";
 
 export default function LeaveApplicationForm() {
     const [formData, setFormData] = useState({
@@ -25,6 +26,16 @@ export default function LeaveApplicationForm() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (formData.startDate && formData.endDate) {
+            if (formData.startDate === formData.endDate) {
+                toast.error("Start date and end date cannot be the same.");
+                return;
+            }
+            if (formData.endDate < formData.startDate) {
+                toast.error("End date must be after the start date.");
+                return;
+            }
+        }
         console.log("Form Submitted:", formData);
         // Add submission logic here
     };
