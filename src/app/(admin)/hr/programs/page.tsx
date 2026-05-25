@@ -394,7 +394,6 @@ export default function ProgramsPage() {
                         </TableBody>
                     </Table>
                 </div>
-                </div>
             </div>
 
             <Drawer

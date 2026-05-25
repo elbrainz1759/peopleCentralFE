@@ -313,7 +313,6 @@ export default function ChecklistItemsManager() {
             </TableBody>
           </Table>
         </div>
-        </div>
       </div>
 
       {/* Add/Edit Drawer */}
