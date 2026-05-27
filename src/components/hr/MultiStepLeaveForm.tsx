@@ -281,15 +281,18 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                                         const remainingHours = parseFloat(balance.remaining_hours || '0');
                                         const totalHours = parseFloat(balance.total_hours || '0');
                                         const usagePercentage = totalHours > 0 ? ((totalHours - remainingHours) / totalHours) * 100 : 0;
+                                        const typeName = balance.leave_type_name
+                                            || leaveTypes.find((t: any) => t.id === balance.leave_type_id || t.unique_id === balance.leave_type_id)?.name
+                                            || `Leave Type ${balance.leave_type_id}`;
 
                                         return (
                                             <div key={balance.id} className="flex justify-between items-center text-sm">
                                                 <span className="font-medium text-blue-800 dark:text-blue-200">
-                                                    {balance.leave_type_name}
+                                                    {typeName}
                                                 </span>
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-blue-700 dark:text-blue-300">
-                                                        {remainingHours}h remaining
+                                                        {remainingHours}h remaining of {totalHours}h
                                                     </span>
                                                     <div className="w-20 bg-blue-200 dark:bg-blue-800 rounded-full h-2">
                                                         <div
