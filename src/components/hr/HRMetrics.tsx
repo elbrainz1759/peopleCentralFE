@@ -1,7 +1,10 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { GroupIcon, CalenderIcon, FileIcon, BoxIconLine } from "@/icons";
+import { userService } from "@/services/user.service";
+import { leaveServiceInstance } from "@/services/leave.service";
+import { exitServiceInstance } from "@/services/exit.service";
 
 interface MetricCardProps {
     title: string;
@@ -12,9 +15,10 @@ interface MetricCardProps {
     iconBg: string;
     href?: string;
     footer?: string;
+    loading?: boolean;
 }
 
-function MetricCard({ title, value, change, changeType = "neutral", icon, iconBg, href, footer }: MetricCardProps) {
+function MetricCard({ title, value, change, changeType = "neutral", icon, iconBg, href, footer, loading }: MetricCardProps) {
     const changeColor =
         changeType === "up" ? "text-success-600 bg-success-50 dark:bg-success-500/10 dark:text-success-400"
         : changeType === "down" ? "text-error-600 bg-error-50 dark:bg-error-500/10 dark:text-error-400"
@@ -35,7 +39,11 @@ function MetricCard({ title, value, change, changeType = "neutral", icon, iconBg
             </div>
             <div className="mt-5">
                 <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
-                <h3 className="mt-1 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{value}</h3>
+                {loading ? (
+                    <div className="mt-1 h-9 w-24 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+                ) : (
+                    <h3 className="mt-1 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{value}</h3>
+                )}
                 {footer && <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">{footer}</p>}
             </div>
             {href && (
@@ -48,47 +56,106 @@ function MetricCard({ title, value, change, changeType = "neutral", icon, iconBg
 }
 
 export const HRMetrics = () => {
+    const [loading, setLoading] = useState(true);
+    const [activeStaff, setActiveStaff] = useState(0);
+    const [onLeave, setOnLeave] = useState(0);
+    const [pendingLeaves, setPendingLeaves] = useState(0);
+    const [exitRequests, setExitRequests] = useState(0);
+
+    useEffect(() => {
+        const fetchMetrics = async () => {
+            try {
+                const today = new Date();
+                const currentMonth = today.getMonth();
+                const currentYear = today.getFullYear();
+
+                const [employeesRes, approvedLeavesRes, pendingLeavesRes, exitRes] = await Promise.allSettled([
+                    userService.getAllEmployees(),
+                    leaveServiceInstance.getAllLeaves(1, 1000, 'Approved'),
+                    leaveServiceInstance.getAllLeaves(1, 1, 'Pending'),
+                    exitServiceInstance.getAllExitInterviews(1, 1000),
+                ]);
+
+                if (employeesRes.status === 'fulfilled') {
+                    const res = employeesRes.value as any;
+                    setActiveStaff(res?.meta?.total ?? res?.data?.length ?? 0);
+                }
+
+                if (approvedLeavesRes.status === 'fulfilled') {
+                    const res = approvedLeavesRes.value as any;
+                    const leaves: any[] = res?.data ?? (Array.isArray(res) ? res : []);
+                    const count = leaves.filter((leave: any) => {
+                        const durations: any[] = leave.durations ?? [];
+                        return durations.some((d: any) => {
+                            const start = new Date(d.start_date);
+                            const end = new Date(d.end_date);
+                            return today >= start && today <= end;
+                        });
+                    }).length;
+                    setOnLeave(count);
+                }
+
+                if (pendingLeavesRes.status === 'fulfilled') {
+                    const res = pendingLeavesRes.value as any;
+                    setPendingLeaves(res?.meta?.total ?? 0);
+                }
+
+                if (exitRes.status === 'fulfilled') {
+                    const res = exitRes.value as any;
+                    const records: any[] = res?.data ?? (Array.isArray(res) ? res : []);
+                    const count = records.filter((r: any) => {
+                        const created = new Date(r.created_at || r.createdAt);
+                        return created.getMonth() === currentMonth && created.getFullYear() === currentYear;
+                    }).length;
+                    setExitRequests(count);
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMetrics();
+    }, []);
+
     return (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-5">
             <MetricCard
                 title="Active Staff"
-                value="1,245"
-                change="2.5%"
-                changeType="up"
+                value={activeStaff.toLocaleString()}
                 icon={<GroupIcon className="size-6 text-brand-500" />}
                 iconBg="bg-brand-50 dark:bg-brand-500/10"
                 href="/hr/employees"
-                footer="vs last month"
+                footer="total employees"
+                loading={loading}
             />
             <MetricCard
                 title="On Leave"
-                value="42"
-                change="12 new"
-                changeType="neutral"
+                value={onLeave}
                 icon={<CalenderIcon className="size-6 text-blue-500" />}
                 iconBg="bg-blue-50 dark:bg-blue-500/10"
                 href="/leave/approvals"
                 footer="currently away"
+                loading={loading}
             />
             <MetricCard
                 title="Pending Leaves"
-                value="18"
-                change="Needs action"
-                changeType="down"
+                value={pendingLeaves}
+                change={pendingLeaves > 0 ? "Needs action" : undefined}
+                changeType={pendingLeaves > 0 ? "down" : "neutral"}
                 icon={<FileIcon className="size-6 text-amber-500" />}
                 iconBg="bg-amber-50 dark:bg-amber-500/10"
                 href="/leave/approvals"
                 footer="awaiting approval"
+                loading={loading}
             />
             <MetricCard
                 title="Exit Requests"
-                value="5"
-                change="2 new"
-                changeType="down"
+                value={exitRequests}
                 icon={<BoxIconLine className="size-6 text-purple-500" />}
                 iconBg="bg-purple-50 dark:bg-purple-500/10"
                 href="/exit/approvals"
                 footer="this month"
+                loading={loading}
             />
         </div>
     );
