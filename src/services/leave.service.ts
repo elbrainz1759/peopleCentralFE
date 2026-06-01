@@ -118,6 +118,16 @@ export class leaveService {
         }
     }
 
+    async cancelLeave(leaveId: number, comments?: string): Promise<any> {
+        try {
+            const response = await api.patch<any>(`/leaves/${leaveId}/cancel`, { comments });
+            return response;
+        } catch (error) {
+            console.error('LeaveService cancelLeave error:', error);
+            throw error;
+        }
+    }
+
     async getLeaveTypes(): Promise<any> {
         try {
             const response = await api.get<any>('/leave-types');

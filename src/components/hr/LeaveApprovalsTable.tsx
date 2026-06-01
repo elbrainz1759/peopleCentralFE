@@ -33,7 +33,7 @@ interface LeaveRequest {
 
 
 
-type CommentAction = { type: "review" | "reject"; id: number } | null;
+type CommentAction = { type: "review" | "reject" | "cancel"; id: number } | null;
 
 export default function LeaveApprovalsTable() {
     const [tableData, setTableData] = useState<LeaveRequest[]>([]);
@@ -126,9 +126,12 @@ export default function LeaveApprovalsTable() {
             if (commentAction.type === "review") {
                 await leaveService.getInstance().reviewLeave(commentAction.id, comment);
                 toast.success("Leave request reviewed by HR");
-            } else {
+            } else if (commentAction.type === "reject") {
                 await leaveService.getInstance().rejectLeave(commentAction.id, comment);
                 toast.success("Leave request rejected");
+            } else {
+                await leaveService.getInstance().cancelLeave(commentAction.id, comment);
+                toast.success("Leave request cancelled");
             }
             closeCommentModal();
             setIsDrawerOpen(false);
@@ -236,6 +239,12 @@ export default function LeaveApprovalsTable() {
                                             >
                                                 <CloseIcon className="w-3.5 h-3.5" /> Reject
                                             </button>
+                                            <button
+                                                onClick={() => openCommentModal("cancel", record.id)}
+                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                                            >
+                                                <CloseIcon className="w-3.5 h-3.5" /> Cancel
+                                            </button>
                                         </>
                                     )}
                                     {record.status === "Reviewed" && (
@@ -251,6 +260,12 @@ export default function LeaveApprovalsTable() {
                                                 className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30"
                                             >
                                                 <CloseIcon className="w-3.5 h-3.5" /> Reject
+                                            </button>
+                                            <button
+                                                onClick={() => openCommentModal("cancel", record.id)}
+                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                                            >
+                                                <CloseIcon className="w-3.5 h-3.5" /> Cancel
                                             </button>
                                         </>
                                     )}
@@ -394,18 +409,25 @@ export default function LeaveApprovalsTable() {
                                                 {record.status === "Pending" && (
                                                     <>
                                                         <DropdownItem
-                                                            onItemClick={() => handleReview(record.id)}
+                                                            onItemClick={() => openCommentModal("review", record.id)}
                                                             className="flex gap-2 items-center text-blue-600 hover:text-blue-700"
                                                         >
                                                             <EyeIcon className="w-4 h-4" />
                                                             HR Review
                                                         </DropdownItem>
                                                         <DropdownItem
-                                                            onItemClick={() => handleReject(record.id)}
+                                                            onItemClick={() => openCommentModal("reject", record.id)}
                                                             className="flex gap-2 items-center text-red-500 hover:text-red-700"
                                                         >
                                                             <CloseIcon className="w-4 h-4" />
                                                             Reject
+                                                        </DropdownItem>
+                                                        <DropdownItem
+                                                            onItemClick={() => openCommentModal("cancel", record.id)}
+                                                            className="flex gap-2 items-center text-gray-500 hover:text-gray-700"
+                                                        >
+                                                            <CloseIcon className="w-4 h-4" />
+                                                            Cancel Leave
                                                         </DropdownItem>
                                                     </>
                                                 )}
@@ -419,11 +441,18 @@ export default function LeaveApprovalsTable() {
                                                             Approve
                                                         </DropdownItem>
                                                         <DropdownItem
-                                                            onItemClick={() => handleReject(record.id)}
+                                                            onItemClick={() => openCommentModal("reject", record.id)}
                                                             className="flex gap-2 items-center text-red-500 hover:text-red-700"
                                                         >
                                                             <CloseIcon className="w-4 h-4" />
                                                             Reject
+                                                        </DropdownItem>
+                                                        <DropdownItem
+                                                            onItemClick={() => openCommentModal("cancel", record.id)}
+                                                            className="flex gap-2 items-center text-gray-500 hover:text-gray-700"
+                                                        >
+                                                            <CloseIcon className="w-4 h-4" />
+                                                            Cancel Leave
                                                         </DropdownItem>
                                                     </>
                                                 )}
@@ -442,18 +471,26 @@ export default function LeaveApprovalsTable() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
                     <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl p-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                            {commentAction.type === "review" ? "HR Review" : "Reject Request"}
+                            {commentAction.type === "review" ? "HR Review" : commentAction.type === "reject" ? "Reject Request" : "Cancel Leave"}
                         </h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                             {commentAction.type === "review"
                                 ? "Add your review comments before marking this leave as reviewed."
-                                : "Provide a reason for rejecting this leave request."}
+                                : commentAction.type === "reject"
+                                ? "Provide a reason for rejecting this leave request."
+                                : "Provide a reason for cancelling this leave request."}
                         </p>
                         <textarea
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
                             rows={4}
-                            placeholder={commentAction.type === "review" ? "Enter review comments (optional)..." : "Enter rejection reason (optional)..."}
+                            placeholder={
+                                commentAction.type === "review"
+                                    ? "Enter review comments (optional)..."
+                                    : commentAction.type === "reject"
+                                    ? "Enter rejection reason (optional)..."
+                                    : "Enter cancellation reason (optional)..."
+                            }
                             className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 resize-none"
                         />
                         <div className="flex gap-3 mt-5">
@@ -462,7 +499,7 @@ export default function LeaveApprovalsTable() {
                                 disabled={isSubmitting}
                                 className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
                             >
-                                Cancel
+                                Close
                             </button>
                             <button
                                 onClick={submitComment}
@@ -470,10 +507,12 @@ export default function LeaveApprovalsTable() {
                                 className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-60 ${
                                     commentAction.type === "review"
                                         ? "bg-blue-600 hover:bg-blue-700"
-                                        : "bg-red-500 hover:bg-red-600"
+                                        : commentAction.type === "reject"
+                                        ? "bg-red-500 hover:bg-red-600"
+                                        : "bg-gray-600 hover:bg-gray-700"
                                 }`}
                             >
-                                {isSubmitting ? "Saving..." : commentAction.type === "review" ? "Submit Review" : "Reject"}
+                                {isSubmitting ? "Saving..." : commentAction.type === "review" ? "Submit Review" : commentAction.type === "reject" ? "Reject" : "Cancel Leave"}
                             </button>
                         </div>
                     </div>
