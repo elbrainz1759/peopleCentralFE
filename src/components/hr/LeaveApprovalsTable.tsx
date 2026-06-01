@@ -47,6 +47,7 @@ export default function LeaveApprovalsTable() {
     const [commentAction, setCommentAction] = useState<CommentAction>(null);
     const [comment, setComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorModal, setErrorModal] = useState<string | null>(null);
 
     const toggleDropdown = (id: number) => {
         setOpenDropdownId(openDropdownId === id ? null : id);
@@ -111,6 +112,13 @@ export default function LeaveApprovalsTable() {
         };
     }, [filterStatus]);
 
+    const getApiErrorMessage = (error: any): string => {
+        return error?.response?.data?.message
+            ?? error?.data?.message
+            ?? error?.message
+            ?? "Something went wrong. Please try again.";
+    };
+
     const submitComment = async () => {
         if (!commentAction) return;
         setIsSubmitting(true);
@@ -125,9 +133,10 @@ export default function LeaveApprovalsTable() {
             closeCommentModal();
             setIsDrawerOpen(false);
             fetchLeaves();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Action error:", error);
-            toast.error(`Failed to ${commentAction.type} leave request`);
+            closeCommentModal();
+            setErrorModal(getApiErrorMessage(error));
         } finally {
             setIsSubmitting(false);
         }
@@ -139,9 +148,9 @@ export default function LeaveApprovalsTable() {
             toast.success("Leave request approved");
             fetchLeaves();
             setIsDrawerOpen(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Approval error:", error);
-            toast.error("Failed to approve leave request");
+            setErrorModal(getApiErrorMessage(error));
         }
     };
 
@@ -467,6 +476,27 @@ export default function LeaveApprovalsTable() {
                                 {isSubmitting ? "Saving..." : commentAction.type === "review" ? "Submit Review" : "Reject"}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Error Modal */}
+            {errorModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/10">
+                                <CloseIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Action Failed</h3>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">{errorModal}</p>
+                        <button
+                            onClick={() => setErrorModal(null)}
+                            className="w-full rounded-xl bg-red-500 hover:bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors"
+                        >
+                            OK
+                        </button>
                     </div>
                 </div>
             )}
