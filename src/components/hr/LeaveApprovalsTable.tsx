@@ -33,6 +33,8 @@ interface LeaveRequest {
 
 
 
+type CommentAction = { type: "review" | "reject"; id: number } | null;
+
 export default function LeaveApprovalsTable() {
     const [tableData, setTableData] = useState<LeaveRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +43,10 @@ export default function LeaveApprovalsTable() {
     const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+    const [commentAction, setCommentAction] = useState<CommentAction>(null);
+    const [comment, setComment] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const toggleDropdown = (id: number) => {
         setOpenDropdownId(openDropdownId === id ? null : id);
@@ -53,6 +59,17 @@ export default function LeaveApprovalsTable() {
     const handleView = (request: LeaveRequest) => {
         setSelectedRequest(request);
         setIsDrawerOpen(true);
+    };
+
+    const openCommentModal = (type: "review" | "reject", id: number) => {
+        closeDropdown();
+        setComment("");
+        setCommentAction({ type, id });
+    };
+
+    const closeCommentModal = () => {
+        setCommentAction(null);
+        setComment("");
     };
 
     const fetchLeaves = async (signal?: AbortSignal) => {
@@ -94,41 +111,37 @@ export default function LeaveApprovalsTable() {
         };
     }, [filterStatus]);
 
-    const handleReview = async (id: number) => {
-        const comments = prompt("Please enter review comments (optional):") || "";
+    const submitComment = async () => {
+        if (!commentAction) return;
+        setIsSubmitting(true);
         try {
-            await leaveService.getInstance().reviewLeave(id, comments);
-            toast.success("Leave request reviewed by HR");
-            fetchLeaves();
+            if (commentAction.type === "review") {
+                await leaveService.getInstance().reviewLeave(commentAction.id, comment);
+                toast.success("Leave request reviewed by HR");
+            } else {
+                await leaveService.getInstance().rejectLeave(commentAction.id, comment);
+                toast.success("Leave request rejected");
+            }
+            closeCommentModal();
             setIsDrawerOpen(false);
+            fetchLeaves();
         } catch (error) {
-            console.error("Review error:", error);
-            toast.error("Failed to review leave request");
+            console.error("Action error:", error);
+            toast.error(`Failed to ${commentAction.type} leave request`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleApprove = async (id: number) => {
         try {
             await leaveService.getInstance().approveLeave(id);
-            toast.success("Leave request approved by supervisor");
+            toast.success("Leave request approved");
             fetchLeaves();
             setIsDrawerOpen(false);
         } catch (error) {
             console.error("Approval error:", error);
             toast.error("Failed to approve leave request");
-        }
-    };
-
-    const handleReject = async (id: number) => {
-        const comments = prompt("Please enter a reason for rejection (optional):") || "";
-        try {
-            await leaveService.getInstance().rejectLeave(id, comments);
-            toast.success("Leave request rejected");
-            fetchLeaves();
-            setIsDrawerOpen(false);
-        } catch (error) {
-            console.error("Rejection error:", error);
-            toast.error("Failed to reject leave request");
         }
     };
 
@@ -203,13 +216,13 @@ export default function LeaveApprovalsTable() {
                                     {record.status === "Pending" && (
                                         <>
                                             <button
-                                                onClick={() => handleReview(record.id)}
+                                                onClick={() => openCommentModal("review", record.id)}
                                                 className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-blue-200 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-900/30"
                                             >
                                                 <EyeIcon className="w-3.5 h-3.5" /> HR Review
                                             </button>
                                             <button
-                                                onClick={() => handleReject(record.id)}
+                                                onClick={() => openCommentModal("reject", record.id)}
                                                 className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30"
                                             >
                                                 <CloseIcon className="w-3.5 h-3.5" /> Reject
@@ -225,7 +238,7 @@ export default function LeaveApprovalsTable() {
                                                 <CheckCircleIcon className="w-3.5 h-3.5" /> Approve
                                             </button>
                                             <button
-                                                onClick={() => handleReject(record.id)}
+                                                onClick={() => openCommentModal("reject", record.id)}
                                                 className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30"
                                             >
                                                 <CloseIcon className="w-3.5 h-3.5" /> Reject
@@ -415,6 +428,49 @@ export default function LeaveApprovalsTable() {
                 </Table>
             </div>
 
+            {/* Comment Modal */}
+            {commentAction && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                            {commentAction.type === "review" ? "HR Review" : "Reject Request"}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                            {commentAction.type === "review"
+                                ? "Add your review comments before marking this leave as reviewed."
+                                : "Provide a reason for rejecting this leave request."}
+                        </p>
+                        <textarea
+                            value={comment}
+                            onChange={(e) => setComment(e.target.value)}
+                            rows={4}
+                            placeholder={commentAction.type === "review" ? "Enter review comments (optional)..." : "Enter rejection reason (optional)..."}
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 resize-none"
+                        />
+                        <div className="flex gap-3 mt-5">
+                            <button
+                                onClick={closeCommentModal}
+                                disabled={isSubmitting}
+                                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={submitComment}
+                                disabled={isSubmitting}
+                                className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-60 ${
+                                    commentAction.type === "review"
+                                        ? "bg-blue-600 hover:bg-blue-700"
+                                        : "bg-red-500 hover:bg-red-600"
+                                }`}
+                            >
+                                {isSubmitting ? "Saving..." : commentAction.type === "review" ? "Submit Review" : "Reject"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Review Drawer */}
             <Drawer
                 isOpen={isDrawerOpen}
@@ -466,14 +522,14 @@ export default function LeaveApprovalsTable() {
                         {selectedRequest.status === "Pending" ? (
                             <div className="flex flex-col gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
                                 <button
-                                    onClick={() => handleReview(selectedRequest.id)}
+                                    onClick={() => openCommentModal("review", selectedRequest.id)}
                                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                                 >
                                     <EyeIcon className="w-5 h-5" />
                                     HR Review
                                 </button>
                                 <button
-                                    onClick={() => handleReject(selectedRequest.id)}
+                                    onClick={() => openCommentModal("reject", selectedRequest.id)}
                                     className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2"
                                 >
                                     <CloseIcon className="w-5 h-5" />
@@ -490,7 +546,7 @@ export default function LeaveApprovalsTable() {
                                     Approve
                                 </button>
                                 <button
-                                    onClick={() => handleReject(selectedRequest.id)}
+                                    onClick={() => openCommentModal("reject", selectedRequest.id)}
                                     className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2"
                                 >
                                     <CloseIcon className="w-5 h-5" />
