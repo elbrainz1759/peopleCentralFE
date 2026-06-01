@@ -28,6 +28,7 @@ interface LeaveRequest {
     reason: string;
     status: "Approved" | "Pending" | "Reviewed" | "Rejected";
     appliedOn: string;
+    dateCreated: string;
 }
 
 
@@ -62,15 +63,16 @@ export default function LeaveApprovalsTable() {
             const mappedData = response.data.map((item: any) => ({
                 id: item.id,
                 employeeName: item.employee_name ?? item.staff?.employee_name ?? "—",
-                role: item.staff?.employment_detail?.job_title || "Staff",
-                department: item.staff?.employment_detail?.department?.name || "Unit",
-                leaveType: item.leaveType?.name || "Other",
+                role: item.employee_designation ?? item.staff?.employment_detail?.job_title ?? "Staff",
+                department: item.department_name ?? item.staff?.employment_detail?.department?.name ?? "Unit",
+                leaveType: item.leave_type_name ?? item.leaveType?.name ?? "Other",
                 startDate: item.start_date ? new Date(item.start_date).toLocaleDateString() : new Date(item.created_at).toLocaleDateString(),
                 endDate: item.end_date ? new Date(item.end_date).toLocaleDateString() : "-",
                 duration: item.total_hours ? `${item.total_hours} hrs` : "-",
                 reason: item.reason,
                 status: item.status,
                 appliedOn: new Date(item.created_at).toLocaleDateString(),
+                dateCreated: new Date(item.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
             }));
             setTableData(mappedData);
         } catch (error: any) {
@@ -186,6 +188,10 @@ export default function LeaveApprovalsTable() {
                                         <span className="font-medium text-gray-600 dark:text-gray-300">Duration</span>
                                         <span>{record.duration}</span>
                                     </div>
+                                    <div className="flex justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Date Applied</span>
+                                        <span>{record.dateCreated}</span>
+                                    </div>
                                 </div>
                                 <div className="flex gap-2 flex-wrap">
                                     <button
@@ -266,6 +272,12 @@ export default function LeaveApprovalsTable() {
                                 isHeader
                                 className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                             >
+                                Date Applied
+                            </TableCell>
+                            <TableCell
+                                isHeader
+                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                            >
                                 Status
                             </TableCell>
                             <TableCell
@@ -280,13 +292,13 @@ export default function LeaveApprovalsTable() {
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="py-10 text-center text-gray-400">
+                                <TableCell colSpan={7} className="py-10 text-center text-gray-400">
                                     Loading leave approvals...
                                 </TableCell>
                             </TableRow>
                         ) : filteredData.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="py-10 text-center text-gray-400">
+                                <TableCell colSpan={7} className="py-10 text-center text-gray-400">
                                     No leave requests found.
                                 </TableCell>
                             </TableRow>
@@ -311,6 +323,9 @@ export default function LeaveApprovalsTable() {
                                     </TableCell>
                                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         {record.duration}
+                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
+                                        {record.dateCreated}
                                     </TableCell>
                                     <TableCell className="py-3 text-theme-sm">
                                         <Badge
