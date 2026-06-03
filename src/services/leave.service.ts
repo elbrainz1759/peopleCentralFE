@@ -58,7 +58,7 @@ export class leaveService {
         }
     }
 
-    async getUserLeaves(staffId: number, page = 1, limit = 10): Promise<any> {
+    async getUserLeaves(staffId: number | string, page = 1, limit = 10): Promise<any> {
         try {
             const response = await api.get<any>(`/leaves/${staffId}?page=${page}&limit=${limit}`);
             return response;
