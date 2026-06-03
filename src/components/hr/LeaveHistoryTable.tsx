@@ -91,8 +91,8 @@ export default function LeaveHistoryTable() {
     useEffect(() => {
         const fetchUserLeaves = async () => {
             const currentUser = authService.getCurrentUser();
-            const staffIdRaw = currentUser?.id || currentUser?.unique_id || 1;
-            const staffId = parseInt(String(staffIdRaw).replace('test-user-', '')) || 1;
+            const staffIdRaw = currentUser?.staff_id || currentUser?.staffId || currentUser?.id;
+            const staffId = parseInt(String(staffIdRaw)) || 1;
 
             setIsLoading(true);
             try {
