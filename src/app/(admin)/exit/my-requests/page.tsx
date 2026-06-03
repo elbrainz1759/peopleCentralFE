@@ -130,7 +130,7 @@ export default function MyExitRequestsPage() {
                     <Table>
                         <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                             <TableRow>
-                                {["S/N", "Request ID", "Resignation Date", "Reason", "Stage", "Status", "Submitted On"].map((h) => (
+                                {["S/N", "Resignation Date", "Reason", "Stage", "Status", "Submitted On"].map((h) => (
                                     <TableCell key={h} isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 whitespace-nowrap">
                                         {h}
                                     </TableCell>
@@ -140,13 +140,13 @@ export default function MyExitRequestsPage() {
                         <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="py-10 text-center text-gray-400">
+                                    <TableCell colSpan={6} className="py-10 text-center text-gray-400">
                                         Loading your exit requests...
                                     </TableCell>
                                 </TableRow>
                             ) : requests.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="py-10 text-center text-gray-400">
+                                    <TableCell colSpan={6} className="py-10 text-center text-gray-400">
                                         No exit requests found. <a href="/exit" className="text-brand-500 hover:underline">Submit one here.</a>
                                     </TableCell>
                                 </TableRow>
@@ -154,7 +154,6 @@ export default function MyExitRequestsPage() {
                                 requests.map((r, index) => (
                                     <TableRow key={r.id}>
                                         <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">{index + 1}</TableCell>
-                                        <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 font-mono text-xs">{r.uniqueId}</TableCell>
                                         <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{r.resignationDate}</TableCell>
                                         <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 max-w-[200px] truncate">{r.reasonForLeaving}</TableCell>
                                         <TableCell className="py-3">
