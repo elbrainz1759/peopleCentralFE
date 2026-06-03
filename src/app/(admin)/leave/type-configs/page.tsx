@@ -81,12 +81,12 @@ export default function LeaveTypeConfigsPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const applyHoursAndPeriod = (rawHours: number, period: "month" | "year") => {
-        const multiplier = period === "month" ? 12 : 1;
-        const monthly = rawHours * multiplier;
+        const annualHours = period === "month" ? rawHours * 12 : rawHours;
+        const monthlyAccrualHours = period === "year" ? rawHours / 12 : rawHours;
         setForm((prev) => ({
             ...prev,
-            annualHours: rawHours,
-            monthlyAccrualHours: rawHours ? Number(monthly.toFixed(2)) : null,
+            annualHours: Number(annualHours.toFixed(2)),
+            monthlyAccrualHours: rawHours ? Number(monthlyAccrualHours.toFixed(2)) : null,
         }));
     };
 
