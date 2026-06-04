@@ -298,14 +298,8 @@ export default function ExitApprovalsTable() {
 
         try {
             if (stage === 'Supervisor') {
-                await exitServiceInstance.advanceStage(selectedInterview.uniqueId as any, 'HR');
-                toast.success(" approval submitted. Forwarded to HR.");
-                setIsReviewOpen(false);
-                fetchInterviews();
-
-            } else if (stage === 'HR') {
                 await exitServiceInstance.advanceStage(selectedInterview.uniqueId as any, 'Operations');
-                toast.success("HR review approved. Forwarded to Operations/Finance.");
+                toast.success("Supervisor approved. Forwarded to Operations for asset clearance.");
                 setIsReviewOpen(false);
                 fetchInterviews();
 
@@ -328,24 +322,22 @@ export default function ExitApprovalsTable() {
                 const clearedBy = authUser?.unique_id || authUser?.uniqueId || String(authUser?.id || '');
                 await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
                     department: 'Finance',
-                    checkListItemIds: [],
+                    checkListItemIds: selectedChecklistIds.map(Number),
                     clearedBy,
                 } as any);
-                toast.success("Finance cleared. Exit process completed.");
+                toast.success("Finance cleared. Forwarded to HR for final review.");
+                setIsReviewOpen(false);
+                fetchInterviews();
+
+            } else if (stage === 'HR' || stage === 'HR_Final') {
+                await exitServiceInstance.finalizeExitInterview(selectedInterview.uniqueId as any);
+                toast.success("HR final review complete. Exit clearance process is now closed.");
                 setIsReviewOpen(false);
                 fetchInterviews();
 
             } else if (stage === 'Completed') {
-                await exitServiceInstance.finalizeExitInterview(selectedInterview.uniqueId as any);
-                toast.success("Exit clearance finalized successfully.");
+                toast("This exit request has already been completed.", { icon: "ℹ️" });
                 setIsReviewOpen(false);
-                fetchInterviews();
-
-            } else if (stage === 'HR_Final') {
-                await exitServiceInstance.finalizeExitInterview(selectedInterview.uniqueId as any);
-                toast.success("Exit process completed successfully.");
-                setIsReviewOpen(false);
-                fetchInterviews();
 
             } else {
                 toast.error(`No approval action available for stage: ${stage}`);
@@ -370,16 +362,23 @@ export default function ExitApprovalsTable() {
         );
     };
 
-    const getStageColor = (stage: string) => {
+    const getStageColor = (stage: string): "warning" | "info" | "success" | "error" | "light" => {
         switch (stage) {
+            case "Employee":   return "light";
             case "Supervisor": return "warning";
             case "Operations": return "info";
-            case "Finance": return "success";
-            case "HR": return "error";
-            case "Completed": return "success";
-            default: return "light";
+            case "Finance":    return "info";
+            case "HR":         return "warning";
+            case "HR_Final":   return "warning";
+            case "Completed":  return "success";
+            default:           return "light";
         }
     };
+
+    const isUserHR = (() => {
+        const role = (authUser?.role || authUser?.designation || "").toLowerCase();
+        return role.includes('hr') || role.includes('admin') || role.includes('superadmin');
+    })();
 
     return (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
@@ -417,13 +416,15 @@ export default function ExitApprovalsTable() {
                     </div>
                 )}
 
-                <button
-                    onClick={() => setShowChecklistManager(!showChecklistManager)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700"
-                >
-                    <PlusIcon className="w-4 h-4" />
-                    {showChecklistManager ? "Hide Assets" : "Global Assets"}
-                </button>
+                {isUserHR && (
+                    <button
+                        onClick={() => setShowChecklistManager(!showChecklistManager)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700"
+                    >
+                        <PlusIcon className="w-4 h-4" />
+                        {showChecklistManager ? "Hide Assets" : "Global Assets"}
+                    </button>
+                )}
             </div>
 
             {showChecklistManager && (
@@ -642,33 +643,59 @@ export default function ExitApprovalsTable() {
 
                             <div className="space-y-4">
                                 <h5 className="font-semibold text-gray-800 dark:text-white/90 border-b pb-2 border-gray-100 dark:border-gray-800">Clearance Progress</h5>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">1. Supervisor (Handover)</span>
-                                        <Badge color={selectedInterview.handoverStatus === "Accepted" ? "success" : "warning"}>{selectedInterview.handoverStatus}</Badge>
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">2. HR (Review & Checklist)</span>
-                                        {(() => {
-                                            const s = selectedInterview.stage;
-                                            if (s === "Operations" || s === "Finance" || s === "Completed") return <Badge color="success">Approved</Badge>;
-                                            if (s === "HR") return <Badge color="warning">In Review</Badge>;
-                                            return <Badge color="light">Not Reached</Badge>;
-                                        })()}
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">3. Operations (Assets)</span>
-                                        <Badge color={selectedInterview.assetsStatus === "Cleared" ? "success" : "warning"}>{selectedInterview.assetsStatus}</Badge>
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-400">4. Finance (Outstanding)</span>
-                                        <Badge color={selectedInterview.financeStatus === "Cleared" ? "success" : "warning"}>{selectedInterview.financeStatus}</Badge>
-                                    </div>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {[
+                                        {
+                                            label: "1. Employee",
+                                            color: "success" as const,
+                                            status: "Submitted",
+                                        },
+                                        {
+                                            label: "2. Supervisor (Handover)",
+                                            color: (selectedInterview.handoverStatus === "Accepted" ? "success" : "warning") as "success" | "warning",
+                                            status: selectedInterview.handoverStatus,
+                                        },
+                                        {
+                                            label: "3. Operations (Asset Clearance)",
+                                            color: (selectedInterview.assetsStatus === "Cleared" ? "success" : "warning") as "success" | "warning",
+                                            status: selectedInterview.assetsStatus,
+                                        },
+                                        {
+                                            label: "4. Finance (Outstanding Obligations)",
+                                            color: (selectedInterview.financeStatus === "Cleared" ? "success" : "warning") as "success" | "warning",
+                                            status: selectedInterview.financeStatus,
+                                        },
+                                        {
+                                            label: "5. HR (Final Review & Sign-off)",
+                                            color: (() => {
+                                                const s = selectedInterview.stage;
+                                                if (s === "Completed") return "success" as const;
+                                                if (s === "HR" || s === "HR_Final") return "warning" as const;
+                                                return "light" as const;
+                                            })(),
+                                            status: (() => {
+                                                const s = selectedInterview.stage;
+                                                if (s === "Completed") return "Completed";
+                                                if (s === "HR" || s === "HR_Final") return "In Review";
+                                                return "Pending";
+                                            })(),
+                                        },
+                                    ].map(({ label, color, status }) => (
+                                        <div key={label} className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg">
+                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-400">{label}</span>
+                                            <Badge color={color}>{status}</Badge>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
-                            {/* Checklist section — scoped strictly to the stage's department */}
-                            {selectedInterview.stage !== 'Completed' && (selectedInterview as any)?.status !== 'Completed' && (() => {
+                            {/* Checklist section — HR-only confidential section */}
+                            {!isUserHR && (
+                                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+                                    Exit interview notes and checklist details are restricted to HR staff only.
+                                </div>
+                            )}
+                            {isUserHR && selectedInterview.stage !== 'Completed' && (selectedInterview as any)?.status !== 'Completed' && (() => {
                                 const stage = selectedInterview.stage;
 
                                 // Stage → canonical department name + accepted synonyms
@@ -740,7 +767,7 @@ export default function ExitApprovalsTable() {
                                         ) : (
                                             <div className="text-center py-4">
                                                 <p className="text-xs text-gray-400 italic mb-2">No checklist items for {stageDeptLabel}.</p>
-                                                <a href="/exit/checklist" className="text-xs text-brand-500 hover:underline">Manage Checklist Items</a>
+                                                {isUserHR && <a href="/exit/checklist" className="text-xs text-brand-500 hover:underline">Manage Checklist Items</a>}
                                             </div>
                                         )}
                                     </div>
@@ -800,10 +827,11 @@ export default function ExitApprovalsTable() {
                                             doc.setFont("helvetica", "bold");
                                             doc.text("Clearance Progress", 14, afterInfo + 10);
                                             const progressData = [
-                                                ["1. Supervisor (Handover)", iv.handoverStatus],
-                                                ["2. HR (Review & Checklist)", "Approved"],
-                                                ["3. Operations (Assets)", iv.assetsStatus],
-                                                ["4. Finance (Outstanding)", iv.financeStatus],
+                                                ["1. Employee", "Submitted"],
+                                                ["2. Supervisor (Handover)", iv.handoverStatus],
+                                                ["3. Operations (Asset Clearance)", iv.assetsStatus],
+                                                ["4. Finance (Outstanding Obligations)", iv.financeStatus],
+                                                ["5. HR (Final Review & Sign-off)", "Completed"],
                                             ];
                                             autoTable(doc, {
                                                 startY: afterInfo + 14,

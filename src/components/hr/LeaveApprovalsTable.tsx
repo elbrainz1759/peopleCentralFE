@@ -4,17 +4,14 @@ import { leaveService } from "@/services/leave.service";
 import { toast } from "react-hot-toast";
 import CustomSelect from "@/components/form/CustomSelect";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHeader,
-    TableRow,
+    Table, TableBody, TableCell, TableHeader, TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
 import { EyeIcon, CheckCircleIcon, CloseIcon, MoreDotIcon } from "@/icons";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Drawer } from "../ui/drawer/Drawer";
+import MultiStepLeaveForm from "./MultiStepLeaveForm";
 
 interface LeaveRequest {
     id: number;
@@ -31,52 +28,76 @@ interface LeaveRequest {
     dateCreated: string;
 }
 
+type CommentAction = { type: "line-manager-approve" | "hr-finalize" | "reject" | "cancel"; id: number } | null;
 
+function statusLabel(status: string) {
+    if (status === "Reviewed") return "Awaiting HR";
+    return status;
+}
 
-type CommentAction = { type: "review" | "reject" | "cancel"; id: number } | null;
+function statusColor(status: string): "success" | "warning" | "info" | "error" | "light" {
+    if (status === "Approved") return "success";
+    if (status === "Pending") return "warning";
+    if (status === "Reviewed") return "info";
+    if (status === "Rejected") return "error";
+    return "light";
+}
 
 export default function LeaveApprovalsTable() {
     const [tableData, setTableData] = useState<LeaveRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-
     const [filterStatus, setFilterStatus] = useState("All");
+    const [activeTab, setActiveTab] = useState<"all" | "my-queue">("all");
     const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
     const [commentAction, setCommentAction] = useState<CommentAction>(null);
     const [comment, setComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorModal, setErrorModal] = useState<string | null>(null);
+    const [currentUserRole, setCurrentUserRole] = useState("");
+    const [isProxyDrawerOpen, setIsProxyDrawerOpen] = useState(false);
 
-    const toggleDropdown = (id: number) => {
-        setOpenDropdownId(openDropdownId === id ? null : id);
-    };
+    // ── Role detection ────────────────────────────────────────────
+    useEffect(() => {
+        try {
+            const authUserJson = localStorage.getItem('auth_user');
+            const authToken = localStorage.getItem('auth_token');
+            let user: any = authUserJson ? JSON.parse(authUserJson) : {};
+            if (authToken) {
+                const payload = JSON.parse(atob(authToken.split('.')[1]));
+                user = { ...user, ...payload };
+            }
+            setCurrentUserRole((user?.role || user?.designation || "").toLowerCase());
+        } catch { /* ignore */ }
+    }, []);
 
-    const closeDropdown = () => {
-        setOpenDropdownId(null);
-    };
+    const isHR = currentUserRole.includes('hr') || currentUserRole.includes('admin') || currentUserRole.includes('superadmin');
+    const isLineManager = currentUserRole.includes('manager') || currentUserRole.includes('supervisor') || currentUserRole.includes('lead');
+    // Graceful: if role is undetected show all actions
+    const canDoLineManagerActions = isLineManager || (!isHR && !isLineManager);
+    const canDoHRActions = isHR || (!isHR && !isLineManager);
+
+    const toggleDropdown = (id: number) => setOpenDropdownId(openDropdownId === id ? null : id);
+    const closeDropdown = () => setOpenDropdownId(null);
 
     const handleView = (request: LeaveRequest) => {
         setSelectedRequest(request);
         setIsDrawerOpen(true);
     };
 
-    const openCommentModal = (type: "review" | "reject", id: number) => {
+    const openCommentModal = (type: CommentAction["type"], id: number) => {
         closeDropdown();
         setComment("");
         setCommentAction({ type, id });
     };
 
-    const closeCommentModal = () => {
-        setCommentAction(null);
-        setComment("");
-    };
+    const closeCommentModal = () => { setCommentAction(null); setComment(""); };
 
     const fetchLeaves = async (signal?: AbortSignal) => {
         setIsLoading(true);
         try {
-            const response = await leaveService.getInstance().getAllLeaves(1, 100, filterStatus, undefined, signal);
+            const response = await leaveService.getInstance().getAllLeaves(1, 100, filterStatus === "Awaiting HR" ? "Reviewed" : filterStatus, undefined, signal);
             if (signal?.aborted) return;
             const mappedData = response.data.map((item: any) => ({
                 id: item.id,
@@ -95,7 +116,6 @@ export default function LeaveApprovalsTable() {
             setTableData(mappedData);
         } catch (error: any) {
             if (error?.name === "AbortError" || signal?.aborted) return;
-            console.error("Failed to fetch leave approvals:", error);
             toast.error("Could not load leave approvals");
         } finally {
             if (!signal?.aborted) setIsLoading(false);
@@ -106,38 +126,33 @@ export default function LeaveApprovalsTable() {
         const ctrl = new AbortController();
         const timeoutId = setTimeout(() => ctrl.abort(), 20000);
         fetchLeaves(ctrl.signal).finally(() => clearTimeout(timeoutId));
-        return () => {
-            clearTimeout(timeoutId);
-            ctrl.abort();
-        };
+        return () => { clearTimeout(timeoutId); ctrl.abort(); };
     }, [filterStatus]);
 
-    const getApiErrorMessage = (error: any): string => {
-        return error?.response?.data?.message
-            ?? error?.data?.message
-            ?? error?.message
-            ?? "Something went wrong. Please try again.";
-    };
+    const getApiErrorMessage = (error: any): string =>
+        error?.response?.data?.message ?? error?.data?.message ?? error?.message ?? "Something went wrong. Please try again.";
 
     const submitComment = async () => {
         if (!commentAction) return;
         setIsSubmitting(true);
         try {
-            if (commentAction.type === "review") {
+            if (commentAction.type === "line-manager-approve") {
                 await leaveService.getInstance().reviewLeave(commentAction.id, comment);
-                toast.success("Leave request reviewed by HR");
+                toast.success("Leave approved by Line Manager — forwarded to HR for final approval.");
+            } else if (commentAction.type === "hr-finalize") {
+                await leaveService.getInstance().approveLeave(commentAction.id);
+                toast.success("Leave finalised by HR — employee has been notified.");
             } else if (commentAction.type === "reject") {
                 await leaveService.getInstance().rejectLeave(commentAction.id, comment);
-                toast.success("Leave request rejected");
+                toast.success("Leave request rejected.");
             } else {
                 await leaveService.getInstance().cancelLeave(commentAction.id, comment);
-                toast.success("Leave request cancelled");
+                toast.success("Leave request cancelled.");
             }
             closeCommentModal();
             setIsDrawerOpen(false);
             fetchLeaves();
         } catch (error: any) {
-            console.error("Action error:", error);
             closeCommentModal();
             setErrorModal(getApiErrorMessage(error));
         } finally {
@@ -145,47 +160,171 @@ export default function LeaveApprovalsTable() {
         }
     };
 
-    const handleApprove = async (id: number) => {
-        try {
-            await leaveService.getInstance().approveLeave(id);
-            toast.success("Leave request approved");
-            fetchLeaves();
-            setIsDrawerOpen(false);
-        } catch (error: any) {
-            console.error("Approval error:", error);
-            setErrorModal(getApiErrorMessage(error));
-        }
-    };
+    // ── Filtering ─────────────────────────────────────────────────
+    const baseData = filterStatus === "All" ? tableData : tableData.filter(r => r.status === (filterStatus === "Awaiting HR" ? "Reviewed" : filterStatus));
+    const filteredData = activeTab === "my-queue"
+        ? baseData.filter(r => (canDoLineManagerActions && r.status === "Pending") || (canDoHRActions && r.status === "Reviewed"))
+        : baseData;
 
-    const filteredData =
-        filterStatus === "All"
-            ? tableData
-            : tableData.filter((record) => record.status === filterStatus);
+    const myQueueCount = tableData.filter(r =>
+        (canDoLineManagerActions && r.status === "Pending") ||
+        (canDoHRActions && r.status === "Reviewed")
+    ).length;
+
+    // ── Reusable action buttons ────────────────────────────────────
+    const renderCardActions = (record: LeaveRequest) => (
+        <div className="flex gap-2 flex-wrap">
+            <button onClick={() => handleView(record)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
+                <EyeIcon className="w-3.5 h-3.5" /> View
+            </button>
+            {record.status === "Pending" && canDoLineManagerActions && (
+                <>
+                    <button onClick={() => openCommentModal("line-manager-approve", record.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-blue-200 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-900/30">
+                        <CheckCircleIcon className="w-3.5 h-3.5" /> Approve
+                    </button>
+                    <button onClick={() => openCommentModal("reject", record.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30">
+                        <CloseIcon className="w-3.5 h-3.5" /> Reject
+                    </button>
+                    <button onClick={() => openCommentModal("cancel", record.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
+                        <CloseIcon className="w-3.5 h-3.5" /> Cancel
+                    </button>
+                </>
+            )}
+            {record.status === "Reviewed" && canDoHRActions && (
+                <>
+                    <button onClick={() => openCommentModal("hr-finalize", record.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-green-200 text-xs font-medium text-green-600 hover:bg-green-50 dark:border-green-900/30">
+                        <CheckCircleIcon className="w-3.5 h-3.5" /> HR Approve
+                    </button>
+                    <button onClick={() => openCommentModal("reject", record.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30">
+                        <CloseIcon className="w-3.5 h-3.5" /> Reject
+                    </button>
+                    <button onClick={() => openCommentModal("cancel", record.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
+                        <CloseIcon className="w-3.5 h-3.5" /> Cancel
+                    </button>
+                </>
+            )}
+        </div>
+    );
+
+    const renderDropdownActions = (record: LeaveRequest) => (
+        <>
+            <DropdownItem onItemClick={() => { closeDropdown(); handleView(record); }} className="flex gap-2 items-center">
+                <EyeIcon className="w-4 h-4" /> View Details
+            </DropdownItem>
+            {record.status === "Pending" && canDoLineManagerActions && (
+                <>
+                    <DropdownItem onItemClick={() => openCommentModal("line-manager-approve", record.id)} className="flex gap-2 items-center text-blue-600 hover:text-blue-700">
+                        <CheckCircleIcon className="w-4 h-4" /> Line Manager Approve
+                    </DropdownItem>
+                    <DropdownItem onItemClick={() => openCommentModal("reject", record.id)} className="flex gap-2 items-center text-red-500 hover:text-red-700">
+                        <CloseIcon className="w-4 h-4" /> Reject
+                    </DropdownItem>
+                    <DropdownItem onItemClick={() => openCommentModal("cancel", record.id)} className="flex gap-2 items-center text-gray-500 hover:text-gray-700">
+                        <CloseIcon className="w-4 h-4" /> Cancel Leave
+                    </DropdownItem>
+                </>
+            )}
+            {record.status === "Reviewed" && canDoHRActions && (
+                <>
+                    <DropdownItem onItemClick={() => openCommentModal("hr-finalize", record.id)} className="flex gap-2 items-center text-green-600 hover:text-green-700">
+                        <CheckCircleIcon className="w-4 h-4" /> HR Final Approval
+                    </DropdownItem>
+                    <DropdownItem onItemClick={() => openCommentModal("reject", record.id)} className="flex gap-2 items-center text-red-500 hover:text-red-700">
+                        <CloseIcon className="w-4 h-4" /> Reject
+                    </DropdownItem>
+                    <DropdownItem onItemClick={() => openCommentModal("cancel", record.id)} className="flex gap-2 items-center text-gray-500 hover:text-gray-700">
+                        <CloseIcon className="w-4 h-4" /> Cancel Leave
+                    </DropdownItem>
+                </>
+            )}
+        </>
+    );
 
     return (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
-            <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-                    Leave Approvals
-                </h3>
 
-                <div className="flex flex-wrap items-center gap-3">
-                    <CustomSelect
-                        value={filterStatus}
-                        onChange={(v) => setFilterStatus(v)}
-                        options={[
-                            { value: "All", label: "All Status" },
-                            { value: "Pending", label: "Pending" },
-                            { value: "Reviewed", label: "Reviewed" },
-                            { value: "Approved", label: "Approved" },
-                            { value: "Rejected", label: "Rejected" },
-                        ]}
-                        placeholder="All Status"
-                    />
+            {/* Workflow Banner */}
+            <div className="mb-6 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-white/[0.02] p-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Approval Workflow</p>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500 text-white text-xs font-bold flex-shrink-0">1</div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-800 dark:text-white">Employee Submits</p>
+                            <p className="text-xs text-gray-400">Status: <span className="text-amber-500 font-medium">Pending</span></p>
+                        </div>
+                    </div>
+                    <div className="w-6 h-0.5 bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+                    <div className="flex items-center gap-2 flex-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500 text-white text-xs font-bold flex-shrink-0">2</div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-800 dark:text-white">Line Manager Approves</p>
+                            <p className="text-xs text-gray-400">Status: <span className="text-blue-500 font-medium">Awaiting HR</span></p>
+                        </div>
+                    </div>
+                    <div className="w-6 h-0.5 bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+                    <div className="flex items-center gap-2 flex-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500 text-white text-xs font-bold flex-shrink-0">3</div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-800 dark:text-white">HR Finalises</p>
+                            <p className="text-xs text-gray-400">Status: <span className="text-green-500 font-medium">Approved</span></p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Mobile card grid */}
+            {/* Header */}
+            <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-1 rounded-lg border border-gray-200 dark:border-gray-700 p-1 w-fit">
+                    <button onClick={() => setActiveTab("all")}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === "all" ? "bg-brand-500 text-white" : "text-gray-500 hover:text-gray-700 dark:text-gray-400"}`}>
+                        All Requests
+                    </button>
+                    <button onClick={() => setActiveTab("my-queue")}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${activeTab === "my-queue" ? "bg-brand-500 text-white" : "text-gray-500 hover:text-gray-700 dark:text-gray-400"}`}>
+                        My Queue
+                        {myQueueCount > 0 && (
+                            <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold ${activeTab === "my-queue" ? "bg-white text-brand-500" : "bg-brand-500 text-white"}`}>
+                                {myQueueCount}
+                            </span>
+                        )}
+                    </button>
+                </div>
+                <div className="flex items-center gap-3">
+                {isHR && (
+                    <button
+                        onClick={() => setIsProxyDrawerOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm whitespace-nowrap"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Apply on Behalf
+                    </button>
+                )}
+                <CustomSelect
+                    value={filterStatus}
+                    onChange={(v) => setFilterStatus(v)}
+                    options={[
+                        { value: "All", label: "All Status" },
+                        { value: "Pending", label: "Pending (Awaiting Line Manager)" },
+                        { value: "Awaiting HR", label: "Awaiting HR" },
+                        { value: "Approved", label: "Approved" },
+                        { value: "Rejected", label: "Rejected" },
+                    ]}
+                    placeholder="All Status"
+                />
+                </div>
+            </div>
+
+            {/* Mobile cards */}
             <div className="block md:hidden min-h-[400px]">
                 {isLoading ? (
                     <p className="py-10 text-center text-gray-400">Loading leave approvals...</p>
@@ -200,9 +339,7 @@ export default function LeaveApprovalsTable() {
                                         <p className="font-medium text-gray-800 dark:text-white/90 text-sm">{record.employeeName}</p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">{record.role}</p>
                                     </div>
-                                    <Badge size="sm" color={record.status === "Approved" ? "success" : record.status === "Pending" ? "warning" : record.status === "Reviewed" ? "info" : record.status === "Rejected" ? "error" : "light"}>
-                                        {record.status}
-                                    </Badge>
+                                    <Badge size="sm" color={statusColor(record.status)}>{statusLabel(record.status)}</Badge>
                                 </div>
                                 <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
                                     <div className="flex justify-between">
@@ -218,58 +355,7 @@ export default function LeaveApprovalsTable() {
                                         <span>{record.dateCreated}</span>
                                     </div>
                                 </div>
-                                <div className="flex gap-2 flex-wrap">
-                                    <button
-                                        onClick={() => handleView(record)}
-                                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
-                                    >
-                                        <EyeIcon className="w-3.5 h-3.5" /> View
-                                    </button>
-                                    {record.status === "Pending" && (
-                                        <>
-                                            <button
-                                                onClick={() => openCommentModal("review", record.id)}
-                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-blue-200 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-900/30"
-                                            >
-                                                <EyeIcon className="w-3.5 h-3.5" /> HR Review
-                                            </button>
-                                            <button
-                                                onClick={() => openCommentModal("reject", record.id)}
-                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30"
-                                            >
-                                                <CloseIcon className="w-3.5 h-3.5" /> Reject
-                                            </button>
-                                            <button
-                                                onClick={() => openCommentModal("cancel", record.id)}
-                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-                                            >
-                                                <CloseIcon className="w-3.5 h-3.5" /> Cancel
-                                            </button>
-                                        </>
-                                    )}
-                                    {record.status === "Reviewed" && (
-                                        <>
-                                            <button
-                                                onClick={() => handleApprove(record.id)}
-                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-green-200 text-xs font-medium text-green-600 hover:bg-green-50 dark:border-green-900/30"
-                                            >
-                                                <CheckCircleIcon className="w-3.5 h-3.5" /> Approve
-                                            </button>
-                                            <button
-                                                onClick={() => openCommentModal("reject", record.id)}
-                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30"
-                                            >
-                                                <CloseIcon className="w-3.5 h-3.5" /> Reject
-                                            </button>
-                                            <button
-                                                onClick={() => openCommentModal("cancel", record.id)}
-                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-                                            >
-                                                <CloseIcon className="w-3.5 h-3.5" /> Cancel
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
+                                {renderCardActions(record)}
                             </div>
                         ))}
                     </div>
@@ -281,181 +367,41 @@ export default function LeaveApprovalsTable() {
                 <Table>
                     <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                         <TableRow>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                S/N
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                Employee
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                Leave Type
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                Duration
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                Date Applied
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                Status
-                            </TableCell>
-                            <TableCell
-                                isHeader
-                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                            >
-                                Action
-                            </TableCell>
+                            {["S/N", "Employee", "Leave Type", "Duration", "Date Applied", "Status", "Action"].map(h => (
+                                <TableCell key={h} isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 whitespace-nowrap">{h}</TableCell>
+                            ))}
                         </TableRow>
                     </TableHeader>
-
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="py-10 text-center text-gray-400">
-                                    Loading leave approvals...
-                                </TableCell>
-                            </TableRow>
+                            <TableRow><TableCell colSpan={7} className="py-10 text-center text-gray-400">Loading leave approvals...</TableCell></TableRow>
                         ) : filteredData.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="py-10 text-center text-gray-400">
-                                    No leave requests found.
-                                </TableCell>
-                            </TableRow>
+                            <TableRow><TableCell colSpan={7} className="py-10 text-center text-gray-400">No leave requests found.</TableCell></TableRow>
                         ) : (
                             filteredData.map((record, index) => (
-                                <TableRow key={record.id} className="">
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {index + 1}
-                                    </TableCell>
+                                <TableRow key={record.id}>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{index + 1}</TableCell>
                                     <TableCell className="py-3">
                                         <div className="flex flex-col">
-                                            <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                                {record.employeeName}
-                                            </span>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                {record.role}
-                                            </span>
+                                            <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">{record.employeeName}</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">{record.role}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {record.leaveType}
-                                    </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {record.duration}
-                                    </TableCell>
-                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
-                                        {record.dateCreated}
-                                    </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{record.leaveType}</TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{record.duration}</TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{record.dateCreated}</TableCell>
                                     <TableCell className="py-3 text-theme-sm">
-                                        <Badge
-                                            size="sm"
-                                            color={
-                                                record.status === "Approved"
-                                                    ? "success"
-                                                    : record.status === "Pending"
-                                                        ? "warning"
-                                                        : record.status === "Reviewed"
-                                                            ? "info"
-                                                            : record.status === "Rejected"
-                                                                ? "error"
-                                                                : "light"
-                                            }
-                                        >
-                                            {record.status}
-                                        </Badge>
+                                        <Badge size="sm" color={statusColor(record.status)}>{statusLabel(record.status)}</Badge>
                                     </TableCell>
                                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">
                                         <div className="relative">
-                                            <button
-                                                onClick={() => toggleDropdown(record.id)}
+                                            <button onClick={() => toggleDropdown(record.id)}
                                                 className="dropdown-toggle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                                style={{ transform: 'rotate(90deg)' }}
-                                            >
+                                                style={{ transform: 'rotate(90deg)' }}>
                                                 <MoreDotIcon className="w-5 h-5" />
                                             </button>
-                                            <Dropdown
-                                                isOpen={openDropdownId === record.id}
-                                                onClose={closeDropdown}
-                                                className="w-40 right-0 mt-2 top-full"
-                                            >
-                                                <DropdownItem
-                                                    onItemClick={() => {
-                                                        closeDropdown();
-                                                        handleView(record);
-                                                    }}
-                                                    className="flex gap-2 items-center"
-                                                >
-                                                    <EyeIcon className="w-4 h-4" />
-                                                    View Details
-                                                </DropdownItem>
-                                                {record.status === "Pending" && (
-                                                    <>
-                                                        <DropdownItem
-                                                            onItemClick={() => openCommentModal("review", record.id)}
-                                                            className="flex gap-2 items-center text-blue-600 hover:text-blue-700"
-                                                        >
-                                                            <EyeIcon className="w-4 h-4" />
-                                                            HR Review
-                                                        </DropdownItem>
-                                                        <DropdownItem
-                                                            onItemClick={() => openCommentModal("reject", record.id)}
-                                                            className="flex gap-2 items-center text-red-500 hover:text-red-700"
-                                                        >
-                                                            <CloseIcon className="w-4 h-4" />
-                                                            Reject
-                                                        </DropdownItem>
-                                                        <DropdownItem
-                                                            onItemClick={() => openCommentModal("cancel", record.id)}
-                                                            className="flex gap-2 items-center text-gray-500 hover:text-gray-700"
-                                                        >
-                                                            <CloseIcon className="w-4 h-4" />
-                                                            Cancel Leave
-                                                        </DropdownItem>
-                                                    </>
-                                                )}
-                                                {record.status === "Reviewed" && (
-                                                    <>
-                                                        <DropdownItem
-                                                            onItemClick={() => handleApprove(record.id)}
-                                                            className="flex gap-2 items-center text-green-600 hover:text-green-700"
-                                                        >
-                                                            <CheckCircleIcon className="w-4 h-4" />
-                                                            Approve
-                                                        </DropdownItem>
-                                                        <DropdownItem
-                                                            onItemClick={() => openCommentModal("reject", record.id)}
-                                                            className="flex gap-2 items-center text-red-500 hover:text-red-700"
-                                                        >
-                                                            <CloseIcon className="w-4 h-4" />
-                                                            Reject
-                                                        </DropdownItem>
-                                                        <DropdownItem
-                                                            onItemClick={() => openCommentModal("cancel", record.id)}
-                                                            className="flex gap-2 items-center text-gray-500 hover:text-gray-700"
-                                                        >
-                                                            <CloseIcon className="w-4 h-4" />
-                                                            Cancel Leave
-                                                        </DropdownItem>
-                                                    </>
-                                                )}
+                                            <Dropdown isOpen={openDropdownId === record.id} onClose={closeDropdown} className="w-48 right-0 mt-2 top-full">
+                                                {renderDropdownActions(record)}
                                             </Dropdown>
                                         </div>
                                     </TableCell>
@@ -471,48 +417,47 @@ export default function LeaveApprovalsTable() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
                     <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl p-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                            {commentAction.type === "review" ? "HR Review" : commentAction.type === "reject" ? "Reject Request" : "Cancel Leave"}
+                            {commentAction.type === "line-manager-approve" ? "Line Manager Approval"
+                                : commentAction.type === "hr-finalize" ? "HR Final Approval"
+                                : commentAction.type === "reject" ? "Reject Request"
+                                : "Cancel Leave"}
                         </h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                            {commentAction.type === "review"
-                                ? "Add your review comments before marking this leave as reviewed."
+                            {commentAction.type === "line-manager-approve"
+                                ? "Add comments before approving. This will forward the request to HR for final approval."
+                                : commentAction.type === "hr-finalize"
+                                ? "Confirm HR final approval. The employee will be notified once approved."
                                 : commentAction.type === "reject"
                                 ? "Provide a reason for rejecting this leave request."
                                 : "Provide a reason for cancelling this leave request."}
                         </p>
-                        <textarea
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                            rows={4}
-                            placeholder={
-                                commentAction.type === "review"
-                                    ? "Enter review comments (optional)..."
-                                    : commentAction.type === "reject"
-                                    ? "Enter rejection reason (optional)..."
+                        {commentAction.type !== "hr-finalize" && (
+                            <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={4}
+                                placeholder={
+                                    commentAction.type === "line-manager-approve" ? "Enter approval comments (optional)..."
+                                    : commentAction.type === "reject" ? "Enter rejection reason (optional)..."
                                     : "Enter cancellation reason (optional)..."
-                            }
-                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 resize-none"
-                        />
-                        <div className="flex gap-3 mt-5">
-                            <button
-                                onClick={closeCommentModal}
-                                disabled={isSubmitting}
-                                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
-                            >
+                                }
+                                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 resize-none mb-5" />
+                        )}
+                        {commentAction.type === "hr-finalize" && <div className="mb-5" />}
+                        <div className="flex gap-3">
+                            <button onClick={closeCommentModal} disabled={isSubmitting}
+                                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors">
                                 Close
                             </button>
-                            <button
-                                onClick={submitComment}
-                                disabled={isSubmitting}
+                            <button onClick={submitComment} disabled={isSubmitting}
                                 className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-60 ${
-                                    commentAction.type === "review"
-                                        ? "bg-blue-600 hover:bg-blue-700"
-                                        : commentAction.type === "reject"
-                                        ? "bg-red-500 hover:bg-red-600"
-                                        : "bg-gray-600 hover:bg-gray-700"
-                                }`}
-                            >
-                                {isSubmitting ? "Saving..." : commentAction.type === "review" ? "Submit Review" : commentAction.type === "reject" ? "Reject" : "Cancel Leave"}
+                                    commentAction.type === "line-manager-approve" ? "bg-blue-600 hover:bg-blue-700"
+                                    : commentAction.type === "hr-finalize" ? "bg-green-600 hover:bg-green-700"
+                                    : commentAction.type === "reject" ? "bg-red-500 hover:bg-red-600"
+                                    : "bg-gray-600 hover:bg-gray-700"
+                                }`}>
+                                {isSubmitting ? "Saving..."
+                                    : commentAction.type === "line-manager-approve" ? "Approve & Forward to HR"
+                                    : commentAction.type === "hr-finalize" ? "Confirm Final Approval"
+                                    : commentAction.type === "reject" ? "Reject"
+                                    : "Cancel Leave"}
                             </button>
                         </div>
                     </div>
@@ -530,104 +475,92 @@ export default function LeaveApprovalsTable() {
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Action Failed</h3>
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">{errorModal}</p>
-                        <button
-                            onClick={() => setErrorModal(null)}
-                            className="w-full rounded-xl bg-red-500 hover:bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors"
-                        >
+                        <button onClick={() => setErrorModal(null)}
+                            className="w-full rounded-xl bg-red-500 hover:bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors">
                             OK
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* Review Drawer */}
+            {/* Proxy Leave Application Drawer */}
             <Drawer
-                isOpen={isDrawerOpen}
-                onClose={() => setIsDrawerOpen(false)}
-                title="Review Leave Request"
+                isOpen={isProxyDrawerOpen}
+                onClose={() => setIsProxyDrawerOpen(false)}
+                title="Apply on Behalf of Employee"
+                width="w-full md:w-[600px]"
             >
+                <MultiStepLeaveForm
+                    onClose={() => { setIsProxyDrawerOpen(false); fetchLeaves(); }}
+                    compact
+                    proxyMode
+                />
+            </Drawer>
+
+            {/* View Details Drawer */}
+            <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} title="Leave Request Details">
                 {selectedRequest && (
                     <div className="space-y-6">
+                        {/* Workflow progress in drawer */}
+                        <div className="flex items-center gap-1 text-xs">
+                            <span className={`px-2 py-1 rounded-full font-medium ${selectedRequest.status !== "Pending" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                                {selectedRequest.status === "Pending" ? "⏳ Pending Line Manager" : "✓ Line Manager Approved"}
+                            </span>
+                            <span className="text-gray-300">→</span>
+                            <span className={`px-2 py-1 rounded-full font-medium ${selectedRequest.status === "Approved" ? "bg-green-100 text-green-700" : selectedRequest.status === "Reviewed" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-400"}`}>
+                                {selectedRequest.status === "Approved" ? "✓ HR Approved" : selectedRequest.status === "Reviewed" ? "⏳ Awaiting HR" : "HR Approval"}
+                            </span>
+                        </div>
+
                         <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                             <div className="h-12 w-12 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-xl">
                                 {selectedRequest.employeeName.charAt(0)}
                             </div>
                             <div>
-                                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                    {selectedRequest.employeeName}
-                                </h4>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    {selectedRequest.role} - {selectedRequest.department}
-                                </p>
+                                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{selectedRequest.employeeName}</h4>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{selectedRequest.role} · {selectedRequest.department}</p>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">Leave Type</label>
-                                <p className="text-gray-900 dark:text-white font-medium">{selectedRequest.leaveType}</p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">Duration</label>
-                                <p className="text-gray-900 dark:text-white">{selectedRequest.duration}</p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">Start Date</label>
-                                <p className="text-gray-900 dark:text-white">{selectedRequest.startDate}</p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">End Date</label>
-                                <p className="text-gray-900 dark:text-white">{selectedRequest.endDate}</p>
-                            </div>
+                            <div><label className="block text-sm font-medium text-gray-500">Leave Type</label><p className="text-gray-900 dark:text-white font-medium">{selectedRequest.leaveType}</p></div>
+                            <div><label className="block text-sm font-medium text-gray-500">Duration</label><p className="text-gray-900 dark:text-white">{selectedRequest.duration}</p></div>
+                            <div><label className="block text-sm font-medium text-gray-500">Start Date</label><p className="text-gray-900 dark:text-white">{selectedRequest.startDate}</p></div>
+                            <div><label className="block text-sm font-medium text-gray-500">End Date</label><p className="text-gray-900 dark:text-white">{selectedRequest.endDate}</p></div>
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-500 mb-1">Reason</label>
-                            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-700 dark:text-gray-300">
-                                {selectedRequest.reason}
-                            </div>
+                            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-700 dark:text-gray-300">{selectedRequest.reason}</div>
                         </div>
 
-                        {selectedRequest.status === "Pending" ? (
+                        {selectedRequest.status === "Pending" && canDoLineManagerActions && (
                             <div className="flex flex-col gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                                <button
-                                    onClick={() => openCommentModal("review", selectedRequest.id)}
-                                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <EyeIcon className="w-5 h-5" />
-                                    HR Review
+                                <button onClick={() => openCommentModal("line-manager-approve", selectedRequest.id)}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                                    <CheckCircleIcon className="w-5 h-5" /> Line Manager Approve
                                 </button>
-                                <button
-                                    onClick={() => openCommentModal("reject", selectedRequest.id)}
-                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2"
-                                >
-                                    <CloseIcon className="w-5 h-5" />
-                                    Reject Request
+                                <button onClick={() => openCommentModal("reject", selectedRequest.id)}
+                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2">
+                                    <CloseIcon className="w-5 h-5" /> Reject Request
                                 </button>
                             </div>
-                        ) : selectedRequest.status === "Reviewed" ? (
+                        )}
+                        {selectedRequest.status === "Reviewed" && canDoHRActions && (
                             <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                                <button
-                                    onClick={() => handleApprove(selectedRequest.id)}
-                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <CheckCircleIcon className="w-5 h-5" />
-                                    Approve
+                                <button onClick={() => openCommentModal("hr-finalize", selectedRequest.id)}
+                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                                    <CheckCircleIcon className="w-5 h-5" /> HR Final Approval
                                 </button>
-                                <button
-                                    onClick={() => openCommentModal("reject", selectedRequest.id)}
-                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2"
-                                >
-                                    <CloseIcon className="w-5 h-5" />
-                                    Reject Request
+                                <button onClick={() => openCommentModal("reject", selectedRequest.id)}
+                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2">
+                                    <CloseIcon className="w-5 h-5" /> Reject
                                 </button>
                             </div>
-                        ) : (
+                        )}
+                        {(selectedRequest.status === "Approved" || selectedRequest.status === "Rejected") && (
                             <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-                                <div className={`p-3 rounded-lg text-center font-medium ${selectedRequest.status === 'Approved'
-                                    ? 'bg-green-50 text-green-700 border border-green-200'
-                                    : 'bg-red-50 text-red-700 border border-red-200'
-                                    }`}>
+                                <div className={`p-3 rounded-lg text-center font-medium ${selectedRequest.status === "Approved" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
                                     This request has been {selectedRequest.status.toLowerCase()}.
                                 </div>
                             </div>

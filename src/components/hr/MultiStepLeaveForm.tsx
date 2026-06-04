@@ -37,7 +37,17 @@ function countWorkingDays(start: string, end: string): number {
     return count;
 }
 
-export default function MultiStepLeaveForm({ onClose, initialData, compact = false }: { onClose: () => void, initialData?: any, compact?: boolean }) {
+export default function MultiStepLeaveForm({
+    onClose,
+    initialData,
+    compact = false,
+    proxyMode = false,
+}: {
+    onClose: () => void;
+    initialData?: any;
+    compact?: boolean;
+    proxyMode?: boolean;
+}) {
     const [step, setStep] = useState(1);
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [isLoadingTypes, setIsLoadingTypes] = useState(false);
@@ -45,7 +55,9 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
     const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
     const [isLoadingBalances, setIsLoadingBalances] = useState(false);
     const [employees, setEmployees] = useState<any[]>([]);
+    const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
     const [supportingDocument, setSupportingDocument] = useState<File | null>(null);
+    const [proxyEmployeeId, setProxyEmployeeId] = useState<string>("");
 
     const [formData, setFormData] = useState({
         leaveTypeId: initialData?.leaveTypeId || "",
@@ -120,21 +132,24 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
 
     const fetchEmployees = useCallback(async () => {
         if (employees.length > 0) return;
+        setIsLoadingEmployees(true);
         try {
             const response = await userService.getAllEmployees();
             const data: any[] = response?.data ?? [];
             setEmployees(data);
         } catch {
-            // silent — colleague select just won't populate
+            // silent
+        } finally {
+            setIsLoadingEmployees(false);
         }
     }, [employees.length]);
 
     useEffect(() => { fetchTypes(); fetchBalances(); }, []);
 
-    // Load employees when user starts filling handover notes
+    // Load employees for handover colleague selector OR proxy mode
     useEffect(() => {
-        if (needsHandover) fetchEmployees();
-    }, [needsHandover]);
+        if (needsHandover || proxyMode) fetchEmployees();
+    }, [needsHandover, proxyMode]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -157,6 +172,10 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
             });
         }
 
+        if (step === 1 && proxyMode) {
+            if (!proxyEmployeeId) newErrors.proxyEmployeeId = "Please select the employee you are applying on behalf of.";
+        }
+
         if (step === 2) {
             if (needsSupportingDoc && !supportingDocument) {
                 newErrors.supportingDocument = isExaminationLeave
@@ -176,6 +195,34 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
     const prevStep = () => { setErrors({}); setStep((prev) => prev - 1); };
 
     const handleSubmit = async () => {
+        // In proxy mode use the selected employee's ID directly
+        if (proxyMode) {
+            if (!proxyEmployeeId) { toast.error("Please select the employee you are applying on behalf of."); return; }
+            const proxyEmp = employees.find((e: any) => String(e.unique_id ?? e.id) === String(proxyEmployeeId));
+            const empStaffId = proxyEmp?.staff_id ?? proxyEmp?.staffId ?? parseInt(String(proxyEmployeeId));
+            if (!formData.leaveTypeId) { toast.error("Please select a Leave Type."); return; }
+            if (formData.dates.some((d: any) => !d.startDate || !d.endDate)) { toast.error("Please fill in all date ranges."); return; }
+            const leaveTypeUniqueId = selectedLeaveType?.unique_id ?? selectedLeaveType?.uniqueId ?? formData.leaveTypeId;
+            const leaveData: LeaveRequest = {
+                staffId: typeof empStaffId === 'number' ? empStaffId : parseInt(String(empStaffId)),
+                leaveTypeId: String(leaveTypeUniqueId),
+                reason: formData.comment || "Proxy application submitted by HR",
+                handoverNote: formData.handoverNotes,
+                leaveDuration: formData.dates.map((d: any) => ({ startDate: d.startDate, endDate: d.endDate })),
+            };
+            setIsSubmitting(true);
+            try {
+                await leaveServiceInstance.applyForLeave(leaveData);
+                toast.success(`Leave application submitted on behalf of ${proxyEmp?.employee_name ?? proxyEmp?.name ?? "employee"}.`);
+                onClose();
+            } catch (error: any) {
+                toast.error(error.response?.data?.message || "Failed to submit leave application");
+            } finally {
+                setIsSubmitting(false);
+            }
+            return;
+        }
+
         let currentUser = authService.getCurrentUser();
         let employeeId = currentUser?.staff_id || currentUser?.staffId;
 
@@ -246,6 +293,47 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
             case 1:
                 return (
                     <div className="space-y-6 animate-fadeIn">
+                        {/* Proxy mode: employee selector */}
+                        {proxyMode && (
+                            <div className="rounded-xl border border-purple-200 bg-purple-50 dark:bg-purple-900/10 dark:border-purple-800 p-4 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-white text-xs font-bold flex-shrink-0">HR</div>
+                                    <p className="text-sm font-semibold text-purple-800 dark:text-purple-300">Proxy Leave Application</p>
+                                </div>
+                                <p className="text-xs text-purple-600 dark:text-purple-400">
+                                    You are submitting this leave request on behalf of an employee. Select the employee below.
+                                </p>
+                                <CustomSelect
+                                    value={proxyEmployeeId}
+                                    onChange={(v) => {
+                                        setProxyEmployeeId(v);
+                                        if (errors.proxyEmployeeId) setErrors((prev) => { const next = { ...prev }; delete next.proxyEmployeeId; return next; });
+                                    }}
+                                    options={employees.map((e: any) => ({
+                                        value: String(e.unique_id ?? e.id),
+                                        label: e.employee_name ?? e.name ?? `Employee ${e.id}`,
+                                    }))}
+                                    placeholder={isLoadingEmployees ? "Loading employees..." : "Select employee..."}
+                                    disabled={isLoadingEmployees}
+                                />
+                                {errors.proxyEmployeeId && <p className="text-xs text-red-500">{errors.proxyEmployeeId}</p>}
+                                {proxyEmployeeId && (() => {
+                                    const emp = employees.find((e: any) => String(e.unique_id ?? e.id) === proxyEmployeeId);
+                                    return emp ? (
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <div className="h-7 w-7 rounded-full bg-purple-200 dark:bg-purple-800 flex items-center justify-center text-xs font-bold text-purple-700 dark:text-purple-300">
+                                                {(emp.employee_name ?? emp.name ?? "?")[0].toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-purple-800 dark:text-purple-200">{emp.employee_name ?? emp.name}</p>
+                                                <p className="text-xs text-purple-500">{emp.designation ?? emp.job_title ?? ""}</p>
+                                            </div>
+                                        </div>
+                                    ) : null;
+                                })()}
+                            </div>
+                        )}
+
                         {/* Leave Balances */}
                         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
                             <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">Your Current Leave Balances</h4>
@@ -458,6 +546,15 @@ export default function MultiStepLeaveForm({ onClose, initialData, compact = fal
                 return (
                     <div className="space-y-4 animate-fadeIn">
                         <h4 className="font-medium text-gray-800 dark:text-white/90">Review Application</h4>
+                        {proxyMode && proxyEmployeeId && (() => {
+                            const emp = employees.find((e: any) => String(e.unique_id ?? e.id) === proxyEmployeeId);
+                            return emp ? (
+                                <div className="flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-900/10 px-3 py-2 text-sm text-purple-700 dark:text-purple-300">
+                                    <span className="font-medium">Applying on behalf of:</span>
+                                    <span>{emp.employee_name ?? emp.name}</span>
+                                </div>
+                            ) : null;
+                        })()}
                         <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-3 text-sm border border-gray-100 dark:border-gray-700">
                             <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-700">
                                 <span className="text-gray-500">Type:</span>

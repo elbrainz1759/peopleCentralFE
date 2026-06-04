@@ -23,7 +23,7 @@ type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
+  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; hrOnly?: boolean }[];
 };
 
 const navItems: NavItem[] = [
@@ -50,8 +50,9 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "Exit Request", path: "/exit" },
       { name: "My Exit Requests", path: "/exit/my-requests" },
+      { name: "End of Service", path: "/exit/end-of-service" },
       { name: "Approvals", path: "/exit/approvals" },
-      { name: "Checklist", path: "/exit/checklist" },
+      { name: "Checklist", path: "/exit/checklist", hrOnly: true },
     ],
   },
   {
@@ -78,6 +79,20 @@ const navItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const [isHR, setIsHR] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('auth_user');
+      const token = localStorage.getItem('auth_token');
+      let user: any = raw ? JSON.parse(raw) : {};
+      if (token) {
+        try { user = { ...user, ...JSON.parse(atob(token.split('.')[1])) }; } catch { /* ignore */ }
+      }
+      const role = (user?.role || user?.designation || "").toLowerCase();
+      setIsHR(role.includes('hr') || role.includes('admin') || role.includes('superadmin'));
+    } catch { /* ignore */ }
+  }, []);
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -153,7 +168,7 @@ const AppSidebar: React.FC = () => {
               }}
             >
               <ul className="mt-2 space-y-1 ml-9">
-                {nav.subItems.map((subItem) => (
+                {nav.subItems.filter(s => !s.hrOnly || isHR).map((subItem) => (
                   <li key={subItem.name}>
                     <Link
                       href={subItem.path}
