@@ -101,6 +101,8 @@ export interface CreateLeaveTypeRequest {
     description: string;
     country: string;
     hours?: number;
+    trigger?: number;
+    requireDocument?: 'Yes' | 'No';
 }
 
 export interface LeaveType {
@@ -109,18 +111,25 @@ export interface LeaveType {
     name: string;
     description: string;
     country: string;
+    // response fields (snake_case from API)
+    require_document?: 'Yes' | 'No';
+    trigger_value?: number;
+    // legacy/form fields
+    requireDocument?: 'Yes' | 'No';
+    trigger?: number;
     created_by?: string;
     created_at?: string;
     updated_at?: string;
 }
 
 export interface LeaveRequest {
-    staffId: string | number;
-    leaveTypeId: string | number;
-    reason: string;
-    handoverNote: string;
+    staffId: number;
+    reason?: string;
+    handoverNotes?: { staffEmail: string; note: string }[];
     leaveDuration: {
         startDate: string;
         endDate: string;
+        leaveTypeId: string;
     }[];
+    document?: File;
 }

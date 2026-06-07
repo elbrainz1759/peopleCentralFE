@@ -70,6 +70,11 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    icon: <PieChartIcon />,
+    name: "Reports",
+    path: "/reports",
+  },
+  {
     icon: <BellIcon />,
     name: "Notification Tracker",
     path: "/hr/notifications",

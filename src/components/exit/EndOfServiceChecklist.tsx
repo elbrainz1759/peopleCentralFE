@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { authService } from "@/services/auth.service";
+import { ExitService } from "@/services/exit.service";
 import { DownloadIcon } from "@/icons";
 
 interface CheckItem {
@@ -147,23 +148,67 @@ function SignatureLine({ label }: { label: string }) {
 
 // ── Main component ──────────────────────────────────────────────
 
+type ApprovalStatus = "loading" | "not-started" | "pending" | "completed";
+
 export default function EndOfServiceChecklist() {
     const [form, setForm] = useState<FormState>(initState());
     const [submitted, setSubmitted] = useState(false);
+    const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>("loading");
+    const [exitStage, setExitStage] = useState<string>("");
 
     useEffect(() => {
-        try {
-            const user = authService.getCurrentUser();
-            if (!user) return;
-            setForm(prev => ({
-                ...prev,
-                employeeName: user.employee_name ?? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim(),
-                employeeId: String(user.staff_id ?? user.id ?? ""),
-                department: user.department_name ?? user.department ?? "",
-                personalEmail: user.email ?? "",
-                telephone: user.phone ?? "",
-            }));
-        } catch { /* ignore */ }
+        const exitService = ExitService.getInstance();
+
+        const init = async () => {
+            try {
+                const user = authService.getCurrentUser();
+                if (!user) { setApprovalStatus("not-started"); return; }
+
+                const staffId = user.staff_id ?? user.id;
+
+                setForm(prev => ({
+                    ...prev,
+                    employeeName: user.employee_name ?? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim(),
+                    employeeId: String(staffId ?? ""),
+                    department: user.department_name ?? user.department ?? "",
+                    personalEmail: user.email ?? "",
+                    telephone: user.phone ?? "",
+                }));
+
+                // Check if this employee has a completed exit interview
+                const res = await exitService.getAllExitInterviews(1, 200);
+                const interviews: any[] = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+                const mine = interviews.find((i: any) =>
+                    String(i.staff_id ?? i.staffId ?? "") === String(staffId ?? "")
+                );
+
+                if (!mine) {
+                    setApprovalStatus("not-started");
+                    return;
+                }
+
+                const stage = mine.stage ?? "";
+                const status = mine.status ?? "";
+                setExitStage(stage);
+
+                if (stage === "Completed" || status === "Completed" || status === "Approved") {
+                    // Pre-fill any additional fields from the exit record
+                    setForm(prev => ({
+                        ...prev,
+                        dateOfSeparation: mine.resignation_date
+                            ? new Date(mine.resignation_date).toISOString().split("T")[0]
+                            : prev.dateOfSeparation,
+                    }));
+                    setApprovalStatus("completed");
+                } else {
+                    setApprovalStatus("pending");
+                }
+            } catch {
+                setApprovalStatus("not-started");
+            }
+        };
+
+        init();
     }, []);
 
     const set = (field: keyof FormState, value: any) => setForm(prev => ({ ...prev, [field]: value }));
@@ -199,6 +244,92 @@ export default function EndOfServiceChecklist() {
     };
 
     const thClass = "text-xs font-semibold text-gray-500 dark:text-gray-400 text-center pb-2 w-20";
+
+    if (approvalStatus === "loading") {
+        return (
+            <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-10 text-center">
+                <div className="mx-auto h-10 w-10 rounded-full border-4 border-brand-500 border-t-transparent animate-spin mb-4" />
+                <p className="text-sm text-gray-500">Checking approval status...</p>
+            </div>
+        );
+    }
+
+    if (approvalStatus === "not-started") {
+        return (
+            <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-10 text-center space-y-4">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 mb-2">
+                    <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">No Exit Request Found</h3>
+                <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto text-sm">
+                    You have not submitted an exit request yet. Please submit an Exit Request first — this document will become available once your exit clearance has been fully approved.
+                </p>
+                <a href="/exit" className="inline-flex items-center gap-2 mt-4 px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-medium transition-colors text-sm">
+                    Go to Exit Request
+                </a>
+            </div>
+        );
+    }
+
+    if (approvalStatus === "pending") {
+        const stageLabels: Record<string, string> = {
+            Employee: "Employee Submission",
+            Supervisor: "Supervisor Review",
+            Operations: "Operations Clearance",
+            Finance: "Finance Clearance",
+            HR: "HR Final Review",
+            HR_Final: "HR Final Review",
+        };
+        const stages = ["Employee", "Supervisor", "Operations", "Finance", "HR"];
+        const currentIdx = stages.indexOf(exitStage.replace("_Final", ""));
+
+        return (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 p-10 text-center space-y-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                    <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Approval In Progress</h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm max-w-md mx-auto">
+                        The End of Service Checklist will be available for download once your exit clearance has been fully approved by all departments.
+                    </p>
+                </div>
+
+                {/* Progress tracker */}
+                <div className="flex items-center justify-center gap-1 flex-wrap max-w-lg mx-auto">
+                    {stages.map((s, idx) => {
+                        const done = idx < currentIdx;
+                        const active = idx === currentIdx;
+                        return (
+                            <React.Fragment key={s}>
+                                <div className={`flex flex-col items-center gap-1 ${idx !== stages.length - 1 ? "flex-1" : ""}`}>
+                                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                                        done ? "bg-green-500 text-white" : active ? "bg-amber-500 text-white ring-4 ring-amber-500/20" : "bg-gray-200 dark:bg-gray-700 text-gray-500"
+                                    }`}>
+                                        {done ? "✓" : idx + 1}
+                                    </div>
+                                    <span className={`text-[10px] font-medium hidden sm:block ${active ? "text-amber-700 dark:text-amber-400" : done ? "text-green-600 dark:text-green-400" : "text-gray-400"}`}>
+                                        {stageLabels[s]}
+                                    </span>
+                                </div>
+                                {idx !== stages.length - 1 && (
+                                    <div className={`h-0.5 flex-1 mb-4 ${done ? "bg-green-400" : "bg-gray-200 dark:bg-gray-700"}`} />
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
+                </div>
+
+                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                    Current stage: <span className="font-bold">{stageLabels[exitStage] ?? exitStage}</span>
+                </p>
+            </div>
+        );
+    }
 
     if (submitted) {
         return (

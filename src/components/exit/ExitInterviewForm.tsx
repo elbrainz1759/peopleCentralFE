@@ -183,8 +183,8 @@ export default function ExitInterviewForm() {
 
         return {
             staffId,
-            supervisorId: staffId,
-            departmentId: user?.department ?? "",
+            supervisorId: user?.supervisor ?? user?.supervisor_id ?? user?.supervisorId ?? staffId,
+            departmentId: user?.department_id ?? user?.departmentId ?? user?.department ?? "",
             resignationDate: formData.terminationDate || new Date().toISOString(),
             handoverNotes: "",
             reasonForLeaving: formData.whyLeaving || "Other",

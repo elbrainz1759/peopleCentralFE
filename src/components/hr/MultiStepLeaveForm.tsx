@@ -60,30 +60,42 @@ export default function MultiStepLeaveForm({
     const [proxyEmployeeId, setProxyEmployeeId] = useState<string>("");
 
     const [formData, setFormData] = useState({
-        leaveTypeId: initialData?.leaveTypeId || "",
-        dates: initialData?.dates || initialData?.leaveDuration || [{ startDate: "", endDate: "" }],
+        dates: initialData?.dates || initialData?.leaveDuration || [{ leaveTypeId: "", startDate: "", endDate: "" }],
         comment: initialData?.reason || "",
-        handoverNotes: initialData?.handoverNotes || initialData?.handoverNote || "",
-        handoverColleagueId: "",
+        handoverEntries: [] as { colleagueId: string; notes: string }[],
         supervisor: initialData?.supervisor || "",
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     // ── Derived flags ──────────────────────────────────────────────
-    const selectedLeaveType: any = leaveTypes.find(
-        (t: any) => String(t.unique_id ?? t.uniqueId ?? t.id) === String(formData.leaveTypeId)
-    );
-    const isExaminationLeave = selectedLeaveType?.name?.toLowerCase().includes("exam") ?? false;
-    const isSickLeave = selectedLeaveType?.name?.toLowerCase().includes("sick") ?? false;
+    const rowLeaveType = (leaveTypeId: string) =>
+        leaveTypes.find((t: any) => String(t.unique_id ?? t.uniqueId ?? t.id) === String(leaveTypeId));
+    const isExaminationLeave = formData.dates.some((d: any) => rowLeaveType(d.leaveTypeId)?.name?.toLowerCase().includes("exam"));
+    const isSickLeave = formData.dates.some((d: any) => rowLeaveType(d.leaveTypeId)?.name?.toLowerCase().includes("sick"));
     const maxWorkingDays = formData.dates.reduce(
         (max: number, d: any) => Math.max(max, countWorkingDays(d.startDate, d.endDate)),
         0
     );
     const needsMedicalDoc = isSickLeave && maxWorkingDays > 2;
-    const needsSupportingDoc = isExaminationLeave || needsMedicalDoc;
-    const needsHandover = formData.handoverNotes.trim().length > 0;
+    const hasTriggerDoc = formData.dates.some((d: any) => {
+        const lt = rowLeaveType(d.leaveTypeId) as any;
+        return lt?.require_document === 'Yes' || (lt?.trigger_value ?? 0) > 0;
+    });
+    const needsSupportingDoc = isExaminationLeave || needsMedicalDoc || hasTriggerDoc;
+    const needsHandover = formData.handoverEntries.length > 0;
 
-    const handleDateChange = (index: number, name: "startDate" | "endDate", value: string) => {
+    const addHandoverEntry = () =>
+        setFormData(prev => ({ ...prev, handoverEntries: [...prev.handoverEntries, { colleagueId: "", notes: "" }] }));
+    const removeHandoverEntry = (i: number) =>
+        setFormData(prev => ({ ...prev, handoverEntries: prev.handoverEntries.filter((_, idx) => idx !== i) }));
+    const updateHandoverEntry = (i: number, field: "colleagueId" | "notes", value: string) =>
+        setFormData(prev => {
+            const entries = [...prev.handoverEntries];
+            entries[i] = { ...entries[i], [field]: value };
+            return { ...prev, handoverEntries: entries };
+        });
+
+    const handleDateChange = (index: number, name: "startDate" | "endDate" | "leaveTypeId", value: string) => {
         const newDates = [...formData.dates];
         newDates[index] = { ...newDates[index], [name]: value };
         setFormData(prev => ({ ...prev, dates: newDates }));
@@ -92,7 +104,7 @@ export default function MultiStepLeaveForm({
     };
 
     const addDateRange = () => {
-        setFormData(prev => ({ ...prev, dates: [...prev.dates, { startDate: "", endDate: "" }] }));
+        setFormData(prev => ({ ...prev, dates: [...prev.dates, { leaveTypeId: "", startDate: "", endDate: "" }] }));
     };
 
     const removeDateRange = (index: number) => {
@@ -161,12 +173,12 @@ export default function MultiStepLeaveForm({
         const newErrors: Record<string, string> = {};
 
         if (step === 1) {
-            if (!formData.leaveTypeId) newErrors.leaveTypeId = "Please select a leave type.";
             formData.dates.forEach((d: any, i: number) => {
+                if (!d.leaveTypeId) newErrors[`leaveTypeId_${i}`] = "Select a leave type.";
                 if (!d.startDate) newErrors[`startDate_${i}`] = "Start date is required.";
                 if (!d.endDate) newErrors[`endDate_${i}`] = "End date is required.";
                 if (d.startDate && d.endDate && d.startDate === d.endDate)
-                    newErrors[`endDate_${i}`] = "Start date and end date cannot be the same.";
+                    newErrors[`endDate_${i}`] = "Start and end date cannot be the same.";
                 else if (d.startDate && d.endDate && d.endDate < d.startDate)
                     newErrors[`endDate_${i}`] = "End date must be after start date.";
             });
@@ -180,11 +192,14 @@ export default function MultiStepLeaveForm({
             if (needsSupportingDoc && !supportingDocument) {
                 newErrors.supportingDocument = isExaminationLeave
                     ? "A supporting document (exam timetable, registration slip, or official notification) is required for Examination Leave."
-                    : "A medical certificate or excuse duty note is required for Sick Leave exceeding 2 working days.";
+                    : needsMedicalDoc
+                    ? "A medical certificate or excuse duty note is required for Sick Leave exceeding 2 working days."
+                    : "A supporting document is required for this leave type.";
             }
-            if (needsHandover && !formData.handoverColleagueId) {
-                newErrors.handoverColleagueId = "Please designate a colleague to handle your duties during your absence.";
-            }
+            formData.handoverEntries.forEach((entry, i) => {
+                if (!entry.colleagueId) newErrors[`handoverColleague_${i}`] = "Select a colleague.";
+                if (!entry.notes.trim()) newErrors[`handoverNotes_${i}`] = "Enter handover notes for this colleague.";
+            });
         }
 
         setErrors(newErrors);
@@ -194,32 +209,42 @@ export default function MultiStepLeaveForm({
     const nextStep = () => { if (validateStep()) { setErrors({}); setStep((prev) => prev + 1); } };
     const prevStep = () => { setErrors({}); setStep((prev) => prev - 1); };
 
+    const submitGrouped = async (staffId: number) => {
+        const handoverNotes = formData.handoverEntries
+            .filter(e => e.colleagueId)
+            .map(e => {
+                const emp = employees.find((em: any) => String(em.unique_id ?? em.id) === String(e.colleagueId));
+                return { staffEmail: emp?.email ?? e.colleagueId, note: e.notes };
+            });
+        const leaveDuration = formData.dates.map((d: any) => {
+            const lt = rowLeaveType(d.leaveTypeId);
+            const ltUniqueId = (lt as any)?.unique_id ?? (lt as any)?.uniqueId ?? d.leaveTypeId;
+            return { startDate: d.startDate, endDate: d.endDate, leaveTypeId: String(ltUniqueId) };
+        });
+        const payload: LeaveRequest = {
+            staffId,
+            reason: formData.comment || "Leave application",
+            ...(handoverNotes.length > 0 ? { handoverNotes } : {}),
+            leaveDuration,
+            ...(supportingDocument ? { document: supportingDocument } : {}),
+        };
+        await leaveServiceInstance.applyForLeave(payload);
+    };
+
     const handleSubmit = async () => {
-        // In proxy mode use the selected employee's ID directly
         if (proxyMode) {
             if (!proxyEmployeeId) { toast.error("Please select the employee you are applying on behalf of."); return; }
+            if (formData.dates.some((d: any) => !d.leaveTypeId || !d.startDate || !d.endDate)) { toast.error("Please complete all leave rows."); return; }
             const proxyEmp = employees.find((e: any) => String(e.unique_id ?? e.id) === String(proxyEmployeeId));
-            const empStaffId = proxyEmp?.staff_id ?? proxyEmp?.staffId ?? parseInt(String(proxyEmployeeId));
-            if (!formData.leaveTypeId) { toast.error("Please select a Leave Type."); return; }
-            if (formData.dates.some((d: any) => !d.startDate || !d.endDate)) { toast.error("Please fill in all date ranges."); return; }
-            const leaveTypeUniqueId = selectedLeaveType?.unique_id ?? selectedLeaveType?.uniqueId ?? formData.leaveTypeId;
-            const leaveData: LeaveRequest = {
-                staffId: typeof empStaffId === 'number' ? empStaffId : parseInt(String(empStaffId)),
-                leaveTypeId: String(leaveTypeUniqueId),
-                reason: formData.comment || "Proxy application submitted by HR",
-                handoverNote: formData.handoverNotes,
-                leaveDuration: formData.dates.map((d: any) => ({ startDate: d.startDate, endDate: d.endDate })),
-            };
+            const empStaffId = parseInt(String(proxyEmp?.staff_id ?? proxyEmp?.staffId ?? proxyEmployeeId));
             setIsSubmitting(true);
             try {
-                await leaveServiceInstance.applyForLeave(leaveData);
-                toast.success(`Leave application submitted on behalf of ${proxyEmp?.employee_name ?? proxyEmp?.name ?? "employee"}.`);
+                await submitGrouped(empStaffId);
+                toast.success(`Leave application(s) submitted on behalf of ${proxyEmp?.employee_name ?? proxyEmp?.name ?? "employee"}.`);
                 onClose();
             } catch (error: any) {
                 toast.error(error.response?.data?.message || "Failed to submit leave application");
-            } finally {
-                setIsSubmitting(false);
-            }
+            } finally { setIsSubmitting(false); }
             return;
         }
 
@@ -245,41 +270,16 @@ export default function MultiStepLeaveForm({
         }
 
         if (!employeeId) { toast.error("Staff ID not found. Please log in again."); return; }
-        if (!formData.leaveTypeId) { toast.error("Please select a Leave Type."); return; }
-        if (formData.dates.some((d: any) => !d.startDate || !d.endDate)) { toast.error("Please fill in all date ranges."); return; }
-
-        const leaveTypeUniqueId = selectedLeaveType?.unique_id ?? selectedLeaveType?.uniqueId ?? formData.leaveTypeId;
-
-        const leaveData: LeaveRequest = {
-            staffId: typeof employeeId === 'number' ? employeeId : parseInt(String(employeeId)),
-            leaveTypeId: String(leaveTypeUniqueId),
-            reason: formData.comment,
-            handoverNote: formData.handoverNotes,
-            leaveDuration: formData.dates.map((d: any) => ({ startDate: d.startDate, endDate: d.endDate }))
-        };
+        if (formData.dates.some((d: any) => !d.leaveTypeId || !d.startDate || !d.endDate)) { toast.error("Please complete all leave rows."); return; }
 
         setIsSubmitting(true);
         try {
-            await leaveServiceInstance.applyForLeave(leaveData);
-
-            // Notify handover colleague (best-effort)
-            if (needsHandover && formData.handoverColleagueId) {
-                try {
-                    const colleague = employees.find(
-                        (e: any) => String(e.unique_id ?? e.id) === String(formData.handoverColleagueId)
-                    );
-                    const colleagueName = colleague?.employee_name ?? colleague?.name ?? "your colleague";
-                    toast.success(`Handover notification sent to ${colleagueName}.`);
-                } catch { /* notification failure is non-blocking */ }
-            }
-
+            await submitGrouped(typeof employeeId === 'number' ? employeeId : parseInt(String(employeeId)));
             toast.success("Leave application submitted successfully!");
             onClose();
         } catch (error: any) {
             toast.error(error.response?.data?.message || "Failed to submit leave application");
-        } finally {
-            setIsSubmitting(false);
-        }
+        } finally { setIsSubmitting(false); }
     };
 
     const steps = [
@@ -369,68 +369,71 @@ export default function MultiStepLeaveForm({
                             )}
                         </div>
 
-                        {/* Leave Type */}
-                        <div>
-                            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
-                                Leave Type <span className="text-red-500">*</span>
-                            </label>
-                            <CustomSelect
-                                value={formData.leaveTypeId}
-                                onChange={(v) => {
-                                    setFormData((prev) => ({ ...prev, leaveTypeId: v }));
-                                    setSupportingDocument(null);
-                                    if (errors.leaveTypeId) setErrors((prev) => { const next = { ...prev }; delete next.leaveTypeId; return next; });
-                                }}
-                                options={leaveTypes.map((type: any) => ({
-                                    value: type.unique_id ?? type.uniqueId ?? type.id,
-                                    label: type.name,
-                                }))}
-                                placeholder={isLoadingTypes ? "Loading types..." : "Select Leave Type"}
-                                disabled={isLoadingTypes}
-                            />
-                            {errors.leaveTypeId && <p className="mt-1 text-xs text-red-500">{errors.leaveTypeId}</p>}
-                        </div>
+                        {/* Leave rows — each row: Leave Type | Start Date | End Date */}
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-[1fr_1fr_1fr_28px] gap-2 px-1">
+                                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Leave Type <span className="text-red-500">*</span></span>
+                                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Start Date <span className="text-red-500">*</span></span>
+                                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">End Date <span className="text-red-500">*</span></span>
+                                <span></span>
+                            </div>
 
-                        {/* Date Ranges */}
-                        {formData.dates.map((range: any, index: number) => (
-                            <div key={index} className="p-4 border border-gray-100 dark:border-gray-800 rounded-xl space-y-4 relative">
-                                {formData.dates.length > 1 && (
-                                    <button type="button" onClick={() => removeDateRange(index)}
-                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-sm">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                )}
-                                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                                    <div>
-                                        <DatePicker id={`start-date-${index}`} label={`From${index > 0 ? ` #${index + 1}` : ""} *`}
-                                            placeholder="Select start date" value={range.startDate}
-                                            onChange={(selectedDates) => {
-                                                const date = selectedDates[0];
-                                                if (date) handleDateChange(index, "startDate", date.toISOString().split('T')[0]);
-                                            }} />
-                                        {errors[`startDate_${index}`] && <p className="mt-1 text-xs text-red-500">{errors[`startDate_${index}`]}</p>}
-                                    </div>
-                                    <div>
-                                        <DatePicker id={`end-date-${index}`} label={`To${index > 0 ? ` #${index + 1}` : ""} *`}
-                                            placeholder="Select end date" value={range.endDate}
-                                            onChange={(selectedDates) => {
-                                                const date = selectedDates[0];
-                                                if (date) handleDateChange(index, "endDate", date.toISOString().split('T')[0]);
-                                            }} />
-                                        {errors[`endDate_${index}`] && <p className="mt-1 text-xs text-red-500">{errors[`endDate_${index}`]}</p>}
+                            {formData.dates.map((range: any, index: number) => (
+                                <div key={index} className="space-y-1">
+                                    <div className="grid grid-cols-[1fr_1fr_1fr_28px] gap-2 items-start">
+                                        <div>
+                                            <CustomSelect
+                                                value={range.leaveTypeId}
+                                                onChange={(v) => {
+                                                    handleDateChange(index, "leaveTypeId", v);
+                                                    setSupportingDocument(null);
+                                                }}
+                                                options={leaveTypes.map((type: any) => ({
+                                                    value: type.unique_id ?? type.uniqueId ?? type.id,
+                                                    label: type.name,
+                                                }))}
+                                                placeholder={isLoadingTypes ? "Loading..." : "Select type"}
+                                                disabled={isLoadingTypes}
+                                            />
+                                            {errors[`leaveTypeId_${index}`] && <p className="mt-1 text-xs text-red-500">{errors[`leaveTypeId_${index}`]}</p>}
+                                        </div>
+                                        <div>
+                                            <DatePicker id={`start-date-${index}`} placeholder="Start date" value={range.startDate}
+                                                onChange={(selectedDates) => {
+                                                    const date = selectedDates[0];
+                                                    if (date) handleDateChange(index, "startDate", date.toISOString().split('T')[0]);
+                                                }} />
+                                            {errors[`startDate_${index}`] && <p className="mt-1 text-xs text-red-500">{errors[`startDate_${index}`]}</p>}
+                                        </div>
+                                        <div>
+                                            <DatePicker id={`end-date-${index}`} placeholder="End date" value={range.endDate}
+                                                onChange={(selectedDates) => {
+                                                    const date = selectedDates[0];
+                                                    if (date) handleDateChange(index, "endDate", date.toISOString().split('T')[0]);
+                                                }} />
+                                            {errors[`endDate_${index}`] && <p className="mt-1 text-xs text-red-500">{errors[`endDate_${index}`]}</p>}
+                                        </div>
+                                        <div className="flex items-center justify-center pt-2">
+                                            {formData.dates.length > 1 && (
+                                                <button type="button" onClick={() => removeDateRange(index)}
+                                                    className="text-red-400 hover:text-red-600 transition-colors p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
 
                         <button type="button" onClick={addDateRange}
                             className="w-full py-3 px-4 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl text-sm font-medium text-gray-500 hover:text-brand-500 hover:border-brand-500 transition-all flex items-center justify-center gap-2">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                             </svg>
-                            Add Another Date Range
+                            Add Leave Type / Date Range
                         </button>
                     </div>
                 );
@@ -446,99 +449,128 @@ export default function MultiStepLeaveForm({
                                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500 resize-none" />
                         </div>
 
-                        {/* Handover Notes + Colleague Selector */}
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">Handover Notes</label>
-                                <textarea name="handoverNotes" value={formData.handoverNotes} onChange={handleChange} rows={3}
-                                    placeholder="Tasks to be handed over during your absence..."
-                                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-500 resize-none" />
+                        {/* Handover Colleagues */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-400">Handover Colleagues</label>
+                                <button type="button" onClick={() => { addHandoverEntry(); fetchEmployees(); }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-500 border border-brand-300 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                    Add Colleague
+                                </button>
                             </div>
 
-                            {needsHandover && (
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 p-4 space-y-3">
-                                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                                        Designate a colleague to handle your duties
-                                    </p>
-                                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                                        The selected colleague will be notified of the assigned responsibilities.
-                                    </p>
-                                    <CustomSelect
-                                        value={formData.handoverColleagueId}
-                                        onChange={(v) => {
-                                            setFormData((prev) => ({ ...prev, handoverColleagueId: v }));
-                                            if (errors.handoverColleagueId) setErrors((prev) => { const next = { ...prev }; delete next.handoverColleagueId; return next; });
-                                        }}
-                                        options={employees.map((e: any) => ({
-                                            value: e.unique_id ?? e.id,
-                                            label: e.employee_name ?? e.name ?? `Employee ${e.id}`,
-                                        }))}
-                                        placeholder="Select colleague..."
-                                    />
-                                    {errors.handoverColleagueId && <p className="text-xs text-red-500">{errors.handoverColleagueId}</p>}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Supporting Document */}
-                        <div>
-                            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
-                                Supporting Document{needsSupportingDoc && <span className="text-red-500 ml-1">*</span>}
-                                {!needsSupportingDoc && (
-                                    <span className="text-gray-400 font-normal ml-1">
-                                        (Medical excuse duty, exam timetable, admission letter, etc.)
-                                    </span>
-                                )}
-                            </label>
-
-                            {/* Contextual requirement notice */}
-                            {isExaminationLeave && (
-                                <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800 px-4 py-2.5 text-sm text-blue-700 dark:text-blue-300">
-                                    Examination Leave requires a valid supporting document — e.g. exam timetable, registration slip, or official examination notification.
-                                </div>
-                            )}
-                            {needsMedicalDoc && (
-                                <div className="mb-3 rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-900/10 dark:border-orange-800 px-4 py-2.5 text-sm text-orange-700 dark:text-orange-300">
-                                    Sick Leave exceeding 2 consecutive working days ({maxWorkingDays} days selected) requires a medical certificate or excuse duty note.
-                                </div>
+                            {formData.handoverEntries.length === 0 && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 italic">No handover colleagues added. Click "Add Colleague" if needed.</p>
                             )}
 
-                            <div className={`relative flex items-center justify-center w-full rounded-xl border-2 border-dashed px-4 py-6 transition-colors ${
-                                errors.supportingDocument
-                                    ? 'border-red-400 bg-red-50 dark:bg-red-900/10'
-                                    : supportingDocument
-                                    ? 'border-green-400 bg-green-50 dark:bg-green-900/10'
-                                    : 'border-gray-200 dark:border-gray-700 hover:border-brand-400'
-                            }`}>
-                                <input
-                                    type="file"
-                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] ?? null;
-                                        setSupportingDocument(file);
-                                        if (errors.supportingDocument) setErrors((prev) => { const next = { ...prev }; delete next.supportingDocument; return next; });
-                                    }}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                />
-                                <div className="text-center pointer-events-none">
-                                    {supportingDocument ? (
-                                        <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                                            <CheckCircleIcon className="w-5 h-5" />
-                                            <span className="text-sm font-medium">{supportingDocument.name}</span>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <svg className="mx-auto w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 16v-8m0 0l-3 3m3-3l3 3M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
+                            {formData.handoverEntries.map((entry, i) => (
+                                <div key={i} className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Colleague {i + 1}</p>
+                                        <button type="button" onClick={() => removeHandoverEntry(i)}
+                                            className="text-red-400 hover:text-red-600 transition-colors p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                                             </svg>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">Click to upload or drag & drop</p>
-                                            <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG, DOC up to 10MB</p>
-                                        </>
+                                        </button>
+                                    </div>
+
+                                    <CustomSelect
+                                        value={entry.colleagueId}
+                                        onChange={(v) => {
+                                            updateHandoverEntry(i, "colleagueId", v);
+                                            if (errors[`handoverColleague_${i}`]) setErrors(prev => { const next = { ...prev }; delete next[`handoverColleague_${i}`]; return next; });
+                                        }}
+                                        options={employees
+                                            .filter((e: any) => !formData.handoverEntries.some((en, idx) => idx !== i && en.colleagueId === String(e.unique_id ?? e.id)))
+                                            .map((e: any) => ({ value: String(e.unique_id ?? e.id), label: e.employee_name ?? e.name ?? `Employee ${e.id}` }))}
+                                        placeholder={isLoadingEmployees ? "Loading..." : "Select colleague..."}
+                                        disabled={isLoadingEmployees}
+                                    />
+                                    {errors[`handoverColleague_${i}`] && <p className="text-xs text-red-500">{errors[`handoverColleague_${i}`]}</p>}
+
+                                    {entry.colleagueId && (
+                                        <div>
+                                            <textarea
+                                                value={entry.notes}
+                                                onChange={(e) => {
+                                                    updateHandoverEntry(i, "notes", e.target.value);
+                                                    if (errors[`handoverNotes_${i}`]) setErrors(prev => { const next = { ...prev }; delete next[`handoverNotes_${i}`]; return next; });
+                                                }}
+                                                rows={2}
+                                                placeholder="Tasks to hand over to this colleague..."
+                                                className="w-full rounded-lg border border-amber-300 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 outline-none focus:border-brand-500 dark:border-amber-700 dark:text-white/90 resize-none"
+                                            />
+                                            {errors[`handoverNotes_${i}`] && <p className="text-xs text-red-500 mt-1">{errors[`handoverNotes_${i}`]}</p>}
+                                        </div>
                                     )}
                                 </div>
-                            </div>
-                            {errors.supportingDocument && <p className="mt-1.5 text-xs text-red-500">{errors.supportingDocument}</p>}
+                            ))}
                         </div>
+
+                        {/* Supporting Document — only shown when required */}
+                        {needsSupportingDoc && (
+                            <div>
+                                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-400">
+                                    Supporting Document <span className="text-red-500">*</span>
+                                </label>
+
+                                {isExaminationLeave && (
+                                    <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800 px-4 py-2.5 text-sm text-blue-700 dark:text-blue-300">
+                                        Examination Leave requires a valid supporting document — e.g. exam timetable, registration slip, or official examination notification.
+                                    </div>
+                                )}
+                                {needsMedicalDoc && (
+                                    <div className="mb-3 rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-900/10 dark:border-orange-800 px-4 py-2.5 text-sm text-orange-700 dark:text-orange-300">
+                                        Sick Leave exceeding 2 consecutive working days ({maxWorkingDays} days selected) requires a medical certificate or excuse duty note.
+                                    </div>
+                                )}
+                                {hasTriggerDoc && !isExaminationLeave && !needsMedicalDoc && (
+                                    <div className="mb-3 rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-900/10 dark:border-yellow-800 px-4 py-2.5 text-sm text-yellow-700 dark:text-yellow-300">
+                                        The selected leave type requires a supporting document. Please upload one to proceed.
+                                    </div>
+                                )}
+
+                                <div className={`relative flex items-center justify-center w-full rounded-xl border-2 border-dashed px-4 py-6 transition-colors ${
+                                    errors.supportingDocument
+                                        ? 'border-red-400 bg-red-50 dark:bg-red-900/10'
+                                        : supportingDocument
+                                        ? 'border-green-400 bg-green-50 dark:bg-green-900/10'
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-brand-400'
+                                }`}>
+                                    <input
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0] ?? null;
+                                            setSupportingDocument(file);
+                                            if (errors.supportingDocument) setErrors((prev) => { const next = { ...prev }; delete next.supportingDocument; return next; });
+                                        }}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    />
+                                    <div className="text-center pointer-events-none">
+                                        {supportingDocument ? (
+                                            <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                                                <CheckCircleIcon className="w-5 h-5" />
+                                                <span className="text-sm font-medium">{supportingDocument.name}</span>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <svg className="mx-auto w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 16v-8m0 0l-3 3m3-3l3 3M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
+                                                </svg>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">Click to upload or drag & drop</p>
+                                                <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG, DOC up to 10MB</p>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                                {errors.supportingDocument && <p className="mt-1.5 text-xs text-red-500">{errors.supportingDocument}</p>}
+                            </div>
+                        )}
                     </div>
                 );
 
@@ -556,20 +588,17 @@ export default function MultiStepLeaveForm({
                             ) : null;
                         })()}
                         <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-3 text-sm border border-gray-100 dark:border-gray-700">
-                            <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-700">
-                                <span className="text-gray-500">Type:</span>
-                                <span className="font-medium text-gray-800 dark:text-white">
-                                    {leaveTypes.find((t: any) => String(t.unique_id ?? t.id) === String(formData.leaveTypeId))?.name || "-"}
-                                </span>
-                            </div>
                             <div className="space-y-2 border-b border-gray-200 pb-2 dark:border-gray-700">
-                                <span className="text-gray-500">Date Range(s):</span>
-                                {formData.dates.map((range: any, i: number) => (
-                                    <div key={i} className="flex justify-between items-center text-xs">
-                                        <span className="text-gray-400">Period {i + 1}:</span>
-                                        <span className="font-medium text-gray-800 dark:text-white">{range.startDate || "-"} to {range.endDate || "-"}</span>
-                                    </div>
-                                ))}
+                                <span className="text-gray-500">Leave Breakdown:</span>
+                                {formData.dates.map((range: any, i: number) => {
+                                    const lt = rowLeaveType(range.leaveTypeId);
+                                    return (
+                                        <div key={i} className="flex justify-between items-center text-xs gap-2">
+                                            <span className="text-gray-500 shrink-0">{lt?.name || "—"}:</span>
+                                            <span className="font-medium text-gray-800 dark:text-white text-right">{range.startDate || "-"} → {range.endDate || "-"}</span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                             {formData.comment && (
                                 <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-700">
@@ -577,12 +606,18 @@ export default function MultiStepLeaveForm({
                                     <span className="font-medium text-gray-800 dark:text-white truncate max-w-[200px]">{formData.comment}</span>
                                 </div>
                             )}
-                            {needsHandover && formData.handoverColleagueId && (
-                                <div className="flex justify-between border-b border-gray-200 pb-2 dark:border-gray-700">
-                                    <span className="text-gray-500">Handover Colleague:</span>
-                                    <span className="font-medium text-gray-800 dark:text-white">
-                                        {employees.find((e: any) => String(e.unique_id ?? e.id) === String(formData.handoverColleagueId))?.employee_name ?? "Selected"}
-                                    </span>
+                            {formData.handoverEntries.length > 0 && (
+                                <div className="border-b border-gray-200 pb-2 dark:border-gray-700 space-y-1">
+                                    <span className="text-gray-500">Handover:</span>
+                                    {formData.handoverEntries.map((entry, i) => {
+                                        const emp = employees.find((e: any) => String(e.unique_id ?? e.id) === String(entry.colleagueId));
+                                        return (
+                                            <div key={i} className="text-xs">
+                                                <span className="font-medium text-gray-800 dark:text-white">{emp?.employee_name ?? emp?.name ?? "—"}</span>
+                                                {entry.notes && <span className="text-gray-500 ml-1">— {entry.notes}</span>}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                             {supportingDocument && (

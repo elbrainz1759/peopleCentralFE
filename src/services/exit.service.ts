@@ -111,7 +111,7 @@ export class ExitService {
   /**
    * Get specific exit interview
    */
-  async getExitInterviewById(id: number): Promise<any> {
+  async getExitInterviewById(id: number | string): Promise<any> {
     try {
       const response = await api.get<any>(`/exit-interviews/${id}`);
       return response;
@@ -179,7 +179,6 @@ export class ExitService {
         mostEnjoyed: pick(rec.mostEnjoyed, rec.most_enjoyed, 'N/A'),
         companyImprovement: pick(rec.companyImprovement, rec.company_improvement, 'N/A'),
         wouldRecommend: validRecommend,
-        additionalComments: pick(rec.additionalComments, rec.additional_comments) ?? undefined,
         status: validStatus,
         stage: newStage,
       };
@@ -190,6 +189,18 @@ export class ExitService {
       console.error('ExitService advanceStage error:', error);
       throw error;
     }
+  }
+
+  async saveHRAssessment(
+    id: number | string,
+    _assessment: { assessmentNotes: string; keyThemes: string; recommendation: string; assessedBy: string; assessedAt: string }
+  ): Promise<any> {
+    // Assessment text stored in localStorage; this call clears the HR stage.
+    return api.post<any>(`/exit-interviews/${id}/clear`, {
+      department: 'HR',
+      checkListItemIds: [],
+      notes: 'HR assessment completed',
+    });
   }
 
   /**
@@ -224,10 +235,9 @@ export class ExitService {
   async clearExitInterviewItems(
     id: number | string,
     payload: {
-      department: 'Operations' | 'Finance';
+      department: 'Operations' | 'Finance' | 'HR';
       checkListItemIds: number[];
-      clearedBy?: string;
-      notes?: string
+      notes?: string;
     }
   ): Promise<any> {
     try {

@@ -8,7 +8,7 @@ import {
     TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
-import { EyeIcon, CheckCircleIcon, CloseIcon, MoreDotIcon, PencilIcon, PlusIcon, TrashBinIcon } from "@/icons";
+import { EyeIcon, CheckCircleIcon, CloseIcon, MoreDotIcon, PencilIcon, PlusIcon, TrashBinIcon, DownloadIcon } from "@/icons";
 import CustomSelect from "@/components/form/CustomSelect";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
@@ -26,11 +26,13 @@ interface ExitInterviewDisplay {
     id: any;
     uniqueId: string;
     staffId: string | number;
+    supervisorId: string;
     employeeName: string;
     department: string;
     designation: string;
     supervisor: string;
     stage: string;
+    status: string;
     submittedOn: string;
     handoverStatus: string;
     assetsStatus: string;
@@ -63,9 +65,27 @@ export default function ExitApprovalsTable() {
     
     const [selectedChecklistIds, setSelectedChecklistIds] = useState<string[]>([]);
     const [isActioning, setIsActioning] = useState(false);
-    
+
     const [availableQueues, setAvailableQueues] = useState<QueueType[]>(['All', 'HR', 'Operations', 'Finance']);
     const [authUser, setAuthUser] = useState<any>(null);
+
+    // Interview details + HR Assessment state
+    const [interviewDetails, setInterviewDetails] = useState<any>(null);
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+    const [hrAssessment, setHrAssessment] = useState<{
+        assessmentNotes: string;
+        keyThemes: string;
+        recommendation: "" | "Rehire" | "Do Not Rehire" | "Neutral";
+        assessedBy: string;
+        assessedAt: string;
+    }>({ assessmentNotes: "", keyThemes: "", recommendation: "", assessedBy: "", assessedAt: "" });
+    const [isSavingAssessment, setIsSavingAssessment] = useState(false);
+
+    // HR record-edit state
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editRecord, setEditRecord] = useState<any>(null);
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
+    const [downloadingId, setDownloadingId] = useState<string | number | null>(null);
 
     const exitServiceInstance = ExitService.getInstance();
 
@@ -164,6 +184,7 @@ export default function ExitApprovalsTable() {
                     id: item.id,
                     uniqueId: item.unique_id || item.uniqueId || item.id,
                     staffId: item.staff_id || item.id,
+                    supervisorId: item.supervisor_id || '',
                     employeeName: item.staff_name || fullName,
                     department: item.department_name || item.department?.name || item.department || 'N/A',
                     designation: item.designation_name || item.designation || 'Not Specified',
@@ -178,7 +199,7 @@ export default function ExitApprovalsTable() {
                     })(),
                     resignationDate: item.resignation_date ? new Date(item.resignation_date).toLocaleDateString() : 'N/A',
                     submittedOn: item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A',
-                    handoverStatus: item.stage !== 'Supervisor' ? "Accepted" : "Pending", // basic fallback logic since handover_cleared isn't present
+                    handoverStatus: (String(item.supervisor_cleared) === '1' || item.supervisor_cleared === 'Accepted' || item.supervisor_cleared === 'Cleared') ? "Accepted" : "Pending",
                     assetsStatus: item.operations_cleared === 1 ? "Cleared" : "Pending",
                     financeStatus: item.finance_cleared === 1 ? "Cleared" : "Pending",
                     status: item.status || 'Pending',
@@ -187,12 +208,13 @@ export default function ExitApprovalsTable() {
                 };
             });
 
-            // TODO: re-enable self-exclusion filter before go-live
-            // mapped = mapped.filter((m: any) => {
-            //     const isMatchingId = currentUserId && String(m.staffId) === String(currentUserId);
-            //     const isMatchingStaffId = currentUserStaffId && String(m.staffId) === String(currentUserStaffId);
-            //     return !isMatchingId && !isMatchingStaffId;
-            // });
+            // Pending records are only visible to the assigned supervisor and super_admin
+            const isSuperAdmin = (authUser?.role || '').toLowerCase().includes('superadmin');
+            const userUniqueId = authUser?.unique_id || authUser?.uniqueId || '';
+            mapped = mapped.filter((m: any) => {
+                if ((m.status || 'Pending') !== 'Pending') return true;
+                return isSuperAdmin || (userUniqueId && String(m.supervisorId) === String(userUniqueId));
+            });
 
             if (currentQueue === 'HR') {
                 mapped = mapped.filter((m: any) => m.stage === 'HR');
@@ -283,10 +305,96 @@ export default function ExitApprovalsTable() {
 
     const closeDropdown = () => setOpenDropdownId(null);
 
-    const handleReview = (interview: ExitInterviewDisplay) => {
+    // localStorage key for HR assessments (backend PATCH DTO does not accept additionalComments)
+    const assessmentKey = (id: string | number) => `hr_assessment_${id}`;
+
+    const loadSavedAssessment = (id: string | number) => {
+        try {
+            const raw = localStorage.getItem(assessmentKey(id));
+            if (raw) return JSON.parse(raw);
+        } catch { /* ignore */ }
+        return null;
+    };
+
+    const handleReview = async (interview: ExitInterviewDisplay) => {
         setSelectedInterview(interview);
-        setSelectedChecklistIds([]); // reset selection
+        setSelectedChecklistIds([]);
+        setInterviewDetails(null);
         setIsReviewOpen(true);
+
+        // Load any previously saved HR assessment from localStorage
+        const key = interview.uniqueId || interview.id;
+        const saved = loadSavedAssessment(key);
+        setHrAssessment(saved || { assessmentNotes: "", keyThemes: "", recommendation: "", assessedBy: "", assessedAt: "" });
+
+        // Fetch full interview details for Q&A display — use uniqueId (UUID), not numeric id
+        setIsLoadingDetails(true);
+        try {
+            const lookupId = interview.uniqueId || interview.id;
+            const res = await exitServiceInstance.getExitInterviewById(lookupId as any);
+            const rec = res?.data || res || {};
+            setInterviewDetails(rec);
+
+            // Hydrate HR assessment from backend additionalComments (source of truth)
+            try {
+                const raw = rec.additionalComments || rec.additional_comments || '{}';
+                const parsed = JSON.parse(raw);
+                if (parsed?.hrAssessment) {
+                    setHrAssessment(parsed.hrAssessment);
+                    // Keep localStorage in sync
+                    const cacheKey = interview.uniqueId || interview.id;
+                    localStorage.setItem(assessmentKey(cacheKey), JSON.stringify(parsed.hrAssessment));
+                }
+            } catch { /* malformed JSON — keep whatever was loaded from localStorage */ }
+        } catch { /* silent — details are optional, assessment still works */ } finally {
+            setIsLoadingDetails(false);
+        }
+    };
+
+    const saveHRAssessment = async () => {
+        if (!selectedInterview) return;
+        if (!hrAssessment.assessmentNotes.trim() && !hrAssessment.keyThemes.trim() && !hrAssessment.recommendation) {
+            toast.error("Please fill in at least one assessment field before saving.");
+            return;
+        }
+        setIsSavingAssessment(true);
+        try {
+            const assessment = {
+                ...hrAssessment,
+                assessedAt: new Date().toISOString(),
+                assessedBy: authUser?.name || authUser?.employee_name || authUser?.email || "HR",
+            };
+            const key = selectedInterview.uniqueId || selectedInterview.id;
+            await exitServiceInstance.saveHRAssessment(selectedInterview.uniqueId || selectedInterview.id, assessment);
+            localStorage.setItem(assessmentKey(key), JSON.stringify(assessment));
+            setHrAssessment(assessment);
+            toast.success("HR assessment saved. Exit clearance completed.");
+            setIsReviewOpen(false);
+            fetchInterviews();
+        } catch (e: any) {
+            toast.error("Failed to save HR assessment.");
+        } finally { setIsSavingAssessment(false); }
+    };
+
+    const openEditModal = (interview: ExitInterviewDisplay) => {
+        setEditRecord({ ...interview, reasonForLeaving: (interview as any).reasonForLeaving || "" });
+        setIsEditModalOpen(true);
+    };
+
+    const saveEditRecord = async () => {
+        if (!editRecord || !selectedInterview) return;
+        setIsSavingEdit(true);
+        try {
+            await exitServiceInstance.updateExitInterview(editRecord.id, {
+                reasonForLeaving: editRecord.reasonForLeaving,
+                handoverNotes: editRecord.handoverNotes,
+            });
+            toast.success("Exit record updated.");
+            setIsEditModalOpen(false);
+            fetchInterviews();
+        } catch (e: any) {
+            toast.error(e?.message || "Failed to update record.");
+        } finally { setIsSavingEdit(false); }
     };
 
     const handleApprove = async () => {
@@ -297,7 +405,7 @@ export default function ExitApprovalsTable() {
         const stage = selectedInterview.stage;
 
         try {
-            if (stage === 'Supervisor') {
+            if (stage === 'Employee' || stage === 'Supervisor') {
                 await exitServiceInstance.advanceStage(selectedInterview.uniqueId as any, 'Operations');
                 toast.success("Supervisor approved. Forwarded to Operations for asset clearance.");
                 setIsReviewOpen(false);
@@ -308,30 +416,38 @@ export default function ExitApprovalsTable() {
                     toast.error("Please verify at least one asset before approving.");
                     return;
                 }
-                const clearedBy = authUser?.unique_id || authUser?.uniqueId || String(authUser?.id || '');
                 await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
                     department: 'Operations',
                     checkListItemIds: selectedChecklistIds.map(Number),
-                    clearedBy,
-                } as any);
+                    notes: 'Assets returned',
+                });
                 toast.success("Operations cleared. Forwarded to Finance.");
                 setIsReviewOpen(false);
                 fetchInterviews();
 
             } else if (stage === 'Finance') {
-                const clearedBy = authUser?.unique_id || authUser?.uniqueId || String(authUser?.id || '');
                 await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
                     department: 'Finance',
                     checkListItemIds: selectedChecklistIds.map(Number),
-                    clearedBy,
-                } as any);
+                    notes: 'Final salary processed',
+                });
                 toast.success("Finance cleared. Forwarded to HR for final review.");
                 setIsReviewOpen(false);
                 fetchInterviews();
 
-            } else if (stage === 'HR' || stage === 'HR_Final') {
+            } else if (stage === 'HR') {
+                await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
+                    department: 'HR',
+                    checkListItemIds: selectedChecklistIds.map(Number),
+                    notes: 'Documents filed',
+                });
+                toast.success("HR cleared. Forwarded to HR Director for final sign-off.");
+                setIsReviewOpen(false);
+                fetchInterviews();
+
+            } else if (stage === 'HR_Final' || stage === 'HR_Director') {
                 await exitServiceInstance.finalizeExitInterview(selectedInterview.uniqueId as any);
-                toast.success("HR final review complete. Exit clearance process is now closed.");
+                toast.success("HR Director finalized. Exit clearance process is now closed.");
                 setIsReviewOpen(false);
                 fetchInterviews();
 
@@ -368,8 +484,9 @@ export default function ExitApprovalsTable() {
             case "Supervisor": return "warning";
             case "Operations": return "info";
             case "Finance":    return "info";
-            case "HR":         return "warning";
-            case "HR_Final":   return "warning";
+            case "HR":          return "warning";
+            case "HR_Final":    return "warning";
+            case "HR_Director": return "warning";
             case "Completed":  return "success";
             default:           return "light";
         }
@@ -379,6 +496,134 @@ export default function ExitApprovalsTable() {
         const role = (authUser?.role || authUser?.designation || "").toLowerCase();
         return role.includes('hr') || role.includes('admin') || role.includes('superadmin');
     })();
+
+    const generatePDF = (iv: ExitInterviewDisplay, details: any) => {
+        const doc = new jsPDF();
+        doc.setFontSize(18); doc.setFont("helvetica", "bold");
+        doc.text("EXIT CLEARANCE & INTERVIEW REPORT", 105, 20, { align: "center" });
+        doc.setFontSize(10); doc.setFont("helvetica", "normal");
+        doc.text("Mercy Corps - People Central", 105, 27, { align: "center" });
+        doc.setDrawColor(200); doc.line(14, 31, 196, 31);
+
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        doc.text("Employee Information", 14, 40);
+        autoTable(doc, {
+            startY: 44,
+            head: [["Field", "Details"]],
+            body: [
+                ["Employee", String(iv.employeeName)],
+                ["Staff ID", String(iv.staffId)],
+                ["Department", String(iv.department)],
+                ["Location", String(iv.location)],
+                ["Program", String(iv.program)],
+                ["Exit Date", String((iv as any).resignationDate ?? "N/A")],
+                ["Submitted", String(iv.submittedOn)],
+            ],
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 10 },
+            columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
+        });
+
+        const y1 = (doc as any).lastAutoTable?.finalY || 90;
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        doc.text("Approval Trail", 14, y1 + 10);
+        autoTable(doc, {
+            startY: y1 + 14,
+            head: [["Stage", "Status"]],
+            body: [
+                ["1. Employee Submission", "Submitted"],
+                ["2. Supervisor (Handover)", iv.handoverStatus],
+                ["3. Operations (Asset Clearance)", iv.assetsStatus],
+                ["4. Finance (Outstanding Obligations)", iv.financeStatus],
+                ["5. HR (Final Review & Sign-off)", "Completed"],
+            ],
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 10 },
+            columnStyles: { 0: { cellWidth: 100 } },
+        });
+
+        const y2 = (doc as any).lastAutoTable?.finalY || 140;
+        let comments: any = {};
+        try { comments = JSON.parse(details?.additional_comments || details?.additionalComments || "{}"); } catch {}
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        doc.text("Exit Interview Responses", 14, y2 + 10);
+        autoTable(doc, {
+            startY: y2 + 14,
+            head: [["Question", "Response"]],
+            body: [
+                ["Reason for leaving", details?.reason_for_leaving || details?.reasonForLeaving || "N/A"],
+                ["Liked most about the job", details?.most_enjoyed || details?.mostEnjoyed || "N/A"],
+                ["Improvement suggestions", details?.company_improvement || details?.companyImprovement || "N/A"],
+                ["Work was as expected", comments.workAsExpected || "N/A"],
+                ["Workload assessment", comments.workload || "N/A"],
+                ["Would recommend organisation", details?.would_recommend || details?.wouldRecommend || "N/A"],
+                ["Suggestions for improvement", comments.suggestions || "N/A"],
+            ],
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 9, cellPadding: 3 },
+            columnStyles: { 0: { fontStyle: "bold", cellWidth: 65 } },
+        });
+
+        const y3 = (doc as any).lastAutoTable?.finalY || 200;
+        const localAssessment = loadSavedAssessment(iv.uniqueId || iv.id);
+        const assessment = localAssessment || hrAssessment;
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        doc.text("HR Assessment (Confidential)", 14, y3 + 10);
+        autoTable(doc, {
+            startY: y3 + 14,
+            head: [["Field", "Details"]],
+            body: [
+                ["Assessment Notes", assessment.assessmentNotes || "N/A"],
+                ["Key Themes Identified", assessment.keyThemes || "N/A"],
+                ["Re-hire Recommendation", assessment.recommendation || "N/A"],
+                ["Assessed By", assessment.assessedBy || "N/A"],
+                ["Assessment Date", assessment.assessedAt ? new Date(assessment.assessedAt).toLocaleDateString() : "N/A"],
+            ],
+            theme: "grid",
+            headStyles: { fillColor: [88, 28, 135], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 9, cellPadding: 3 },
+            columnStyles: { 0: { fontStyle: "bold", cellWidth: 65 } },
+        });
+
+        const y4 = (doc as any).lastAutoTable?.finalY || 240;
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        doc.text("Clearance Checklist Items", 14, y4 + 10);
+        autoTable(doc, {
+            startY: y4 + 14,
+            head: [["#", "Item", "Department", "Status"]],
+            body: checklistItems.length > 0
+                ? checklistItems.map((item, i) => [String(i + 1), item.name, (item as any).department_name || item.departmentName || "N/A", "Cleared"])
+                : [["—", "No items recorded", "—", "—"]],
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 9 },
+            columnStyles: { 0: { cellWidth: 12 } },
+        });
+
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFontSize(8); doc.setTextColor(150);
+        doc.text(`Generated on ${new Date().toLocaleString()} — Mercy Corps People Central`, 105, pageHeight - 10, { align: "center" });
+        doc.setTextColor(0);
+        doc.save(`Exit_Report_${iv.staffId}_${iv.employeeName.replace(/\s+/g, "_")}.pdf`);
+        toast.success("PDF downloaded.");
+    };
+
+    const handleDownload = async (interview: ExitInterviewDisplay) => {
+        setDownloadingId(interview.id);
+        try {
+            const lookupId = interview.uniqueId || interview.id;
+            const res = await exitServiceInstance.getExitInterviewById(lookupId as any);
+            const details = res?.data || res || {};
+            generatePDF(interview, details);
+        } catch {
+            toast.error("Failed to fetch exit details for PDF.");
+        } finally {
+            setDownloadingId(null);
+        }
+    };
 
     return (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
@@ -523,9 +768,24 @@ export default function ExitApprovalsTable() {
                                         <Badge size="sm" color={getStageColor(interview.stage)}>{interview.stage}</Badge>
                                     </div>
                                 </div>
-                                <Button size="sm" variant="outline" onClick={() => handleReview(interview)} className="w-full">
-                                    Review
-                                </Button>
+                                <div className="flex gap-2">
+                                    <Button size="sm" variant="outline" onClick={() => handleReview(interview)} className="flex-1">
+                                        Review
+                                    </Button>
+                                    {interview.stage === "Completed" && (
+                                        <button
+                                            onClick={() => handleDownload(interview)}
+                                            disabled={downloadingId === interview.id}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-green-200 text-green-600 text-xs font-medium hover:bg-green-50 transition-colors disabled:opacity-50"
+                                        >
+                                            {downloadingId === interview.id
+                                                ? <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                                : <DownloadIcon className="w-3.5 h-3.5" />
+                                            }
+                                            PDF
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -609,13 +869,33 @@ export default function ExitApprovalsTable() {
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="py-3 text-right">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleReview(interview)}
-                                    >
-                                        Review
-                                    </Button>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <Button size="sm" variant="outline" onClick={() => handleReview(interview)}>
+                                            Review
+                                        </Button>
+                                        {interview.stage === "Completed" && (
+                                            <button
+                                                onClick={() => handleDownload(interview)}
+                                                disabled={downloadingId === interview.id}
+                                                className="p-1.5 rounded-lg border border-green-200 dark:border-green-800 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
+                                                title="Download Exit Report PDF"
+                                            >
+                                                {downloadingId === interview.id
+                                                    ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                                    : <DownloadIcon className="w-4 h-4" />
+                                                }
+                                            </button>
+                                        )}
+                                        {isUserHR && (
+                                            <button
+                                                onClick={() => { setSelectedInterview(interview); openEditModal(interview); }}
+                                                className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-brand-500 hover:border-brand-500 transition-colors"
+                                                title="Edit Record"
+                                            >
+                                                <PencilIcon className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -644,43 +924,48 @@ export default function ExitApprovalsTable() {
                             <div className="space-y-4">
                                 <h5 className="font-semibold text-gray-800 dark:text-white/90 border-b pb-2 border-gray-100 dark:border-gray-800">Clearance Progress</h5>
                                 <div className="grid grid-cols-1 gap-3">
-                                    {[
-                                        {
-                                            label: "1. Employee",
-                                            color: "success" as const,
-                                            status: "Submitted",
-                                        },
-                                        {
-                                            label: "2. Supervisor (Handover)",
-                                            color: (selectedInterview.handoverStatus === "Accepted" ? "success" : "warning") as "success" | "warning",
-                                            status: selectedInterview.handoverStatus,
-                                        },
-                                        {
-                                            label: "3. Operations (Asset Clearance)",
-                                            color: (selectedInterview.assetsStatus === "Cleared" ? "success" : "warning") as "success" | "warning",
-                                            status: selectedInterview.assetsStatus,
-                                        },
-                                        {
-                                            label: "4. Finance (Outstanding Obligations)",
-                                            color: (selectedInterview.financeStatus === "Cleared" ? "success" : "warning") as "success" | "warning",
-                                            status: selectedInterview.financeStatus,
-                                        },
-                                        {
-                                            label: "5. HR (Final Review & Sign-off)",
-                                            color: (() => {
-                                                const s = selectedInterview.stage;
-                                                if (s === "Completed") return "success" as const;
-                                                if (s === "HR" || s === "HR_Final") return "warning" as const;
-                                                return "light" as const;
-                                            })(),
-                                            status: (() => {
-                                                const s = selectedInterview.stage;
-                                                if (s === "Completed") return "Completed";
-                                                if (s === "HR" || s === "HR_Final") return "In Review";
-                                                return "Pending";
-                                            })(),
-                                        },
-                                    ].map(({ label, color, status }) => (
+                                    {(() => {
+                                        const stageOrder = ['Employee', 'Supervisor', 'Operations', 'Finance', 'HR', 'HR_Final', 'HR_Director', 'Completed'];
+                                        const currentIdx = stageOrder.indexOf(selectedInterview.stage);
+                                        const pastStage = (s: string) => currentIdx > stageOrder.indexOf(s);
+                                        const atOrPastStage = (s: string) => currentIdx >= stageOrder.indexOf(s);
+
+                                        return [
+                                            {
+                                                label: "1. Employee",
+                                                color: "success" as const,
+                                                status: "Submitted",
+                                            },
+                                            {
+                                                label: "2. Supervisor (Handover)",
+                                                color: (pastStage('Supervisor') || selectedInterview.handoverStatus === "Accepted" ? "success" : "warning") as "success" | "warning",
+                                                status: pastStage('Supervisor') || selectedInterview.handoverStatus === "Accepted" ? "Accepted" : "Pending",
+                                            },
+                                            {
+                                                label: "3. Operations (Asset Clearance)",
+                                                color: (pastStage('Operations') || selectedInterview.assetsStatus === "Cleared" ? "success" : "warning") as "success" | "warning",
+                                                status: pastStage('Operations') || selectedInterview.assetsStatus === "Cleared" ? "Cleared" : "Pending",
+                                            },
+                                            {
+                                                label: "4. Finance (Outstanding Obligations)",
+                                                color: (pastStage('Finance') || selectedInterview.financeStatus === "Cleared" ? "success" : "warning") as "success" | "warning",
+                                                status: pastStage('Finance') || selectedInterview.financeStatus === "Cleared" ? "Cleared" : "Pending",
+                                            },
+                                            {
+                                                label: "5. HR (Final Review & Sign-off)",
+                                                color: (() => {
+                                                    if (selectedInterview.stage === "Completed") return "success" as const;
+                                                    if (atOrPastStage('HR')) return "warning" as const;
+                                                    return "light" as const;
+                                                })(),
+                                                status: (() => {
+                                                    if (selectedInterview.stage === "Completed") return "Completed";
+                                                    if (atOrPastStage('HR')) return "In Review";
+                                                    return "Pending";
+                                                })(),
+                                            },
+                                        ];
+                                    })().map(({ label, color, status }) => (
                                         <div key={label} className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg">
                                             <span className="text-sm font-medium text-gray-700 dark:text-gray-400">{label}</span>
                                             <Badge color={color}>{status}</Badge>
@@ -774,112 +1059,198 @@ export default function ExitApprovalsTable() {
                                 );
                             })()}
 
-                            {(selectedInterview as any)?.status === 'Completed' ? (
+                            {/* ── HR Assessment Section (HR-only, only when Operations & Finance have cleared) ── */}
+                            {isUserHR && (selectedInterview?.stage === 'HR' || selectedInterview?.stage === 'HR_Final' || selectedInterview?.stage === 'HR_Director') && (
+                                <div className="space-y-4">
+                                    <h5 className="font-semibold text-gray-800 dark:text-white/90 border-b pb-2 border-gray-100 dark:border-gray-800 flex items-center gap-2">
+                                        HR Assessment
+                                        <span className="text-[10px] bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">Confidential</span>
+                                    </h5>
+                                    {isLoadingDetails ? (
+                                        <p className="text-xs text-gray-400 italic">Loading interview details...</p>
+                                    ) : (
+                                        <>
+                                            {/* Full exit interview responses */}
+                                            {interviewDetails && (
+                                                <div className="rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-900/10 p-4 space-y-4 max-h-[420px] overflow-y-auto">
+                                                    <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Exit Interview Responses</p>
+
+                                                    {/* General */}
+                                                    <div className="space-y-1.5">
+                                                        {[
+                                                            ["Reason for leaving", interviewDetails.reason_for_leaving],
+                                                            ["New employer", interviewDetails.new_employer],
+                                                            ["Why leaving", interviewDetails.why_leaving],
+                                                            ["What would have prevented leaving", interviewDetails.what_would_prevent],
+                                                            ["What they enjoyed most", interviewDetails.most_enjoyed],
+                                                            ["Suggested company improvements", interviewDetails.company_improvement],
+                                                            ["Work was as expected", interviewDetails.work_as_expected],
+                                                            ["Work expectations comment", interviewDetails.work_expected_comments],
+                                                            ["Workload", interviewDetails.workload],
+                                                            ["Would recommend organisation", interviewDetails.would_recommend],
+                                                            ["Suggestions", interviewDetails.suggestions],
+                                                        ].filter(([, v]) => v && v !== 'N/A').map(([label, value]) => (
+                                                            <div key={label as string} className="text-xs flex gap-1">
+                                                                <span className="font-semibold text-gray-600 dark:text-gray-400 shrink-0">{label}:</span>
+                                                                <span className="text-gray-700 dark:text-gray-300">{value as string}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Supervisor ratings */}
+                                                    {[
+                                                        interviewDetails.supervisor_fair,
+                                                        interviewDetails.supervisor_recognition,
+                                                        interviewDetails.supervisor_complaints,
+                                                        interviewDetails.supervisor_sensitive,
+                                                        interviewDetails.supervisor_feedback,
+                                                        interviewDetails.supervisor_communication,
+                                                        interviewDetails.supervisor_policies,
+                                                    ].some(Boolean) && (
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Supervisor Evaluation</p>
+                                                            <div className="space-y-1">
+                                                                {[
+                                                                    ["Treated fairly", interviewDetails.supervisor_fair],
+                                                                    ["Recognised contributions", interviewDetails.supervisor_recognition],
+                                                                    ["Handled complaints", interviewDetails.supervisor_complaints],
+                                                                    ["Sensitive to personal needs", interviewDetails.supervisor_sensitive],
+                                                                    ["Provided feedback", interviewDetails.supervisor_feedback],
+                                                                    ["Communicated clearly", interviewDetails.supervisor_communication],
+                                                                    ["Explained policies", interviewDetails.supervisor_policies],
+                                                                ].filter(([, v]) => v).map(([label, value]) => (
+                                                                    <div key={label as string} className="text-xs flex justify-between">
+                                                                        <span className="text-gray-600 dark:text-gray-400">{label}</span>
+                                                                        <span className="font-medium text-gray-800 dark:text-gray-200">{value as string}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Organisation ratings */}
+                                                    {[
+                                                        interviewDetails.rating_coop_dept,
+                                                        interviewDetails.rating_pay,
+                                                        interviewDetails.rating_training,
+                                                    ].some(Boolean) && (
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Organisation Ratings</p>
+                                                            <div className="space-y-1">
+                                                                {[
+                                                                    ["Cooperation within dept", interviewDetails.rating_coop_dept],
+                                                                    ["Cooperation across depts", interviewDetails.rating_coop_other],
+                                                                    ["Training", interviewDetails.rating_training],
+                                                                    ["Equipment / resources", interviewDetails.rating_equipment],
+                                                                    ["Performance review", interviewDetails.rating_perf_review],
+                                                                    ["Orientation", interviewDetails.rating_orientation],
+                                                                    ["Pay", interviewDetails.rating_pay],
+                                                                    ["Career development", interviewDetails.rating_career_dev],
+                                                                    ["Work conditions", interviewDetails.rating_work_conditions],
+                                                                    ["Rating comments", interviewDetails.rating_comments],
+                                                                ].filter(([, v]) => v).map(([label, value]) => (
+                                                                    <div key={label as string} className="text-xs flex justify-between">
+                                                                        <span className="text-gray-600 dark:text-gray-400">{label}</span>
+                                                                        <span className="font-medium text-gray-800 dark:text-gray-200">{value as string}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Benefits */}
+                                                    {[
+                                                        interviewDetails.benefit_medical,
+                                                        interviewDetails.benefit_annual_leave,
+                                                        interviewDetails.benefit_holidays,
+                                                    ].some(Boolean) && (
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Benefits Ratings</p>
+                                                            <div className="space-y-1">
+                                                                {[
+                                                                    ["Medical", interviewDetails.benefit_medical],
+                                                                    ["Annual leave", interviewDetails.benefit_annual_leave],
+                                                                    ["Public holidays", interviewDetails.benefit_holidays],
+                                                                    ["Sick leave", interviewDetails.benefit_sick_leave],
+                                                                    ["Gratuity", interviewDetails.benefit_gratuity],
+                                                                    ["Education assistance", interviewDetails.benefit_education],
+                                                                ].filter(([, v]) => v).map(([label, value]) => (
+                                                                    <div key={label as string} className="text-xs flex justify-between">
+                                                                        <span className="text-gray-600 dark:text-gray-400">{label}</span>
+                                                                        <span className="font-medium text-gray-800 dark:text-gray-200">{value as string}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Assessment Notes</label>
+                                                <textarea
+                                                    rows={3}
+                                                    value={hrAssessment.assessmentNotes}
+                                                    onChange={e => setHrAssessment(prev => ({ ...prev, assessmentNotes: e.target.value }))}
+                                                    placeholder="Key observations from the exit interview..."
+                                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 resize-none"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Key Themes Identified</label>
+                                                <textarea
+                                                    rows={2}
+                                                    value={hrAssessment.keyThemes}
+                                                    onChange={e => setHrAssessment(prev => ({ ...prev, keyThemes: e.target.value }))}
+                                                    placeholder="Common patterns or themes raised by the employee..."
+                                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 resize-none"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Re-hire Recommendation</label>
+                                                <select
+                                                    value={hrAssessment.recommendation}
+                                                    onChange={e => setHrAssessment(prev => ({ ...prev, recommendation: e.target.value as any }))}
+                                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500"
+                                                >
+                                                    <option value="">Select recommendation...</option>
+                                                    <option value="Rehire">Eligible for Re-hire</option>
+                                                    <option value="Neutral">Neutral / Case by Case</option>
+                                                    <option value="Do Not Rehire">Not Eligible for Re-hire</option>
+                                                </select>
+                                            </div>
+                                            {hrAssessment.assessedAt && (
+                                                <p className="text-xs text-gray-400 italic">
+                                                    Last assessed: {new Date(hrAssessment.assessedAt).toLocaleString()} by {hrAssessment.assessedBy || "HR"}
+                                                </p>
+                                            )}
+                                            <button
+                                                onClick={saveHRAssessment}
+                                                disabled={isSavingAssessment || isLoadingDetails}
+                                                className="w-full px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isSavingAssessment ? "Saving & Finalizing..." : isLoadingDetails ? "Loading..." : "Save & Finalize HR Assessment"}
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {((selectedInterview as any)?.status === 'Completed' || selectedInterview?.stage === 'Completed') ? (
                                 <div className="pt-6 space-y-3 text-center">
                                     <div className="inline-flex items-center gap-2 px-6 py-3 bg-green-50 text-green-700 rounded-lg border border-green-200 font-semibold">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                         Exit Clearance Completed
                                     </div>
                                     <button
-                                        onClick={() => {
-                                            const iv = selectedInterview;
-                                            if (!iv) return;
-                                            const doc = new jsPDF();
-
-                                            // Header
-                                            doc.setFontSize(18);
-                                            doc.setFont("helvetica", "bold");
-                                            doc.text("EXIT CLEARANCE CHECKLIST", 105, 20, { align: "center" });
-                                            doc.setFontSize(10);
-                                            doc.setFont("helvetica", "normal");
-                                            doc.text("Mercy Corps - People Central", 105, 27, { align: "center" });
-
-                                            // Line
-                                            doc.setDrawColor(200);
-                                            doc.line(14, 31, 196, 31);
-
-                                            // Employee Info
-                                            doc.setFontSize(12);
-                                            doc.setFont("helvetica", "bold");
-                                            doc.text("Employee Information", 14, 40);
-                                            const infoData = [
-                                                ["Employee", String(iv.employeeName)],
-                                                ["Staff ID", String(iv.staffId)],
-                                                ["Department", String(iv.department)],
-                                                ["Location", String(iv.location)],
-                                                ["Program", String(iv.program)],
-                                                ["Exit Date", String((iv as any).resignationDate)],
-                                                ["Submitted", String(iv.submittedOn)],
-                                            ];
-                                            autoTable(doc, {
-                                                startY: 44,
-                                                head: [["Field", "Details"]],
-                                                body: infoData,
-                                                theme: "grid",
-                                                headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
-                                                styles: { fontSize: 10 },
-                                                columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
-                                            });
-
-                                            // Clearance Progress
-                                            const afterInfo = (doc as any).lastAutoTable?.finalY || 90;
-                                            doc.setFontSize(12);
-                                            doc.setFont("helvetica", "bold");
-                                            doc.text("Clearance Progress", 14, afterInfo + 10);
-                                            const progressData = [
-                                                ["1. Employee", "Submitted"],
-                                                ["2. Supervisor (Handover)", iv.handoverStatus],
-                                                ["3. Operations (Asset Clearance)", iv.assetsStatus],
-                                                ["4. Finance (Outstanding Obligations)", iv.financeStatus],
-                                                ["5. HR (Final Review & Sign-off)", "Completed"],
-                                            ];
-                                            autoTable(doc, {
-                                                startY: afterInfo + 14,
-                                                head: [["Step", "Status"]],
-                                                body: progressData,
-                                                theme: "grid",
-                                                headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
-                                                styles: { fontSize: 10 },
-                                                columnStyles: { 0: { cellWidth: 100 } },
-                                            });
-
-                                            // Checklist Items
-                                            const afterProgress = (doc as any).lastAutoTable?.finalY || 140;
-                                            doc.setFontSize(12);
-                                            doc.setFont("helvetica", "bold");
-                                            doc.text("Checklist Items", 14, afterProgress + 10);
-                                            const itemRows = checklistItems.map((item, i) => [
-                                                String(i + 1),
-                                                item.name,
-                                                (item as any).department_name || item.departmentName || "N/A",
-                                                "Cleared",
-                                            ]);
-                                            autoTable(doc, {
-                                                startY: afterProgress + 14,
-                                                head: [["#", "Item", "Department", "Status"]],
-                                                body: itemRows.length > 0 ? itemRows : [["—", "No items", "—", "—"]],
-                                                theme: "grid",
-                                                headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
-                                                styles: { fontSize: 10 },
-                                                columnStyles: { 0: { cellWidth: 15 } },
-                                            });
-
-                                            // Footer
-                                            const pageHeight = doc.internal.pageSize.height;
-                                            doc.setFontSize(8);
-                                            doc.setTextColor(150);
-                                            doc.text(`Generated on ${new Date().toLocaleString()}`, 105, pageHeight - 10, { align: "center" });
-
-                                            doc.save(`Exit_Checklist_${iv.staffId}_${iv.employeeName.replace(/\s+/g, '_')}.pdf`);
-                                            toast.success("PDF downloaded.");
-                                        }}
+                                        onClick={() => selectedInterview && generatePDF(selectedInterview, interviewDetails)}
                                         className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition-colors flex items-center justify-center gap-2"
                                     >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                        Download Exit Checklist (PDF)
+                                        <DownloadIcon className="w-4 h-4" />
+                                        Download Full Exit Report (PDF)
                                     </button>
                                 </div>
-                            ) : (
+                            ) : selectedInterview?.stage !== 'HR' && (
                                 <div className="pt-6 flex gap-3">
                                     <button
                                         onClick={handleReject}
@@ -894,10 +1265,9 @@ export default function ExitApprovalsTable() {
                                         className="w-full px-4 py-2.5 rounded-lg bg-brand-500 text-white hover:bg-brand-600 font-medium transition-colors shadow-sm disabled:opacity-50"
                                     >
                                         {isActioning ? "Processing..." :
-                                            selectedInterview?.stage === 'Supervisor' ? "Approve & Forward to HR" :
-                                            selectedInterview?.stage === 'HR' ? "Approve & Forward" :
+                                            (selectedInterview?.stage === 'Employee' || selectedInterview?.stage === 'Supervisor') ? "Approve & Forward to Operations" :
                                             selectedInterview?.stage === 'Completed' ? "Finalize Exit" :
-                                            selectedInterview?.stage === 'HR_Final' ? "Complete Exit Process" :
+                                            (selectedInterview?.stage === 'HR_Final' || selectedInterview?.stage === 'HR_Director') ? "Complete Exit Process" :
                                             "Approve Clearance"
                                         }
                                     </button>
@@ -907,6 +1277,45 @@ export default function ExitApprovalsTable() {
                     )}
                 </div>
             </Drawer>
+
+            {/* HR Edit Record Modal */}
+            {isEditModalOpen && editRecord && (
+                <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} className="max-w-lg w-full m-4">
+                    <div className="p-6 space-y-5">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Edit Exit Record</h3>
+                            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Audit trail maintained</span>
+                        </div>
+                        <p className="text-xs text-gray-500">All changes are recorded in the system audit log. Only authorized HR personnel can make adjustments.</p>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason for Leaving</label>
+                            <textarea
+                                rows={3}
+                                value={editRecord.reasonForLeaving || ""}
+                                onChange={e => setEditRecord((prev: any) => ({ ...prev, reasonForLeaving: e.target.value }))}
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 resize-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Handover Notes</label>
+                            <textarea
+                                rows={2}
+                                value={editRecord.handoverNotes || ""}
+                                onChange={e => setEditRecord((prev: any) => ({ ...prev, handoverNotes: e.target.value }))}
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 resize-none"
+                            />
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button onClick={() => setIsEditModalOpen(false)} className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors">
+                                Cancel
+                            </button>
+                            <button onClick={saveEditRecord} disabled={isSavingEdit} className="flex-1 px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition-colors disabled:opacity-50">
+                                {isSavingEdit ? "Saving..." : "Save Changes"}
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 }

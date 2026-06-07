@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
-import { ExitService, ChecklistItem, ExitInterview } from "@/services/exit.service";
+import { ExitService, ExitInterview } from "@/services/exit.service";
 import { leaveServiceInstance } from "@/services/leave.service";
 import { authService } from "@/services/auth.service";
 import { userService } from "@/services/user.service";
@@ -11,7 +11,13 @@ import Button from "@/components/ui/button/Button";
 import DatePicker from "@/components/form/date-picker";
 import CustomSelect from "@/components/form/CustomSelect";
 
+type FreqRating = "Almost Always" | "Usually" | "Sometimes" | "Never" | "";
+type QualRating = "Excellent" | "Good" | "Fair" | "Poor" | "";
+type BenefitRating = "Excellent" | "Good" | "Fair" | "Poor" | "No Opinion" | "";
+type WorkloadRating = "Too much" | "About right" | "Too little" | "";
+
 interface ExitFormData {
+  // Step 1
   departmentId: string;
   programId: string;
   locationId: string;
@@ -22,22 +28,45 @@ interface ExitFormData {
   reasonForLeaving: string;
   otherReason?: string;
   newEmployer?: string;
-  ratingJob: number;
-  ratingManager: number;
-  ratingCulture: number;
-  mostEnjoyed?: string;
-  companyImprovement?: string;
-  wouldRecommend: 'Yes' | 'No' | 'Maybe';
-  additionalComments?: string;
-  selectedChecklistItems: string[];
+  // Step 2 — PDF Q1–Q11
+  whyLeaving: string;
+  whatWouldPrevent: string;
+  likedMost: string;
+  likedLeast: string;
+  supervisorFair: FreqRating;
+  supervisorRecognition: FreqRating;
+  supervisorComplaints: FreqRating;
+  supervisorSensitive: FreqRating;
+  supervisorFeedback: FreqRating;
+  supervisorCommunication: FreqRating;
+  supervisorPolicies: FreqRating;
+  ratingCoopDept: QualRating;
+  ratingCoopOther: QualRating;
+  ratingTraining: QualRating;
+  ratingEquipment: QualRating;
+  ratingPerfReview: QualRating;
+  ratingOrientation: QualRating;
+  ratingPay: QualRating;
+  ratingCareerDev: QualRating;
+  ratingWorkConditions: QualRating;
+  ratingComments: string;
+  workAsExpected: "Yes" | "No" | "";
+  workExpectedComments: string;
+  workload: WorkloadRating;
+  benefitHolidays: BenefitRating;
+  benefitAnnualLeave: BenefitRating;
+  benefitMedical: BenefitRating;
+  benefitSickLeave: BenefitRating;
+  benefitGratuity: BenefitRating;
+  benefitEducation: BenefitRating;
+  wouldRecommend: "Yes" | "No" | "Maybe";
+  suggestions: string;
 }
 
 export default function MultiStepExitForm() {
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 3;
+  const totalSteps = 2;
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
-  const [isLoadingChecklist, setIsLoadingChecklist] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [supervisorName, setSupervisorName] = useState<string>("");
   const [departments, setDepartments] = useState<any[]>([]);
@@ -45,32 +74,26 @@ export default function MultiStepExitForm() {
   const [locations, setLocations] = useState<any[]>([]);
   const [selectedDeptId, setSelectedDeptId] = useState("");
 
-  const [formData, setFormData] = useState<ExitFormData>({
-    departmentId: "",
-    programId: "",
-    locationId: "",
-    countryId: "",
-    supervisorId: "",
-    resignationDate: "",
-    handoverNotes: "",
-    reasonForLeaving: "",
-    otherReason: "",
-    newEmployer: "",
-    ratingJob: 3,
-    ratingManager: 3,
-    ratingCulture: 3,
-    mostEnjoyed: "",
-    companyImprovement: "",
-    wouldRecommend: "Maybe",
-    additionalComments: "",
-    selectedChecklistItems: [],
-  });
+  const emptyForm: ExitFormData = {
+    departmentId: "", programId: "", locationId: "", countryId: "",
+    supervisorId: "", resignationDate: "", handoverNotes: "",
+    reasonForLeaving: "", otherReason: "", newEmployer: "",
+    whyLeaving: "", whatWouldPrevent: "", likedMost: "", likedLeast: "",
+    supervisorFair: "", supervisorRecognition: "", supervisorComplaints: "",
+    supervisorSensitive: "", supervisorFeedback: "", supervisorCommunication: "", supervisorPolicies: "",
+    ratingCoopDept: "", ratingCoopOther: "", ratingTraining: "", ratingEquipment: "",
+    ratingPerfReview: "", ratingOrientation: "", ratingPay: "", ratingCareerDev: "", ratingWorkConditions: "",
+    ratingComments: "", workAsExpected: "", workExpectedComments: "", workload: "",
+    benefitHolidays: "", benefitAnnualLeave: "", benefitMedical: "",
+    benefitSickLeave: "", benefitGratuity: "", benefitEducation: "",
+    wouldRecommend: "Maybe", suggestions: "",
+  };
+  const [formData, setFormData] = useState<ExitFormData>(emptyForm);
 
   const exitServiceInstance = ExitService.getInstance();
   const router = useRouter();
 
   useEffect(() => {
-    fetchChecklistItems();
     fetchStaffDetails();
     fetchDepartments();
     fetchPrograms();
@@ -199,33 +222,10 @@ export default function MultiStepExitForm() {
     }
   };
 
-  const fetchChecklistItems = async () => {
-    setIsLoadingChecklist(true);
-    try {
-      const response = await exitServiceInstance.getAllChecklistItems();
-      const itemsData = response.data || response || [];
-      setChecklistItems(Array.isArray(itemsData) ? itemsData : []);
-    } catch (error) {
-      console.error("Failed to fetch checklist items:", error);
-      toast.error("Could not load checklist items");
-    } finally {
-      setIsLoadingChecklist(false);
-    }
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement> | React.ChangeEvent<HTMLSelectElement>) => {
     const target = e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
     const { name, value } = target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleCheckboxChange = (itemId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedChecklistItems: prev.selectedChecklistItems.includes(itemId)
-        ? prev.selectedChecklistItems.filter(id => id !== itemId)
-        : [...prev.selectedChecklistItems, itemId]
-    }));
   };
 
   const calculateLastWorkingDay = (resignationDate: string) => {
@@ -239,11 +239,6 @@ export default function MultiStepExitForm() {
     setIsSubmitting(true);
 
     try {
-      const getNumericId = (val: any) => {
-        const n = parseInt(String(val), 10);
-        return isNaN(n) ? val : n;
-      };
-
       const exitInterviewData: any = {
         staffId: Number(currentUser?.staff_id || currentUser?.id || 0),
         supervisorId: formData.supervisorId || currentUser?.supervisor,
@@ -256,41 +251,54 @@ export default function MultiStepExitForm() {
         reasonForLeaving: formData.reasonForLeaving,
         otherReason: formData.otherReason || "N/A",
         newEmployer: formData.newEmployer || "N/A",
-        ratingJob: Number(formData.ratingJob),
-        ratingManager: Number(formData.ratingManager),
-        ratingCulture: Number(formData.ratingCulture),
-        mostEnjoyed: formData.mostEnjoyed || "N/A",
-        companyImprovement: formData.companyImprovement || "N/A",
+        // Q1–Q4
+        whyLeaving: formData.whyLeaving,
+        whatWouldPrevent: formData.whatWouldPrevent,
+        mostEnjoyed: formData.likedMost || "N/A",
+        companyImprovement: formData.likedLeast || "N/A",
+        // Q5 — supervisor
+        supervisorFair: formData.supervisorFair,
+        supervisorRecognition: formData.supervisorRecognition,
+        supervisorComplaints: formData.supervisorComplaints,
+        supervisorSensitive: formData.supervisorSensitive,
+        supervisorFeedback: formData.supervisorFeedback,
+        supervisorCommunication: formData.supervisorCommunication,
+        supervisorPolicies: formData.supervisorPolicies,
+        // Q6 — org ratings
+        ratingCoopDept: formData.ratingCoopDept,
+        ratingCoopOther: formData.ratingCoopOther,
+        ratingTraining: formData.ratingTraining,
+        ratingEquipment: formData.ratingEquipment,
+        ratingPerfReview: formData.ratingPerfReview,
+        ratingOrientation: formData.ratingOrientation,
+        ratingPay: formData.ratingPay,
+        ratingCareerDev: formData.ratingCareerDev,
+        ratingWorkConditions: formData.ratingWorkConditions,
+        ratingComments: formData.ratingComments,
+        // Q7
+        workAsExpected: formData.workAsExpected,
+        workExpectedComments: formData.workExpectedComments,
+        // Q8
+        workload: formData.workload,
+        // Q9 — benefits
+        benefitHolidays: formData.benefitHolidays,
+        benefitAnnualLeave: formData.benefitAnnualLeave,
+        benefitMedical: formData.benefitMedical,
+        benefitSickLeave: formData.benefitSickLeave,
+        benefitGratuity: formData.benefitGratuity,
+        benefitEducation: formData.benefitEducation,
+        // Q10–Q11
         wouldRecommend: formData.wouldRecommend,
+        suggestions: formData.suggestions,
         status: 'Pending',
-        stage: 'HR',
+        stage: 'Employee',
       };
 
       await exitServiceInstance.createExitInterview(exitInterviewData);
       toast.success("Exit interview submitted successfully!");
       router.push("/exit/approvals");
 
-      // Reset form
-      setFormData({
-        resignationDate: "",
-        handoverNotes: "",
-        reasonForLeaving: "",
-        otherReason: "",
-        newEmployer: "",
-        ratingJob: 3,
-        ratingManager: 3,
-        ratingCulture: 3,
-        mostEnjoyed: "",
-        companyImprovement: "",
-        wouldRecommend: "Maybe",
-        additionalComments: "",
-        selectedChecklistItems: [],
-        departmentId: "",
-        programId: "",
-        locationId: "",
-        countryId: "",
-        supervisorId: "",
-      });
+      setFormData(emptyForm);
       setCurrentStep(1);
 
     } catch (error: any) {
@@ -323,15 +331,6 @@ export default function MultiStepExitForm() {
 
 
 
-  const groupedChecklistItems = checklistItems.reduce((acc, item) => {
-    const deptName = item.departmentName || 'Unknown';
-    if (!acc[deptName]) {
-      acc[deptName] = [];
-    }
-    acc[deptName].push(item);
-    return acc;
-  }, {} as Record<string, ChecklistItem[]>);
-
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-12">
@@ -346,7 +345,7 @@ export default function MultiStepExitForm() {
           </div>
 
           <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-900/50 p-2 rounded-2xl border border-gray-100 dark:border-gray-800">
-            {[1, 2, 3].map((step) => (
+            {[1, 2].map((step) => (
               <div key={step} className="flex items-center">
                 <div
                   className={`flex items-center justify-center w-12 h-12 rounded-xl font-bold text-base transition-all duration-500 ${step === currentStep
@@ -362,7 +361,7 @@ export default function MultiStepExitForm() {
                     </svg>
                   ) : step}
                 </div>
-                {step < 3 && (
+                {step < 2 && (
                   <div className={`w-6 h-1 mx-1 rounded-full ${step < currentStep ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-800'}`} />
                 )}
               </div>
@@ -527,153 +526,229 @@ export default function MultiStepExitForm() {
           </div>
         )}
 
-        {/* Step 2: Exit Checklist */}
+        {/* Step 2: Exit Interview Questions (Q1–Q11) */}
         {currentStep === 2 && (
-          <div className="mb-6 bg-white/80 dark:bg-gray-900/60 rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/40 p-10 dark:border-gray-800 backdrop-blur-2xl transition-all duration-700 animate-in fade-in slide-in-from-bottom-8">
-            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">Step 2: Exit Checklist</h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-10 text-sm">Confirm all items below have been addressed before proceeding.</p>
+          <div className="mb-6 bg-white/80 dark:bg-gray-900/60 rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/40 p-10 dark:border-gray-800 backdrop-blur-2xl transition-all duration-700 animate-in fade-in slide-in-from-right-8 space-y-10">
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Step 2: Exit Interview</h2>
 
-            {isLoadingChecklist ? (
-              <div className="flex items-center justify-center py-16 text-gray-400 text-sm font-medium">Loading checklist items...</div>
-            ) : checklistItems.length === 0 ? (
-              <div className="flex items-center justify-center py-16 text-gray-400 text-sm font-medium">No checklist items found. Contact HR to configure exit checklist items.</div>
-            ) : (
-              <div className="space-y-8">
-                {Object.entries(groupedChecklistItems).map(([deptName, items]) => (
-                  <div key={deptName} className="rounded-2xl border-2 border-gray-100 dark:border-gray-800 overflow-hidden">
-                    <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
-                      <h3 className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">{deptName}</h3>
-                    </div>
-                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {items.map((item) => (
-                        <label key={item.id} className="flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={formData.selectedChecklistItems.includes(String(item.id))}
-                            onChange={() => handleCheckboxChange(String(item.id))}
-                            className="w-5 h-5 rounded-lg border-2 border-gray-300 dark:border-gray-600 accent-brand-500 cursor-pointer"
-                          />
-                          <span className="text-sm font-semibold text-gray-800 dark:text-white">{item.name}</span>
-                        </label>
+            {/* Q1 */}
+            <div className="space-y-3">
+              <label className="text-base font-black text-gray-900 dark:text-white">1. Why are you leaving Mercy Corps?</label>
+              <textarea name="whyLeaving" value={formData.whyLeaving} onChange={handleInputChange} rows={3} required
+                className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-4 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all resize-none" placeholder="Please explain..." />
+            </div>
+
+            {/* Q2 */}
+            <div className="space-y-3">
+              <label className="text-base font-black text-gray-900 dark:text-white">2. What circumstances would have prevented your departure?</label>
+              <textarea name="whatWouldPrevent" value={formData.whatWouldPrevent} onChange={handleInputChange} rows={3}
+                className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-4 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all resize-none" placeholder="Please explain..." />
+            </div>
+
+            {/* Q3 */}
+            <div className="space-y-3">
+              <label className="text-base font-black text-gray-900 dark:text-white">3. What did you like most about your job?</label>
+              <textarea name="likedMost" value={formData.likedMost} onChange={handleInputChange} rows={3}
+                className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-4 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all resize-none" placeholder="Please explain..." />
+            </div>
+
+            {/* Q4 */}
+            <div className="space-y-3">
+              <label className="text-base font-black text-gray-900 dark:text-white">4. What did you like least about your job?</label>
+              <textarea name="likedLeast" value={formData.likedLeast} onChange={handleInputChange} rows={3}
+                className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-4 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all resize-none" placeholder="Please explain..." />
+            </div>
+
+            {/* Q5 — Supervisor */}
+            <div className="space-y-4">
+              <label className="text-base font-black text-gray-900 dark:text-white">5. What did you think of your supervisor on the following points:</label>
+              <div className="overflow-x-auto rounded-2xl border-2 border-gray-100 dark:border-gray-800">
+                <table className="w-full min-w-[520px]">
+                  <thead className="bg-gray-50 dark:bg-gray-800/50">
+                    <tr>
+                      <th className="text-left px-5 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest"></th>
+                      {(["Almost Always", "Usually", "Sometimes", "Never"] as FreqRating[]).map(h => (
+                        <th key={h} className="px-3 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 text-center whitespace-nowrap">{h}</th>
                       ))}
-                    </div>
-                  </div>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {([
+                      ["Was consistently fair", "supervisorFair"],
+                      ["Provided recognition", "supervisorRecognition"],
+                      ["Resolved complaints", "supervisorComplaints"],
+                      ["Was sensitive to employees' needs", "supervisorSensitive"],
+                      ["Provided feedback on performance", "supervisorFeedback"],
+                      ["Was receptive to open communication", "supervisorCommunication"],
+                      ["Followed Mercy Corps' policies", "supervisorPolicies"],
+                    ] as [string, keyof ExitFormData][]).map(([label, field]) => (
+                      <tr key={field}>
+                        <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300">{label}</td>
+                        {(["Almost Always", "Usually", "Sometimes", "Never"] as FreqRating[]).map(opt => (
+                          <td key={opt} className="py-3 text-center">
+                            <input type="radio" name={field} value={opt} checked={formData[field] === opt}
+                              onChange={() => setFormData(p => ({ ...p, [field]: opt }))} className="accent-brand-500" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Q6 — Org ratings */}
+            <div className="space-y-4">
+              <label className="text-base font-black text-gray-900 dark:text-white">6. How would you rate the following:</label>
+              <div className="overflow-x-auto rounded-2xl border-2 border-gray-100 dark:border-gray-800">
+                <table className="w-full min-w-[520px]">
+                  <thead className="bg-gray-50 dark:bg-gray-800/50">
+                    <tr>
+                      <th className="text-left px-5 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest"></th>
+                      {(["Excellent", "Good", "Fair", "Poor"] as QualRating[]).map(h => (
+                        <th key={h} className="px-3 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 text-center">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {([
+                      ["Cooperation within your department/program", "ratingCoopDept"],
+                      ["Cooperation with other departments", "ratingCoopOther"],
+                      ["Personal job training", "ratingTraining"],
+                      ["Equipment provided (materials, resources, facilities)", "ratingEquipment"],
+                      ["Organisation's performance review system", "ratingPerfReview"],
+                      ["Organisation's new employee orientation program", "ratingOrientation"],
+                      ["Rate of pay for your job", "ratingPay"],
+                      ["Career development/Advancement opportunities", "ratingCareerDev"],
+                      ["Physical working conditions", "ratingWorkConditions"],
+                    ] as [string, keyof ExitFormData][]).map(([label, field]) => (
+                      <tr key={field}>
+                        <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300">{label}</td>
+                        {(["Excellent", "Good", "Fair", "Poor"] as QualRating[]).map(opt => (
+                          <td key={opt} className="py-3 text-center">
+                            <input type="radio" name={field} value={opt} checked={formData[field] === opt}
+                              onChange={() => setFormData(p => ({ ...p, [field]: opt }))} className="accent-brand-500" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Comments:</label>
+                <textarea name="ratingComments" value={formData.ratingComments} onChange={handleInputChange} rows={2}
+                  className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-4 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all resize-none" />
+              </div>
+            </div>
+
+            {/* Q7 */}
+            <div className="space-y-3">
+              <label className="text-base font-black text-gray-900 dark:text-white">7. Was the work you were doing approximately what you expected it would be?</label>
+              <div className="flex gap-6">
+                {(["Yes", "No"] as const).map(v => (
+                  <label key={v} className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="workAsExpected" value={v} checked={formData.workAsExpected === v}
+                      onChange={() => setFormData(p => ({ ...p, workAsExpected: v }))} className="accent-brand-500 w-4 h-4" />
+                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{v}</span>
+                  </label>
                 ))}
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Comments:</label>
+                <textarea name="workExpectedComments" value={formData.workExpectedComments} onChange={handleInputChange} rows={2}
+                  className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-4 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all resize-none" />
+              </div>
+            </div>
 
-            <div className="flex items-center justify-between mt-16 border-t border-gray-50 dark:border-gray-800 pt-10">
+            {/* Q8 */}
+            <div className="space-y-3">
+              <label className="text-base font-black text-gray-900 dark:text-white">8. Was your workload usually:</label>
+              <div className="flex flex-wrap gap-6">
+                {(["Too much", "About right", "Too little"] as WorkloadRating[]).map(v => (
+                  <label key={v} className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="workload" value={v} checked={formData.workload === v}
+                      onChange={() => setFormData(p => ({ ...p, workload: v }))} className="accent-brand-500 w-4 h-4" />
+                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{v}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Q9 — Benefits */}
+            <div className="space-y-4">
+              <label className="text-base font-black text-gray-900 dark:text-white">9. How did you feel about the employee benefits provided by the company?</label>
+              <div className="overflow-x-auto rounded-2xl border-2 border-gray-100 dark:border-gray-800">
+                <table className="w-full min-w-[560px]">
+                  <thead className="bg-gray-50 dark:bg-gray-800/50">
+                    <tr>
+                      <th className="text-left px-5 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest"></th>
+                      {(["Excellent", "Good", "Fair", "Poor", "No Opinion"] as BenefitRating[]).map(h => (
+                        <th key={h} className="px-3 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 text-center whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {([
+                      ["Paid holidays", "benefitHolidays"],
+                      ["Paid Annual Leave", "benefitAnnualLeave"],
+                      ["Medical plan", "benefitMedical"],
+                      ["Sick leave", "benefitSickLeave"],
+                      ["Gratuity/Severance", "benefitGratuity"],
+                      ["Educational assistance", "benefitEducation"],
+                    ] as [string, keyof ExitFormData][]).map(([label, field]) => (
+                      <tr key={field}>
+                        <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300">{label}</td>
+                        {(["Excellent", "Good", "Fair", "Poor", "No Opinion"] as BenefitRating[]).map(opt => (
+                          <td key={opt} className="py-3 text-center">
+                            <input type="radio" name={field} value={opt} checked={formData[field] === opt}
+                              onChange={() => setFormData(p => ({ ...p, [field]: opt }))} className="accent-brand-500" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Q10 */}
+            <div className="space-y-3">
+              <label className="text-base font-black text-gray-900 dark:text-white">10. Would you recommend MC to a friend as a good organisation to work for?</label>
+              <div className="flex flex-wrap gap-4">
+                {(["Yes", "No", "Maybe"] as const).map(opt => (
+                  <button key={opt} type="button" onClick={() => setFormData(p => ({ ...p, wouldRecommend: opt }))}
+                    className={`px-8 py-4 rounded-2xl border-2 transition-all font-black ${formData.wouldRecommend === opt
+                      ? 'bg-brand-500 border-brand-500 text-white shadow-xl shadow-brand-500/30'
+                      : 'bg-white dark:bg-gray-950 border-gray-100 dark:border-gray-800 text-gray-400 hover:border-brand-300'}`}>
+                    {opt === "Yes" ? "Most definitely" : opt === "Maybe" ? "With reservations" : "No"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Q11 */}
+            <div className="space-y-3">
+              <label className="text-base font-black text-gray-900 dark:text-white">11. What suggestions do you have to make Mercy Corps a better place to work?</label>
+              <textarea name="suggestions" value={formData.suggestions} onChange={handleInputChange} rows={4}
+                className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-4 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all resize-none" placeholder="Your suggestions..." />
+            </div>
+
+            <div className="flex items-center justify-between pt-6 border-t border-gray-100 dark:border-gray-800">
               <Button onClick={prevStep} variant="outline" className="px-10 py-5 rounded-2xl font-bold border-2 border-gray-100 dark:border-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900 transition-all">
                 Back
               </Button>
-              <Button onClick={nextStep} className="px-14 py-6 rounded-2xl bg-brand-500 hover:bg-brand-600 text-white font-black shadow-2xl shadow-brand-500/30 transition-all hover:scale-[1.03] hover:-translate-y-1.5 active:scale-95 group flex items-center gap-4 text-lg">
-                Proceed to Assessment
-                <svg className="w-6 h-6 group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Experience Assessment */}
-        {currentStep === 3 && (
-          <div className="mb-6 bg-white/80 dark:bg-gray-900/60 rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/40 p-10 dark:border-gray-800 backdrop-blur-2xl transition-all duration-700 animate-in fade-in slide-in-from-right-8">
-            <div className="">
-              <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-10 tracking-tight">Step 2: Career Experience Audit</h2>
-
-              <div className="space-y-10">
-                {[
-                  { name: "ratingJob", label: "Job Satisfaction & Role Impact", desc: "How would you rate the significance and fulfillment of your role?" },
-                  { name: "ratingManager", label: "Leadership & Mentorship Quality", desc: "How effective was your direct supervisor in supporting your growth?" },
-                  { name: "ratingCulture", label: "Organizational Environment", desc: "How would you rate Mercy Corps' internal culture and values?" },
-                ].map((rating, idx) => (
-                  <div key={idx} className="space-y-4">
-                    <div>
-                      <label className="text-base font-black text-gray-900 dark:text-white tracking-tight block">{rating.label}</label>
-                      <p className="text-sm text-gray-500 mb-4">{rating.desc}</p>
-                    </div>
-                    <div className="grid grid-cols-5 gap-4">
-                      {[1, 2, 3, 4, 5].map((val) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setFormData(p => ({ ...p, [rating.name]: val }))}
-                          className={`py-4 rounded-2xl border-2 transition-all font-black text-lg ${formData[rating.name as keyof ExitFormData] === val
-                            ? 'bg-brand-500 border-brand-500 text-white shadow-xl shadow-brand-500/30'
-                            : 'bg-white dark:bg-gray-950 border-gray-100 dark:border-gray-800 text-gray-400 hover:border-brand-200 dark:hover:border-brand-900'
-                            }`}
-                        >
-                          {val}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-
-                <div className="space-y-4">
-                  <label className="text-base font-black text-gray-900 dark:text-white tracking-tight">Highlight of Tenure</label>
-                  <textarea
-                    name="mostEnjoyed"
-                    value={formData.mostEnjoyed}
-                    onChange={handleInputChange}
-                    rows={4}
-                    className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-5 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all font-bold resize-none"
-                    placeholder="Key successes or aspects you found most rewarding..."
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <label className="text-base font-black text-gray-900 dark:text-white tracking-tight">Strategic Improvements</label>
-                  <textarea
-                    name="companyImprovement"
-                    value={formData.companyImprovement}
-                    onChange={handleInputChange}
-                    rows={4}
-                    className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-5 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all font-bold resize-none"
-                    placeholder="How can we better support our team members?"
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <label className="text-base font-black text-gray-900 dark:text-white tracking-tight">Referral Likelihood</label>
-                  <div className="flex gap-4">
-                    {['Yes', 'No', 'Maybe'].map((opt) => (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => setFormData(p => ({ ...p, wouldRecommend: opt as any }))}
-                        className={`flex-1 py-5 rounded-2xl border-2 transition-all font-black ${formData.wouldRecommend === opt
-                          ? 'bg-brand-500 border-brand-500 text-white shadow-xl shadow-brand-500/30'
-                          : 'bg-white dark:bg-gray-950 border-gray-100 dark:border-gray-800 text-gray-400 hover:border-brand-200 dark:hover:border-brand-900'
-                          }`}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between mt-16 border-t border-gray-50 dark:border-gray-800 pt-10">
-                <Button onClick={prevStep} variant="outline" className="px-10 py-5 rounded-2xl font-bold border-2 border-gray-100 dark:border-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900 transition-all">
-                  Back
+              <div className="group relative">
+                <div className="absolute -inset-1 bg-brand-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
+                <Button onClick={handleSubmit} disabled={isSubmitting}
+                  className="relative px-14 py-6 rounded-2xl bg-gray-900 dark:bg-brand-500 hover:scale-[1.03] text-white font-black shadow-2xl transition-all active:scale-95 group flex items-center gap-4 text-lg">
+                  {isSubmitting ? "Submitting..." : "Submit Exit Interview"}
+                  {!isSubmitting && (
+                    <svg className="w-6 h-6 group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  )}
                 </Button>
-                <div className="group relative">
-                  <div className="absolute -inset-1 bg-brand-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className="relative px-14 py-6 rounded-2xl bg-gray-900 dark:bg-brand-500 hover:scale-[1.03] text-white font-black shadow-2xl transition-all active:scale-95 group flex items-center gap-4 text-lg"
-                  >
-                    {isSubmitting ? "Finalizing Submission..." : "Complete Exit Process"}
-                    {!isSubmitting && (
-                      <svg className="w-6 h-6 group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                      </svg>
-                    )}
-                  </Button>
-                </div>
               </div>
             </div>
           </div>

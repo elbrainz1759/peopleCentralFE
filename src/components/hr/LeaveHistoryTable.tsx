@@ -12,11 +12,13 @@ import {
     TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
-import { EyeIcon, TrashBinIcon, PencilIcon, MoreDotIcon } from "@/icons";
+import { EyeIcon, TrashBinIcon, PencilIcon, MoreDotIcon, DownloadIcon } from "@/icons";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Drawer } from "../ui/drawer/Drawer";
 import MultiStepLeaveForm from "./MultiStepLeaveForm";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface LeaveRecord {
     id: number;
@@ -25,7 +27,7 @@ interface LeaveRecord {
     endDate: string;
     duration: string;
     reason: string;
-    status: "Approved" | "Pending" | "Rejected";
+    status: "Approved" | "Reviewed" | "Pending" | "Rejected";
     appliedOn: string;
     handoverNotes?: string;
     supervisor?: string;
@@ -90,13 +92,25 @@ export default function LeaveHistoryTable() {
 
     useEffect(() => {
         const fetchUserLeaves = async () => {
-            const currentUser = authService.getCurrentUser();
-            const staffIdRaw = currentUser?.id || currentUser?.unique_id || 1;
-            const staffId = parseInt(String(staffIdRaw).replace('test-user-', '')) || 1;
+            // Decode JWT to get staff_id — auth_user in localStorage may only have account id
+            let staffId = 0;
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (token) {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    staffId = Number(payload.staff_id || payload.staffId) || 0;
+                }
+                if (!staffId) {
+                    const currentUser = authService.getCurrentUser();
+                    staffId = Number(currentUser?.staff_id || currentUser?.staffId || currentUser?.id) || 1;
+                }
+            } catch {
+                staffId = 1;
+            }
 
             setIsLoading(true);
             try {
-                const response = await leaveService.getInstance().getUserLeaves(staffId);
+                const response = await leaveService.getInstance().getAllLeaves(1, 100, undefined, staffId);
                 console.log("Leave History API Response:", response); // Debug log
                 console.log("Leave History Data:", response.data); // Debug log
                 
@@ -110,7 +124,7 @@ export default function LeaveHistoryTable() {
                 // Map API data to LeaveRecord format
                 const mappedData = dataArray.map((item: any) => ({
                     id: item.id,
-                    leaveType: item.leave_type_name || `Type ${item.leave_type_id}` || "Other",
+                    leaveType: [...new Set((item.durations ?? []).map((d: any) => d.leave_type_name).filter(Boolean))].join(', ') || "Unknown",
                     startDate: item.durations?.[0]?.start_date ? new Date(item.durations[0].start_date).toLocaleDateString() : "-",
                     endDate: item.durations?.[0]?.end_date ? new Date(item.durations[0].end_date).toLocaleDateString() : "-",
                     duration: `${item.total_hours || 0} Hours`,
@@ -157,6 +171,83 @@ export default function LeaveHistoryTable() {
         setIsEditOpen(true);
     };
 
+    const downloadLeavePDF = (record: LeaveRecord) => {
+        const currentUser = authService.getCurrentUser();
+        const employeeName = (currentUser?.employee_name ?? currentUser?.name ?? `${currentUser?.first_name ?? ""} ${currentUser?.last_name ?? ""}`.trim()) || "Employee";
+        const department = currentUser?.department_name ?? currentUser?.department ?? "N/A";
+
+        const doc = new jsPDF();
+
+        doc.setFontSize(20);
+        doc.setFont("helvetica", "bold");
+        doc.text("LEAVE APPROVAL NOTICE", 105, 20, { align: "center" });
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text("Mercy Corps — People Central", 105, 27, { align: "center" });
+        doc.setDrawColor(200);
+        doc.line(14, 31, 196, 31);
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Leave Details", 14, 42);
+        autoTable(doc, {
+            startY: 46,
+            head: [["Field", "Details"]],
+            body: [
+                ["Employee Name", employeeName],
+                ["Department", department],
+                ["Leave Type", record.leaveType],
+                ["Start Date", record.startDate],
+                ["End Date", record.endDate],
+                ["Duration", record.duration],
+                ["Reason", record.reason || "N/A"],
+                ["Applied On", record.appliedOn],
+                ["Status", record.status],
+            ],
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 10 },
+            columnStyles: { 0: { fontStyle: "bold", cellWidth: 55 } },
+        });
+
+        const y1 = (doc as any).lastAutoTable?.finalY || 100;
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Approval Trail", 14, y1 + 12);
+        autoTable(doc, {
+            startY: y1 + 16,
+            head: [["Stage", "Approver", "Status", "Date"]],
+            body: [
+                ["Employee Submission", employeeName, "Submitted", record.appliedOn],
+                ["Line Manager Review", "Line Manager", record.status === "Pending" ? "Pending" : "Approved", record.status !== "Pending" ? record.appliedOn : "—"],
+                ["HR Final Approval", "HR Department", record.status === "Approved" ? "Approved" : record.status === "Rejected" ? "Rejected" : "Pending", record.status === "Approved" ? record.appliedOn : "—"],
+            ],
+            theme: "grid",
+            headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 10 },
+        });
+
+        const y2 = (doc as any).lastAutoTable?.finalY || 160;
+        if (record.handoverNotes) {
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("Handover Notes", 14, y2 + 12);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            const lines = doc.splitTextToSize(record.handoverNotes, 180);
+            doc.text(lines, 14, y2 + 20);
+        }
+
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Generated on ${new Date().toLocaleString()} — Mercy Corps People Central`, 105, pageHeight - 10, { align: "center" });
+        doc.setTextColor(0);
+
+        doc.save(`Leave_Approval_${record.leaveType.replace(/\s+/g, '_')}_${record.startDate}.pdf`);
+        toast.success("Leave PDF downloaded.");
+    };
+
     const filteredData =
         filterStatus === "All"
             ? tableData
@@ -196,7 +287,7 @@ export default function LeaveHistoryTable() {
                             <div key={record.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                                 <div className="flex items-start justify-between mb-2">
                                     <p className="font-medium text-gray-800 dark:text-white/90 text-sm">{record.leaveType}</p>
-                                    <Badge size="sm" color={record.status === "Approved" ? "success" : record.status === "Pending" ? "warning" : record.status === "Rejected" ? "error" : "light"}>
+                                    <Badge size="sm" color={record.status === "Approved" || record.status === "Reviewed" ? "success" : record.status === "Pending" ? "warning" : record.status === "Rejected" ? "error" : "light"}>
                                         {record.status}
                                     </Badge>
                                 </div>
@@ -221,6 +312,14 @@ export default function LeaveHistoryTable() {
                                     >
                                         <EyeIcon className="w-3.5 h-3.5" /> View
                                     </button>
+                                    {record.status === "Approved" && (
+                                        <button
+                                            onClick={() => downloadLeavePDF(record)}
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-green-200 text-xs font-medium text-green-600 hover:bg-green-50 dark:border-green-900/30"
+                                        >
+                                            <DownloadIcon className="w-3.5 h-3.5" /> PDF
+                                        </button>
+                                    )}
                                     {record.status === "Pending" && (
                                         <>
                                             <button
@@ -369,6 +468,15 @@ export default function LeaveHistoryTable() {
                                                     <EyeIcon className="w-4 h-4" />
                                                     View Details
                                                 </DropdownItem>
+                                                {record.status === "Approved" && (
+                                                    <DropdownItem
+                                                        onItemClick={() => { closeDropdown(); downloadLeavePDF(record); }}
+                                                        className="flex gap-2 items-center text-green-600 hover:text-green-700"
+                                                    >
+                                                        <DownloadIcon className="w-4 h-4" />
+                                                        Download PDF
+                                                    </DropdownItem>
+                                                )}
                                                 {record.status === "Pending" && (
                                                     <>
                                                         <DropdownItem
@@ -415,7 +523,7 @@ export default function LeaveHistoryTable() {
                                 <Badge
                                     size="sm"
                                     color={
-                                        selectedLeave.status === "Approved"
+                                        selectedLeave.status === "Approved" || selectedLeave.status === "Reviewed"
                                             ? "success"
                                             : selectedLeave.status === "Pending"
                                                 ? "warning"
@@ -448,6 +556,14 @@ export default function LeaveHistoryTable() {
                                 {selectedLeave.reason}
                             </div>
                         </div>
+                        {selectedLeave.status === "Approved" && (
+                            <button
+                                onClick={() => downloadLeavePDF(selectedLeave)}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors mt-2"
+                            >
+                                <DownloadIcon className="w-4 h-4" /> Download Approval PDF
+                            </button>
+                        )}
                     </div>
                 )}
             </Drawer>

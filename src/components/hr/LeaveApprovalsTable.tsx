@@ -7,11 +7,14 @@ import {
     Table, TableBody, TableCell, TableHeader, TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
-import { EyeIcon, CheckCircleIcon, CloseIcon, MoreDotIcon } from "@/icons";
+import { EyeIcon, CheckCircleIcon, CloseIcon, MoreDotIcon, PencilIcon, DownloadIcon } from "@/icons";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Drawer } from "../ui/drawer/Drawer";
+import { Modal } from "../ui/modal";
 import MultiStepLeaveForm from "./MultiStepLeaveForm";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface LeaveRequest {
     id: number;
@@ -57,6 +60,9 @@ export default function LeaveApprovalsTable() {
     const [errorModal, setErrorModal] = useState<string | null>(null);
     const [currentUserRole, setCurrentUserRole] = useState("");
     const [isProxyDrawerOpen, setIsProxyDrawerOpen] = useState(false);
+    const [isHREditOpen, setIsHREditOpen] = useState(false);
+    const [hrEditRecord, setHrEditRecord] = useState<{ id: number; reason: string; handoverNote: string } | null>(null);
+    const [isSavingHREdit, setIsSavingHREdit] = useState(false);
 
     // ── Role detection ────────────────────────────────────────────
     useEffect(() => {
@@ -86,13 +92,100 @@ export default function LeaveApprovalsTable() {
         setIsDrawerOpen(true);
     };
 
-    const openCommentModal = (type: CommentAction["type"], id: number) => {
+    const openCommentModal = (type: NonNullable<CommentAction>["type"], id: number) => {
         closeDropdown();
         setComment("");
         setCommentAction({ type, id });
     };
 
     const closeCommentModal = () => { setCommentAction(null); setComment(""); };
+
+    const openHREdit = (record: LeaveRequest) => {
+        closeDropdown();
+        setHrEditRecord({ id: record.id, reason: record.reason || "", handoverNote: "" });
+        setIsHREditOpen(true);
+    };
+
+    const saveHREdit = async () => {
+        if (!hrEditRecord) return;
+        setIsSavingHREdit(true);
+        try {
+            await leaveService.getInstance().updateLeave(hrEditRecord.id, {
+                reason: hrEditRecord.reason,
+                handoverNote: hrEditRecord.handoverNote,
+            });
+            toast.success("Leave record updated.");
+            setIsHREditOpen(false);
+            setHrEditRecord(null);
+            fetchLeaves();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || "Failed to update leave record.");
+        } finally {
+            setIsSavingHREdit(false);
+        }
+    };
+
+    const downloadApprovalPDF = (record: LeaveRequest) => {
+        const doc = new jsPDF();
+        doc.setFontSize(20);
+        doc.setFont("helvetica", "bold");
+        doc.text("LEAVE APPROVAL NOTICE", 105, 20, { align: "center" });
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text("Mercy Corps — People Central", 105, 27, { align: "center" });
+        doc.setDrawColor(200);
+        doc.line(14, 31, 196, 31);
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Leave Details", 14, 42);
+        autoTable(doc, {
+            startY: 46,
+            head: [["Field", "Details"]],
+            body: [
+                ["Employee Name", record.employeeName],
+                ["Department", record.department],
+                ["Role", record.role],
+                ["Leave Type", record.leaveType],
+                ["Start Date", record.startDate],
+                ["End Date", record.endDate],
+                ["Duration", record.duration],
+                ["Reason", record.reason || "N/A"],
+                ["Applied On", record.appliedOn],
+                ["Status", statusLabel(record.status)],
+            ],
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 10 },
+            columnStyles: { 0: { fontStyle: "bold", cellWidth: 55 } },
+        });
+
+        const y1 = (doc as any).lastAutoTable?.finalY || 110;
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Approval Trail", 14, y1 + 12);
+        autoTable(doc, {
+            startY: y1 + 16,
+            head: [["Stage", "Status", "Notes"]],
+            body: [
+                ["Employee Submission", "Submitted", record.reason || "—"],
+                ["Line Manager Review", record.status === "Pending" ? "Pending" : "Approved", "—"],
+                ["HR Final Approval", record.status === "Approved" ? "Approved" : record.status === "Rejected" ? "Rejected" : "Pending", "—"],
+            ],
+            theme: "grid",
+            headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 10 },
+        });
+
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Generated on ${new Date().toLocaleString()} — Mercy Corps People Central`, 105, pageHeight - 10, { align: "center" });
+        doc.setTextColor(0);
+
+        doc.save(`Leave_Approval_${record.employeeName.replace(/\s+/g, '_')}_${record.leaveType.replace(/\s+/g, '_')}.pdf`);
+        toast.success("Leave PDF downloaded.");
+    };
 
     const fetchLeaves = async (signal?: AbortSignal) => {
         setIsLoading(true);
@@ -218,6 +311,16 @@ export default function LeaveApprovalsTable() {
             <DropdownItem onItemClick={() => { closeDropdown(); handleView(record); }} className="flex gap-2 items-center">
                 <EyeIcon className="w-4 h-4" /> View Details
             </DropdownItem>
+            {record.status === "Approved" && (
+                <DropdownItem onItemClick={() => { closeDropdown(); downloadApprovalPDF(record); }} className="flex gap-2 items-center text-green-600 hover:text-green-700">
+                    <DownloadIcon className="w-4 h-4" /> Download PDF
+                </DropdownItem>
+            )}
+            {canDoHRActions && (
+                <DropdownItem onItemClick={() => openHREdit(record)} className="flex gap-2 items-center text-amber-600 hover:text-amber-700">
+                    <PencilIcon className="w-4 h-4" /> Edit Record (HR)
+                </DropdownItem>
+            )}
             {record.status === "Pending" && canDoLineManagerActions && (
                 <>
                     <DropdownItem onItemClick={() => openCommentModal("line-manager-approve", record.id)} className="flex gap-2 items-center text-blue-600 hover:text-blue-700">
@@ -559,15 +662,62 @@ export default function LeaveApprovalsTable() {
                             </div>
                         )}
                         {(selectedRequest.status === "Approved" || selectedRequest.status === "Rejected") && (
-                            <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
                                 <div className={`p-3 rounded-lg text-center font-medium ${selectedRequest.status === "Approved" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
                                     This request has been {selectedRequest.status.toLowerCase()}.
                                 </div>
+                                {selectedRequest.status === "Approved" && (
+                                    <button
+                                        onClick={() => downloadApprovalPDF(selectedRequest)}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors"
+                                    >
+                                        <DownloadIcon className="w-4 h-4" /> Download Approval PDF
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
                 )}
             </Drawer>
+
+            {/* HR Edit Record Modal */}
+            {isHREditOpen && hrEditRecord && (
+                <Modal isOpen={isHREditOpen} onClose={() => { setIsHREditOpen(false); setHrEditRecord(null); }} className="max-w-lg w-full m-4">
+                    <div className="p-6 space-y-5">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Edit Leave Record (HR)</h3>
+                            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">Audit trail maintained</span>
+                        </div>
+                        <p className="text-xs text-gray-500">Adjustments made here are logged with your HR credentials. Only use for corrections or administrative updates.</p>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason / Comments</label>
+                            <textarea
+                                rows={3}
+                                value={hrEditRecord.reason}
+                                onChange={e => setHrEditRecord(prev => prev ? { ...prev, reason: e.target.value } : null)}
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 resize-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Handover Note (if applicable)</label>
+                            <textarea
+                                rows={2}
+                                value={hrEditRecord.handoverNote}
+                                onChange={e => setHrEditRecord(prev => prev ? { ...prev, handoverNote: e.target.value } : null)}
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 resize-none"
+                            />
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button onClick={() => { setIsHREditOpen(false); setHrEditRecord(null); }} className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors">
+                                Cancel
+                            </button>
+                            <button onClick={saveHREdit} disabled={isSavingHREdit} className="flex-1 px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition-colors disabled:opacity-50">
+                                {isSavingHREdit ? "Saving..." : "Save Changes"}
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 }

@@ -19,6 +19,7 @@ import { LeaveType } from "@/types/service.types";
 
 const PAGE_LIMIT = 10;
 
+
 export default function LeaveTypesPage() {
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -39,7 +40,7 @@ export default function LeaveTypesPage() {
     const [countries, setCountries] = useState<any[]>([]);
 
     // Form state
-    const [form, setForm] = useState({ name: "", description: "", country: "" });
+    const [form, setForm] = useState({ name: "", description: "", country: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fetchLeaveTypes = useCallback(async (page = 1) => {
@@ -83,10 +84,12 @@ export default function LeaveTypesPage() {
                 name: form.name,
                 description: form.description,
                 country: form.country,
+                trigger: form.trigger,
+                requireDocument: form.requireDocument,
             });
             toast.success("Leave type created successfully!");
             setIsAddOpen(false);
-            setForm({ name: "", description: "", country: "" });
+            setForm({ name: "", description: "", country: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
             fetchLeaveTypes(1);
         } catch (error: any) {
             toast.error(error.message || "Failed to create leave type");
@@ -101,6 +104,8 @@ export default function LeaveTypesPage() {
             name: lt.name ?? "",
             description: (lt as any).description ?? "",
             country: lt.country ?? "",
+            trigger: lt.trigger ?? 0,
+            requireDocument: lt.requireDocument ?? "No",
         });
         setIsEditOpen(true);
     };
@@ -117,11 +122,13 @@ export default function LeaveTypesPage() {
                 name: form.name,
                 description: form.description,
                 country: form.country,
+                trigger: form.trigger,
+                requireDocument: form.requireDocument,
             });
             toast.success("Leave type updated");
             setIsEditOpen(false);
             setEditingLeaveType(null);
-            setForm({ name: "", description: "", country: "" });
+            setForm({ name: "", description: "", country: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
             fetchLeaveTypes(currentPage);
         } catch (error: any) {
             toast.error(error.message || "Failed to update leave type");
@@ -163,6 +170,9 @@ export default function LeaveTypesPage() {
 
     const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * PAGE_LIMIT + 1;
     const endRecord = Math.min(currentPage * PAGE_LIMIT, totalRecords);
+
+    const triggerLabel = (val?: number) =>
+        !val ? "Not Applicable" : `${val} ${val === 1 ? "Day" : "Days"}`;
 
     return (
         <div className="space-y-6">
@@ -224,6 +234,14 @@ export default function LeaveTypesPage() {
                                             <span>{lt.country}</span>
                                         </div>
                                         <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Trigger</span>
+                                            <span>{triggerLabel(lt.trigger)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-gray-600 dark:text-gray-300">Required Doc</span>
+                                            <span>{lt.requireDocument ?? "No"}</span>
+                                        </div>
+                                        <div className="flex justify-between">
                                             <span className="font-medium text-gray-600 dark:text-gray-300">Created By</span>
                                             <span>{lt.created_by || "System"}</span>
                                         </div>
@@ -264,7 +282,13 @@ export default function LeaveTypesPage() {
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                     Country
                                 </TableCell>
-<TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                    Trigger
+                                </TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                    Required Document
+                                </TableCell>
+                                <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                     Created By
                                 </TableCell>
                                 <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
@@ -281,13 +305,13 @@ export default function LeaveTypesPage() {
                         <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="py-10 text-center text-gray-500">
+                                    <TableCell colSpan={10} className="py-10 text-center text-gray-500">
                                         Loading...
                                     </TableCell>
                                 </TableRow>
                             ) : filtered.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="py-10 text-center text-gray-500">
+                                    <TableCell colSpan={10} className="py-10 text-center text-gray-500">
                                         No leave types found.
                                     </TableCell>
                                 </TableRow>
@@ -305,6 +329,12 @@ export default function LeaveTypesPage() {
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {lt.country}
+                                        </TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">
+                                            {triggerLabel(lt.trigger)}
+                                        </TableCell>
+                                        <TableCell className="py-3 text-theme-sm text-gray-500">
+                                            {lt.requireDocument ?? "No"}
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {lt.created_by || "System"}
@@ -418,7 +448,7 @@ export default function LeaveTypesPage() {
                     setIsAddOpen(false);
                     setIsEditOpen(false);
                     setEditingLeaveType(null);
-                    setForm({ name: "", description: "", country: "" });
+                    setForm({ name: "", description: "", country: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
                 }}
                 title={isEditOpen ? "Edit Leave Type" : "Add New Leave Type"}
             >
@@ -460,6 +490,34 @@ export default function LeaveTypesPage() {
                             onChange={(v) => setForm({ ...form, country: v })}
                             options={countries.map((c: any) => ({ value: c.name, label: c.name }))}
                             placeholder="Select a country"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Required Document <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            value={form.requireDocument}
+                            onChange={(e) => setForm({ ...form, requireDocument: e.target.value as "Yes" | "No" })}
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
+                        >
+                            <option value="No">No</option>
+                            <option value="Yes">Yes</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Trigger <span className="text-gray-400 font-normal">(days — 0 = not applicable)</span>
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            value={form.trigger}
+                            onChange={(e) => setForm({ ...form, trigger: Math.max(0, Number(e.target.value)) })}
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
+                            placeholder="e.g. 0"
                         />
                     </div>
 

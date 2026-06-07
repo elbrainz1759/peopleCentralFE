@@ -1,4 +1,4 @@
-import { api } from "../lib/api";
+import { api, apiRequest } from "../lib/api";
 import { LeaveRequest } from "@/types/service.types";
 
 export interface LeaveDuration {
@@ -37,8 +37,18 @@ export class leaveService {
 
     async applyForLeave(leaveData: LeaveRequest): Promise<any> {
         try {
-            const response = await api.post<any>('/leaves', leaveData);
-            return response;
+            if (leaveData.document instanceof File) {
+                const fd = new FormData();
+                fd.append('staffId', String(leaveData.staffId));
+                fd.append('leaveDuration', JSON.stringify(leaveData.leaveDuration));
+                if (leaveData.reason) fd.append('reason', leaveData.reason);
+                if (leaveData.handoverNotes?.length) {
+                    fd.append('handoverNotes', JSON.stringify(leaveData.handoverNotes));
+                }
+                fd.append('document', leaveData.document);
+                return await apiRequest<any>('/leaves', { method: 'POST', body: fd });
+            }
+            return await api.post<any>('/leaves', leaveData);
         } catch (error) {
             console.error('LeaveService applyForLeave error:', error);
             throw error;
@@ -124,6 +134,16 @@ export class leaveService {
             return response;
         } catch (error) {
             console.error('LeaveService cancelLeave error:', error);
+            throw error;
+        }
+    }
+
+    async updateLeave(leaveId: number, data: Partial<{ reason: string; handoverNote: string; comments: string }>): Promise<any> {
+        try {
+            const response = await api.patch<any>(`/leaves/${leaveId}`, data);
+            return response;
+        } catch (error) {
+            console.error('LeaveService updateLeave error:', error);
             throw error;
         }
     }

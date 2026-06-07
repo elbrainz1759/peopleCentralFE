@@ -78,16 +78,18 @@ export async function apiRequest<T>(
 
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
+    const isFormData = customOptions.body instanceof FormData;
+
     console.log(`[API REQUEST] ${options.method || 'GET'} ${url}`, {
         hasToken: !!token,
-        body: options.body ? JSON.parse(options.body as string) : null,
+        body: isFormData ? '[FormData]' : (options.body ? JSON.parse(options.body as string) : null),
         fullUrl: url,
         baseUrl: API_CONFIG.BASE_URL
     });
 
     const defaultOptions: RequestInit = {
         headers: {
-            'Content-Type': 'application/json',
+            ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
             ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             ...(customOptions.headers || {}),
         },
