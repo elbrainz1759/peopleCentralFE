@@ -567,28 +567,7 @@ export default function ExitApprovalsTable() {
             columnStyles: { 0: { fontStyle: "bold", cellWidth: 65 } },
         });
 
-        const y3 = (doc as any).lastAutoTable?.finalY || 200;
-        const localAssessment = loadSavedAssessment(iv.uniqueId || iv.id);
-        const assessment = localAssessment || hrAssessment;
-        doc.setFontSize(12); doc.setFont("helvetica", "bold");
-        doc.text("HR Assessment (Confidential)", 14, y3 + 10);
-        autoTable(doc, {
-            startY: y3 + 14,
-            head: [["Field", "Details"]],
-            body: [
-                ["Assessment Notes", assessment.assessmentNotes || "N/A"],
-                ["Key Themes Identified", assessment.keyThemes || "N/A"],
-                ["Re-hire Recommendation", assessment.recommendation || "N/A"],
-                ["Assessed By", assessment.assessedBy || "N/A"],
-                ["Assessment Date", assessment.assessedAt ? new Date(assessment.assessedAt).toLocaleDateString() : "N/A"],
-            ],
-            theme: "grid",
-            headStyles: { fillColor: [88, 28, 135], textColor: 255, fontStyle: "bold" },
-            styles: { fontSize: 9, cellPadding: 3 },
-            columnStyles: { 0: { fontStyle: "bold", cellWidth: 65 } },
-        });
-
-        const y4 = (doc as any).lastAutoTable?.finalY || 240;
+        const y4 = (doc as any).lastAutoTable?.finalY || 200;
         doc.setFontSize(12); doc.setFont("helvetica", "bold");
         doc.text("Clearance Checklist Items", 14, y4 + 10);
         autoTable(doc, {
