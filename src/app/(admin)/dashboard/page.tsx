@@ -23,8 +23,7 @@ export default function HRDashboard() {
         const raw = localStorage.getItem("auth_user");
         if (raw) role = (JSON.parse(raw)?.role || "").toLowerCase();
       }
-      const elevated = role === "superadmin" || role === "admin" || role.includes("hr") || role.includes("supervisor") || role.includes("finance") || role.includes("operations");
-      setIsRegularUser(!elevated);
+      setIsRegularUser(role !== "superadmin");
     } catch { /* ignore */ }
     setReady(true);
   }, []);
