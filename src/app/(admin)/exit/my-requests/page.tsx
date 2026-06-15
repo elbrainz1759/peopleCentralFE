@@ -76,9 +76,20 @@ export default function MyExitRequestsPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-white">My Exit Requests</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track the status of your submitted exit requests.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">My Exit Requests</h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track the status of your submitted exit requests.</p>
+                </div>
+                <a
+                    href="/exit"
+                    className="flex items-center gap-2 rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-500/25 hover:bg-brand-600 transition-all hover:scale-[1.02] active:scale-[0.98] self-start sm:self-auto"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Submit Exit Request
+                </a>
             </div>
 
             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
