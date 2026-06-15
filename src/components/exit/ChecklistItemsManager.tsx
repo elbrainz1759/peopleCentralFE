@@ -119,7 +119,7 @@ export default function ChecklistItemsManager() {
   const handleEdit = (item: ChecklistItem) => {
     setEditingItem(item);
     setFormData({
-      departmentId: item.department, // Use department field from API
+      departmentId: item.department || "", // Use department field from API
       name: item.name,
     });
     setIsDrawerOpen(true);
@@ -208,7 +208,7 @@ export default function ChecklistItemsManager() {
               {checklistItems.map((item) => (
                 <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                   <p className="font-medium text-gray-800 dark:text-white/90 text-sm mb-1">{item.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{getDepartmentName(item.department, item.departmentName)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{getDepartmentName(item.department || "", item.departmentName)}</p>
                   <div className="flex gap-2">
                     <button onClick={() => handleEdit(item)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
                       <PencilIcon className="w-3.5 h-3.5" /> Edit
@@ -268,7 +268,7 @@ export default function ChecklistItemsManager() {
                       </span>
                     </TableCell>
                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                      {getDepartmentName(item.department, item.departmentName)}
+                      {getDepartmentName(item.department || "", item.departmentName)}
                     </TableCell>
                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                       <div className="relative">

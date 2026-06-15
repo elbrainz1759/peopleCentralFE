@@ -84,6 +84,7 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess?: () => void 
                 programId: formData.programId,
                 departmentId: formData.departmentId,
                 countryId: formData.countryId,
+                status: "active",
             };
 
             console.log("Submitting employee data:", submissionData);
