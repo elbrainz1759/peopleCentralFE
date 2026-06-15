@@ -11,9 +11,7 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isExpanded, isHovered, isMobileOpen, isMobile } = useSidebar();
-
-  const sidebarWidth = isExpanded || isHovered ? 290 : 90;
+  const { isExpanded, isMobileOpen, isMobile } = useSidebar();
 
   return (
     <div className="min-h-screen">
@@ -22,7 +20,7 @@ export default function AdminLayout({
       <div
         className="flex-1 transition-all duration-300 ease-in-out"
         style={{
-          marginLeft: isMobile ? 0 : `${sidebarWidth}px`,
+          marginLeft: isMobile ? 0 : isExpanded ? "290px" : "0px",
         }}
       >
         <AppHeader />
