@@ -1,15 +1,19 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import { userService } from "@/services/user.service";
 import { toast } from "react-hot-toast";
 import CustomSelect from "@/components/form/CustomSelect";
+import { Modal } from "@/components/ui/modal";
 
 export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   const [departments, setDepartments] = useState<any[]>([]);
   const [programs, setPrograms] = useState<any[]>([]);
@@ -22,7 +26,6 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
     staffId: "",
     email: "",
     designation: "",
-    status: "Active",
     locationId: "",
     programId: "",
     departmentId: "",
@@ -62,13 +65,19 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
     setIsSubmitting(true);
     setError(null);
 
+    if (!/^[^@]+@mercycorps\.org$/i.test(formData.email)) {
+      setShowEmailModal(true);
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       await userService.createEmployee({
         firstName: formData.firstName,
         lastName: formData.lastName,
         staffId: parseInt(formData.staffId, 10),
         email: formData.email,
-        status: formData.status,
+        status: "Active",
         designation: formData.designation,
         locationId: formData.locationId,
         programId: formData.programId,
@@ -78,6 +87,7 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
 
       toast.success("Employee account created successfully! Kindly reach out to HR for account approval.");
       if (onSuccess) onSuccess();
+      router.push("/signin");
     } catch (err: any) {
       const message = err.message || "Failed to create employee account";
       setError(message);
@@ -97,6 +107,28 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
   }
 
   return (
+    <>
+    <Modal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} className="max-w-sm mx-4 p-6">
+      <div className="flex flex-col items-center gap-4 pt-4 pb-2 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+          <svg className="h-7 w-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-base font-semibold text-gray-800 dark:text-white">Invalid Email Address</h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Only <span className="font-medium text-brand-600">@mercycorps.org</span> email addresses are allowed.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowEmailModal(false)}
+          className="w-full rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
+        >
+          Got it
+        </button>
+      </div>
+    </Modal>
     <div className="p-2">
       <div className="mb-6">
         <h1 className="mb-1 font-bold text-gray-800 text-title-sm dark:text-white/90">
@@ -130,31 +162,17 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
           </div>
 
-          {/* Staff ID + Status */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Staff ID <span className="text-error-500">*</span></Label>
-              <Input type="number" name="staffId" placeholder="e.g. 1042"
-                value={formData.staffId} onChange={handleInputChange} required />
-            </div>
-            <div>
-              <Label>Status <span className="text-error-500">*</span></Label>
-              <CustomSelect
-                value={formData.status}
-                onChange={(v) => setFormData((prev) => ({ ...prev, status: v }))}
-                options={[
-                  { value: "Active", label: "Active" },
-                  { value: "Inactive", label: "Inactive" },
-                ]}
-                placeholder="Select Status"
-              />
-            </div>
+          {/* Staff ID */}
+          <div>
+            <Label>Staff ID <span className="text-error-500">*</span></Label>
+            <Input type="number" name="staffId" placeholder="e.g. 1042"
+              value={formData.staffId} onChange={handleInputChange} required />
           </div>
 
           {/* Email */}
           <div>
             <Label>Email Address <span className="text-error-500">*</span></Label>
-            <Input type="email" name="email" placeholder="you@company.com"
+            <Input type="email" name="email" placeholder="you@mercycorps.org"
               value={formData.email} onChange={handleInputChange} required />
           </div>
 
@@ -234,5 +252,6 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
         </p>
       </div>
     </div>
+    </>
   );
 }

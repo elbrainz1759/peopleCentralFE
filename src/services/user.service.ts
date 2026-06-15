@@ -202,7 +202,7 @@ export class UserService {
     }
 
     public async updateLeaveType(uniqueId: string, data: Partial<CreateLeaveTypeRequest>): Promise<any> {
-        return api.put(`/leave-types/${uniqueId}`, data);
+        return api.patch(`/leave-types/${uniqueId}`, data);
     }
 
     public async deleteLeaveType(uniqueId: string): Promise<any> {
