@@ -27,6 +27,21 @@ export class UserService {
     }
 
     /**
+     * Update a user profile/account (admin or self-service)
+     */
+
+    public async update(id:string, userData: Partial<UserCreateRequest>): Promise<any> {
+        try {
+            const response = await api.patch<any>(`/users/${id}`, userData);
+            return response;
+        } catch (error) {
+            console.error('UserService update error:', error);
+            throw error;
+        }
+    }
+
+
+    /**
    * creates a new employee profile
    */
     public async createEmployee(employeeData: EmployeeCreateRequest): Promise<any> {
@@ -77,6 +92,14 @@ export class UserService {
             console.error('UserService getAll error:', error);
             throw error;
         }
+    }
+
+    public async updateUserRole(id: string, role: string): Promise<any> {
+        return api.patch<any>(`/users/${id}`, { role });
+    }
+
+    public async deleteUser(id: string): Promise<any> {
+        return api.delete(`/users/${id}`);
     }
 
     /**
@@ -190,7 +213,7 @@ export class UserService {
     }
 
     public async updateLocation(uniqueId: string, data: { name: string; countryId: string }): Promise<any> {
-        return api.put(`/locations/${uniqueId}`, data);
+        return api.patch(`/locations/${uniqueId}`, data);
     }
 
     public async deleteLocation(uniqueId: string): Promise<any> {

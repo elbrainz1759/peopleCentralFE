@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import {
   BellIcon,
@@ -25,6 +25,48 @@ type NavItem = {
   path?: string;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean; hrOnly?: boolean }[];
 };
+
+const userNavItems: NavItem[] = [
+  { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
+  { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
+  { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
+];
+
+const adminNavItems: NavItem[] = [
+  { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
+  { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
+  { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
+  {
+    icon: <UserCircleIcon />,
+    name: "HR Administration",
+    subItems: [
+      { name: "Employee Database", path: "/hr/employees" },
+      { name: "Pending Approvals", path: "/hr/pending-approvals" },
+      { name: "User Management", path: "/hr/users" },
+    ],
+  },
+  {
+    icon: <CalenderIcon />,
+    name: "Leave Management",
+    subItems: [
+      { name: "Apply for Leave", path: "/leave/apply" },
+      { name: "Approvals", path: "/leave/approvals" },
+      { name: "Leave Balances", path: "/leave/balances" },
+      { name: "Leave Types", path: "/leave/leave-types" },
+      { name: "Leave Type Configs", path: "/leave/type-configs" },
+    ],
+  },
+  {
+    icon: <ListIcon />,
+    name: "Exit Management",
+    subItems: [
+      { name: "Exit Request", path: "/exit" },
+      { name: "Approvals", path: "/exit/approvals" },
+      { name: "End of Service", path: "/exit/end-of-service" },
+      { name: "Checklist", path: "/exit/checklist" },
+    ],
+  },
+];
 
 const navItems: NavItem[] = [
   {
@@ -84,7 +126,10 @@ const navItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const router = useRouter();
   const [isHR, setIsHR] = useState(false);
+  const [isRegularUser, setIsRegularUser] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     try {
@@ -95,7 +140,11 @@ const AppSidebar: React.FC = () => {
         try { user = { ...user, ...JSON.parse(atob(token.split('.')[1])) }; } catch { /* ignore */ }
       }
       const role = (user?.role || user?.designation || "").toLowerCase();
-      setIsHR(role.includes('hr') || role.includes('admin') || role.includes('superadmin'));
+      const isSuperAdmin = role === 'superadmin';
+      const isAdminRole = role === 'admin' || role.includes('hr') || role.includes('supervisor') || role.includes('finance') || role.includes('operations');
+      setIsHR(isSuperAdmin);
+      setIsAdmin(isAdminRole);
+      setIsRegularUser(!isSuperAdmin && !isAdminRole);
     } catch { /* ignore */ }
   }, []);
 
@@ -112,10 +161,7 @@ const AppSidebar: React.FC = () => {
               className={`menu-item group  ${openSubmenu?.type === menuType && openSubmenu?.index === index
                 ? "menu-item-active"
                 : "menu-item-inactive"
-                } cursor-pointer ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "lg:justify-start"
-                }`}
+                } cursor-pointer lg:justify-start`}
             >
               <span
                 className={` ${openSubmenu?.type === menuType && openSubmenu?.index === index
@@ -125,18 +171,14 @@ const AppSidebar: React.FC = () => {
               >
                 {nav.icon}
               </span>
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <span className={`menu-item-text`}>{nav.name}</span>
-              )}
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <ChevronDownIcon
+              <span className={`menu-item-text`}>{nav.name}</span>
+              <ChevronDownIcon
                   className={`ml-auto w-5 h-5 transition-transform duration-200  ${openSubmenu?.type === menuType &&
                     openSubmenu?.index === index
                     ? "rotate-180 text-brand-500"
                     : ""
                     }`}
                 />
-              )}
             </button>
           ) : (
             nav.path && (
@@ -153,13 +195,11 @@ const AppSidebar: React.FC = () => {
                 >
                   {nav.icon}
                 </span>
-                {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className={`menu-item-text`}>{nav.name}</span>
-                )}
+                <span className={`menu-item-text`}>{nav.name}</span>
               </Link>
             )
           )}
-          {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
+          {nav.subItems && (
             <div
               ref={(el) => {
                 subMenuRefs.current[`${menuType}-${index}`] = el;
@@ -284,69 +324,57 @@ const AppSidebar: React.FC = () => {
     <aside
       suppressHydrationWarning
       className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200
-        ${isExpanded || isMobileOpen
-          ? "w-[290px]"
-          : isHovered
-            ? "w-[290px]"
-            : "w-[90px]"
-        }
+        ${isExpanded || isMobileOpen ? "w-[290px]" : "w-[290px]"}
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
-      onMouseEnter={() => !isExpanded && setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <div
         className={`py-8 flex  ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
           }`}
       >
         <Link href="/dashboard">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <Image
-                className="dark:hidden"
-                src="/images/logo/brand-logo.png"
-                alt="Logo"
-                width={180}
-                height={48}
-              />
-              <Image
-                className="hidden dark:block"
-                src="/images/logo/brand-logo-dark.png"
-                alt="Logo"
-                width={180}
-                height={48}
-              />
-            </>
-          ) : (
+          <>
             <Image
-              src="/images/logo/brand-logo-icon.png"
+              className="dark:hidden"
+              src="/images/logo/brand-logo.png"
               alt="Logo"
-              width={32}
-              height={32}
+              width={180}
+              height={48}
             />
-          )}
+            <Image
+              className="hidden dark:block"
+              src="/images/logo/brand-logo-dark.png"
+              alt="Logo"
+              width={180}
+              height={48}
+            />
+          </>
         </Link>
       </div>
-      <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="mb-6">
-          <div className="flex flex-col gap-4">
-            <div>
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(navItems, "main")}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto duration-300 ease-linear no-scrollbar">
+          <nav className="mb-6">
+            <div className="flex flex-col gap-4">
+              <div>
+                <h2 className="mb-4 text-xs uppercase flex leading-[20px] text-gray-400 justify-start">
+                  Menu
+                </h2>
+                {renderMenuItems(isRegularUser ? userNavItems : isAdmin ? adminNavItems : navItems, "main")}
+              </div>
             </div>
-          </div>
-        </nav>
+          </nav>
+        </div>
+        <div className="flex-shrink-0 pb-6 border-t border-gray-100 dark:border-gray-800 pt-4">
+          <button
+            onClick={() => router.push("/logout")}
+            className="flex items-center w-full gap-3 px-3 py-3 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors"
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="text-sm font-medium">Sign out</span>
+          </button>
+        </div>
       </div>
     </aside>
   );
