@@ -33,12 +33,24 @@ export default function ProgramsPage() {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [selectedCountry, setSelectedCountry] = useState("");
+    const [countries, setCountries] = useState<any[]>([]);
     const [isSubmittingNew, setIsSubmittingNew] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState<string | number | null>(null);
 
     useEffect(() => {
         fetchPrograms();
+        fetchCountries();
     }, []);
+
+    const fetchCountries = async () => {
+        try {
+            const response: any = await userService.getAllCountries();
+            const data = response?.data || (Array.isArray(response) ? response : []);
+            setCountries(data);
+        } catch (error) {
+            console.error("Fetch countries error:", error);
+        }
+    };
 
     const fetchPrograms = async () => {
         setIsLoading(true);
@@ -93,7 +105,7 @@ export default function ProgramsPage() {
                 fundCode: parseInt(newFundCode, 10),
                 startDate: new Date(startDate).toISOString(),
                 endDate: new Date(endDate).toISOString(),
-                country: selectedCountry,
+                countryId: selectedCountry,
             };
 
             console.log("Submitting program payload:", payload);
@@ -122,7 +134,7 @@ export default function ProgramsPage() {
         setNewFundCode(prog.fund_code != null ? String(prog.fund_code) : (prog.fundCode != null ? String(prog.fundCode) : ""));
         setStartDate(prog.start_date ? new Date(prog.start_date).toISOString().slice(0, 10) : "");
         setEndDate(prog.end_date ? new Date(prog.end_date).toISOString().slice(0, 10) : "");
-        setSelectedCountry(prog.country ?? "");
+        setSelectedCountry(prog.countryId ?? prog.country_id ?? "");
         setIsEditOpen(true);
     };
 
@@ -149,7 +161,7 @@ export default function ProgramsPage() {
                 fundCode: parseInt(newFundCode, 10),
                 startDate: new Date(startDate).toISOString(),
                 endDate: new Date(endDate).toISOString(),
-                country: selectedCountry,
+                countryId: selectedCountry,
             });
             toast.success("Program updated");
             setIsEditOpen(false);
@@ -190,6 +202,12 @@ export default function ProgramsPage() {
         } finally {
             setIsDeleting(null);
         }
+    };
+
+    const getCountryName = (prog: any) => {
+        if (prog.country) return prog.country;
+        const id = prog.countryId ?? prog.country_id;
+        return countries.find((c: any) => c.unique_id === id)?.name || "N/A";
     };
 
     const filtered = programs.filter(p =>
@@ -255,7 +273,7 @@ export default function ProgramsPage() {
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="font-medium text-gray-600 dark:text-gray-300">Country</span>
-                                            <span>{prog.country || "N/A"}</span>
+                                            <span>{getCountryName(prog)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="font-medium text-gray-600 dark:text-gray-300">Start</span>
@@ -344,7 +362,7 @@ export default function ProgramsPage() {
                                             {prog.end_date ? new Date(prog.end_date).toLocaleDateString() : "N/A"}
                                         </TableCell>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
-                                            {prog.country || "N/A"}
+                                            {getCountryName(prog)}
                                         </TableCell>
                                         <TableCell className="py-3">
                                             <span className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-600 rounded-full dark:bg-blue-500/10 dark:text-blue-400">
@@ -459,10 +477,7 @@ export default function ProgramsPage() {
                         <CustomSelect
                             value={selectedCountry}
                             onChange={(v) => setSelectedCountry(v)}
-                            options={[
-                                { value: "Nigeria", label: "Nigeria" },
-                                { value: "Liberia", label: "Liberia" },
-                            ]}
+                            options={countries.map((c: any) => ({ value: c.unique_id, label: c.name }))}
                             placeholder="Choose Country"
                         />
                     </div>

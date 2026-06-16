@@ -361,7 +361,7 @@ export default function CountriesPage() {
                             ? "Processing..."
                             : isEditOpen
                                 ? "Update Country"
-                                : "Finish Registration"}
+                                : "Submit"}
                     </button>
                 </form>
             </Drawer>

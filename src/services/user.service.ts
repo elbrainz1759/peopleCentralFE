@@ -145,7 +145,7 @@ export class UserService {
         fundCode?: number,
         startDate?: string,
         endDate?: string,
-        country?: string,
+        countryId?: string,
     }): Promise<any> {
         return api.post('/programs', data);
     }
@@ -155,7 +155,7 @@ export class UserService {
         fundCode?: number,
         startDate?: string,
         endDate?: string,
-        country?: string,
+        countryId?: string,
     }): Promise<any> {
         return api.patch(`/programs/${uniqueId}`, data);
     }
