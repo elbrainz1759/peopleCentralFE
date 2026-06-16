@@ -112,13 +112,13 @@ export default function LeaveTypesPage() {
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-        const id = editingLeaveType?.id;
-        if (id == null) return;
+        const id = editingLeaveType?.unique_id;
+        if (!id) return;
         if (!form.name.trim() || !form.description.trim() || !form.country.trim()) return;
 
         setIsSubmitting(true);
         try {
-            await userService.updateLeaveType(String(id), {
+            await userService.updateLeaveType(id, {
                 name: form.name,
                 description: form.description,
                 country: form.country,
@@ -138,16 +138,16 @@ export default function LeaveTypesPage() {
     };
 
     const handleDelete = (lt: LeaveType) => {
-        if (lt.id == null) {
-            toast.error("Missing id; cannot delete this record");
+        if (!lt.unique_id) {
+            toast.error("Missing unique_id; cannot delete this record");
             return;
         }
         setPendingDelete(lt);
     };
 
     const confirmDelete = async () => {
-        if (!pendingDelete || pendingDelete.id == null) return;
-        const id = String(pendingDelete.id);
+        if (!pendingDelete?.unique_id) return;
+        const id = pendingDelete.unique_id;
 
         setIsDeleting(id);
         try {
@@ -222,7 +222,7 @@ export default function LeaveTypesPage() {
                     ) : (
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             {filtered.map((lt) => (
-                                <div key={lt.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                                <div key={lt.unique_id ?? lt.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                                     <div className="flex items-start justify-between mb-2">
                                         <p className="font-medium text-gray-800 dark:text-white/90 text-sm">{lt.name}</p>
                                         <span className="px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-600 rounded-full dark:bg-green-500/10 dark:text-green-400">Active</span>
@@ -256,7 +256,7 @@ export default function LeaveTypesPage() {
                                         </button>
                                         <button onClick={() => handleDelete(lt)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10">
                                             <TrashBinIcon className="w-3.5 h-3.5" />
-                                            {isDeleting === String(lt.id) ? "Removing..." : "Remove"}
+                                            {isDeleting === lt.unique_id ? "Removing..." : "Remove"}
                                         </button>
                                     </div>
                                 </div>
@@ -317,7 +317,7 @@ export default function LeaveTypesPage() {
                                 </TableRow>
                             ) : (
                                 filtered.map((lt, index) => (
-                                    <TableRow key={lt.id}>
+                                    <TableRow key={lt.unique_id ?? lt.id}>
                                         <TableCell className="py-3 text-theme-sm text-gray-500">
                                             {startRecord + index}
                                         </TableCell>
@@ -353,14 +353,14 @@ export default function LeaveTypesPage() {
                                             <button
                                                 className="dropdown-toggle flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                                                 onClick={() =>
-                                                    setActiveDropdown(activeDropdown === lt.id ? null : lt.id)
+                                                    setActiveDropdown(activeDropdown === lt.unique_id ? null : lt.unique_id ?? null)
                                                 }
                                             >
                                                 <HorizontaLDots className="h-4 w-4 text-gray-500" />
                                             </button>
 
                                             <Dropdown
-                                                isOpen={activeDropdown === lt.id}
+                                                isOpen={activeDropdown === lt.unique_id}
                                                 onClose={() => setActiveDropdown(null)}
                                                 className="absolute right-0 top-10 pointer-events-auto"
                                             >
@@ -386,7 +386,7 @@ export default function LeaveTypesPage() {
                                                         <div className="flex items-center gap-2">
                                                             <TrashBinIcon className="w-4 h-4" />
                                                             <span>
-                                                                {isDeleting === String(lt.id) ? "Removing..." : "Remove Record"}
+                                                                {isDeleting === lt.unique_id ? "Removing..." : "Remove Record"}
                                                             </span>
                                                         </div>
                                                     </DropdownItem>
