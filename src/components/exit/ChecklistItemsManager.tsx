@@ -26,7 +26,7 @@ export default function ChecklistItemsManager() {
   const [editingItem, setEditingItem] = useState<ChecklistItem | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     departmentId: "", // Will be set when departments are loaded
@@ -98,7 +98,7 @@ export default function ChecklistItemsManager() {
     setIsSubmitting(true);
     try {
       if (editingItem) {
-        await exitServiceInstance.updateChecklistItem(editingItem.id!, formData);
+        await exitServiceInstance.updateChecklistItem(editingItem.uniqueId!, formData);
         toast.success("Checklist item updated successfully!");
       } else {
         await exitServiceInstance.createChecklistItem(formData);
@@ -125,14 +125,14 @@ export default function ChecklistItemsManager() {
     setIsDrawerOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    setDeleteId(id);
+  const handleDelete = async (uniqueId: string) => {
+    setDeleteId(uniqueId);
     setDeleteModalOpen(true);
   };
 
   const confirmDelete = async () => {
     if (!deleteId) return;
-    
+
     try {
       await exitServiceInstance.deleteChecklistItem(deleteId);
       toast.success("Checklist item deleted successfully");
@@ -213,7 +213,7 @@ export default function ChecklistItemsManager() {
                     <button onClick={() => handleEdit(item)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
                       <PencilIcon className="w-3.5 h-3.5" /> Edit
                     </button>
-                    <button onClick={() => handleDelete(item.id!)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10">
+                    <button onClick={() => handleDelete(item.uniqueId!)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10">
                       <TrashBinIcon className="w-3.5 h-3.5" /> Delete
                     </button>
                   </div>
@@ -297,7 +297,7 @@ export default function ChecklistItemsManager() {
                           <DropdownItem
                             onItemClick={() => {
                               closeDropdown();
-                              handleDelete(item.id!);
+                              handleDelete(item.uniqueId!);
                             }}
                             className="flex gap-2 items-center text-red-500"
                           >

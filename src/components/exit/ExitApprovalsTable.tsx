@@ -287,11 +287,11 @@ export default function ExitApprovalsTable() {
     const handleDeleteItem = async (itemId: number | string | undefined) => {
         if (!itemId) return;
         const item = checklistItems.find(i => i.uniqueId === itemId || i.id === itemId);
-        const numericId = item?.id;
-        if (!numericId || !confirm("Delete this item?")) return;
+        const uid = item?.uniqueId;
+        if (!uid || !confirm("Delete this item?")) return;
 
         try {
-            await exitServiceInstance.deleteChecklistItem(numericId);
+            await exitServiceInstance.deleteChecklistItem(uid);
             toast.success("Item deleted");
             fetchChecklistItems();
         } catch (error) {

@@ -307,7 +307,7 @@ export class ExitService {
   /**
    * Update checklist item
    */
-  async updateChecklistItem(id: number, itemData: Partial<ChecklistItem>): Promise<any> {
+  async updateChecklistItem(id: string, itemData: Partial<ChecklistItem>): Promise<any> {
     try {
       const response = await api.patch<any>(`/check-list-items/${id}`, itemData);
       return response;
@@ -320,7 +320,7 @@ export class ExitService {
   /**
    * Delete checklist item
    */
-  async deleteChecklistItem(id: number): Promise<any> {
+  async deleteChecklistItem(id: string): Promise<any> {
     try {
       const response = await api.delete<any>(`/check-list-items/${id}`);
       return response;
