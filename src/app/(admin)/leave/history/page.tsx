@@ -1,7 +1,5 @@
-import React, { useState} from "react";
 import LeaveHistoryTable from "@/components/hr/LeaveHistoryTable";
 import { Metadata } from "next";
-
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -10,8 +8,6 @@ export const metadata: Metadata = {
 };
 
 export default function LeaveHistoryPage() {
-    const now = new Date();
-    const [month, setMonth] = useState(now.getMonth());
     return (
         <div>
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
