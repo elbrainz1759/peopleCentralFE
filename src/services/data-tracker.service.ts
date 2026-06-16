@@ -32,7 +32,7 @@ export class DataTrackerService {
     }
 
     async updateTracker(id: string | number, data: UpdateDataTrackerDto): Promise<any> {
-        return api.put<any>(`/data-tracker/${id}`, data);
+        return api.patch<any>(`/data-tracker/${id}`, data);
     }
 }
 

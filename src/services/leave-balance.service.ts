@@ -75,7 +75,7 @@ export class LeaveBalanceService {
    */
   async updateLeaveBalance(id: number, data: Partial<LeaveBalance>): Promise<any> {
     try {
-      const response = await api.put<any>(`/leave-balances/${id}`, data);
+      const response = await api.patch<any>(`/leave-balances/${id}`, data);
       return response;
     } catch (error) {
       console.error('LeaveBalanceService update error:', error);

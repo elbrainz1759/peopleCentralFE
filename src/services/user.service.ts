@@ -133,7 +133,7 @@ export class UserService {
     }
 
     public async updateDepartment(uniqueId: string, data: { name: string }): Promise<any> {
-        return api.put(`/departments/${uniqueId}`, data);
+        return api.patch(`/departments/${uniqueId}`, data);
     }
 
     public async deleteDepartment(uniqueId: string): Promise<any> {
@@ -157,7 +157,7 @@ export class UserService {
         endDate?: string,
         country?: string,
     }): Promise<any> {
-        return api.put(`/programs/${uniqueId}`, data);
+        return api.patch(`/programs/${uniqueId}`, data);
     }
 
     public async deleteProgram(uniqueId: string): Promise<any> {
@@ -173,7 +173,7 @@ export class UserService {
     }
 
     public async updateRole(uniqueId: string, data: { name: string; description?: string }): Promise<any> {
-        return api.put(`/roles/${uniqueId}`, data);
+        return api.patch(`/roles/${uniqueId}`, data);
     }
 
     public async deleteRole(uniqueId: string): Promise<any> {
@@ -185,7 +185,7 @@ export class UserService {
     }
 
     public async updateCountry(uniqueId: string, data: { name: string }): Promise<any> {
-        return api.put(`/countries/${uniqueId}`, data);
+        return api.patch(`/countries/${uniqueId}`, data);
     }
 
     public async deleteCountry(uniqueId: string): Promise<any> {
@@ -245,7 +245,7 @@ export class UserService {
     }
 
     public async updateLeaveTypeConfig(uniqueId: string, data: any): Promise<any> {
-        return api.put(`/leave-type-configs/${uniqueId}`, data);
+        return api.patch(`/leave-type-configs/${uniqueId}`, data);
     }
 
     public async deleteLeaveTypeConfig(uniqueId: string): Promise<any> {
