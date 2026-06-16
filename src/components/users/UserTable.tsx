@@ -26,10 +26,9 @@ interface User {
     status?: string;
 }
 
-const ROLES = ["User", "Admin", "HR", "Superadmin"];
-
 export default function UserTable() {
     const [users, setUsers] = useState<User[]>([]);
+    const [roles, setRoles] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -43,7 +42,22 @@ export default function UserTable() {
 
     useEffect(() => {
         fetchUsers();
+        fetchRoles();
     }, []);
+
+    const fetchRoles = async () => {
+        try {
+            const data: any = await userService.getAllRoles();
+            const list: any[] = data?.data ?? (Array.isArray(data) ? data : []);
+            setRoles(
+                list
+                    .filter((r: any) => r.status !== "Deleted")
+                    .map((r: any) => r.name)
+            );
+        } catch {
+            // fallback — leave roles empty; user can retry
+        }
+    };
 
     const fetchUsers = async () => {
         setIsLoading(true);
@@ -232,7 +246,7 @@ export default function UserTable() {
                     <CustomSelect
                         value={selectedRole}
                         onChange={(v) => setSelectedRole(v)}
-                        options={ROLES.map((r) => ({ value: r, label: r }))}
+                        options={roles.map((r) => ({ value: r, label: r }))}
                         placeholder="Select role"
                     />
                     <div className="flex gap-3 mt-6">
