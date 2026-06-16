@@ -68,35 +68,10 @@ const adminNavItems: NavItem[] = [
   },
 ];
 
-const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    path: "/dashboard",
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Leave Management",
-    subItems: [
-      { name: "Apply for Leave", path: "/leave/apply" },
-      { name: "My Leaves", path: "/leave/history" },
-      { name: "Approvals", path: "/leave/approvals" },
-      { name: "Leave Balances", path: "/leave/balances" },
-      { name: "Leave Types", path: "/leave/leave-types" },
-      { name: "Leave Type Configs", path: "/leave/type-configs" },
-    ],
-  },
-  {
-    icon: <ListIcon />,
-    name: "Exit Management",
-    subItems: [
-      { name: "Exit Request", path: "/exit" },
-      { name: "My Exit Requests", path: "/exit/my-requests" },
-      { name: "End of Service", path: "/exit/end-of-service" },
-      { name: "Approvals", path: "/exit/approvals" },
-      { name: "Checklist", path: "/exit/checklist", hrOnly: true },
-    ],
-  },
+const superAdminNavItems: NavItem[] = [
+  { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
+  { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
+  { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
   {
     icon: <UserCircleIcon />,
     name: "HR Administration",
@@ -112,15 +87,28 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    icon: <PieChartIcon />,
-    name: "Reports",
-    path: "/reports",
+    icon: <CalenderIcon />,
+    name: "Leave Management",
+    subItems: [
+      { name: "Apply for Leave", path: "/leave/apply" },
+      { name: "Approvals", path: "/leave/approvals" },
+      { name: "Leave Balances", path: "/leave/balances" },
+      { name: "Leave Types", path: "/leave/leave-types" },
+      { name: "Leave Type Configs", path: "/leave/type-configs" },
+    ],
   },
   {
-    icon: <BellIcon />,
-    name: "Notification Tracker",
-    path: "/hr/notifications",
+    icon: <ListIcon />,
+    name: "Exit Management",
+    subItems: [
+      { name: "Exit Request", path: "/exit" },
+      { name: "Approvals", path: "/exit/approvals" },
+      { name: "End of Service", path: "/exit/end-of-service" },
+      { name: "Checklist", path: "/exit/checklist" },
+    ],
   },
+  { icon: <PieChartIcon />, name: "Reports", path: "/reports" },
+  { icon: <BellIcon />, name: "Notification Tracker", path: "/hr/notifications" },
 ];
 
 const AppSidebar: React.FC = () => {
@@ -268,11 +256,13 @@ const AppSidebar: React.FC = () => {
   // const isActive = (path: string) => path === pathname;
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
+  const currentNavItems = isRegularUser ? userNavItems : isAdmin ? adminNavItems : superAdminNavItems;
+
   useEffect(() => {
     // Check if the current path matches any submenu item
     let submenuMatched = false;
     ["main"].forEach((menuType) => {
-      const items = navItems;
+      const items = currentNavItems;
       items.forEach((nav, index) => {
         if (nav.subItems) {
           nav.subItems.forEach((subItem) => {
@@ -357,7 +347,7 @@ const AppSidebar: React.FC = () => {
                 <h2 className="mb-4 text-xs uppercase flex leading-[20px] text-gray-400 justify-start">
                   Menu
                 </h2>
-                {renderMenuItems(isRegularUser ? userNavItems : isAdmin ? adminNavItems : navItems, "main")}
+                {renderMenuItems(currentNavItems, "main")}
               </div>
             </div>
           </nav>
