@@ -49,11 +49,7 @@ export default function UserTable() {
         try {
             const data: any = await userService.getAllRoles();
             const list: any[] = data?.data ?? (Array.isArray(data) ? data : []);
-            setRoles(
-                list
-                    .filter((r: any) => r.status !== "Deleted")
-                    .map((r: any) => r.name)
-            );
+            setRoles(list.map((r: any) => r.name));
         } catch {
             // fallback — leave roles empty; user can retry
         }
