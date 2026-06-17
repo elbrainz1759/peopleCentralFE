@@ -17,8 +17,7 @@ import { Modal } from "../ui/modal";
 import { ExitService, ChecklistItem as ServiceChecklistItem } from "@/services/exit.service";
 import { toast } from "react-hot-toast";
 import Button from "../ui/button/Button";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { generateInterviewPDF, generateClearancePDF } from "@/utils/exitPdf";
 
 type QueueType = 'All' | 'HR' | 'Operations' | 'Finance';
 
@@ -514,196 +513,19 @@ export default function ExitApprovalsTable() {
         return role.includes('hr') || role.includes('admin') || role.includes('superadmin');
     })();
 
-    const employeeInfoBody = (iv: ExitInterviewDisplay) => [
-        ["Employee", String(iv.employeeName)],
-        ["Staff ID", String(iv.staffId)],
-        ["Department", String(iv.department)],
-        ["Location", String(iv.location)],
-        ["Program", String(iv.program)],
-        ["Exit Date", String((iv as any).resignationDate ?? "N/A")],
-        ["Submitted", String(iv.submittedOn)],
-    ];
-
-    const pdfFooter = (doc: jsPDF) => {
-        const pageHeight = doc.internal.pageSize.height;
-        doc.setFontSize(8); doc.setTextColor(150);
-        doc.text(`Generated on ${new Date().toLocaleString()} — Mercy Corps People Central`, 105, pageHeight - 10, { align: "center" });
-        doc.setTextColor(0);
-    };
-
-    const generateInterviewPDF = (iv: ExitInterviewDisplay, details: any) => {
-        const doc = new jsPDF();
-        let comments: any = {};
-        try { comments = JSON.parse(details?.additional_comments || details?.additionalComments || "{}"); } catch {}
-
-        const tableStyles = { fontSize: 9, cellPadding: 3 };
-        const headStyles = { fillColor: [220, 53, 69] as [number, number, number], textColor: 255 as unknown as number[], fontStyle: "bold" as const };
-        const labelCol = { fontStyle: "bold" as const, cellWidth: 70 };
-
-        const sectionTitle = (doc: jsPDF, y: number, title: string) => {
-            doc.setFontSize(11); doc.setFont("helvetica", "bold");
-            doc.setFillColor(245, 245, 245); doc.rect(14, y, 182, 7, "F");
-            doc.setTextColor(60); doc.text(title, 16, y + 5.5);
-            doc.setTextColor(0);
-            return y + 10;
-        };
-
-        // Header
-        doc.setFontSize(18); doc.setFont("helvetica", "bold");
-        doc.text("EXIT INTERVIEW REPORT", 105, 18, { align: "center" });
-        doc.setFontSize(10); doc.setFont("helvetica", "normal");
-        doc.text("Mercy Corps Nigeria - People Central", 105, 25, { align: "center" });
-        doc.setDrawColor(200); doc.line(14, 29, 196, 29);
-
-        // Employee Information
-        let y = sectionTitle(doc, 33, "Employee Information");
-        autoTable(doc, {
-            startY: y,
-            head: [["Field", "Details"]],
-            body: [
-                ["Employee Name", String(iv.employeeName)],
-                ["Staff ID", String(iv.staffId)],
-                ["Department", String(iv.department)],
-                ["Location", String(iv.location)],
-                ["Program", String(iv.program)],
-                ["Exit / Termination Date", String((details?.resignation_date || details?.resignationDate || (iv as any).resignationDate) ?? "N/A")],
-                ["Date Submitted", String(iv.submittedOn)],
-            ],
-            theme: "grid", headStyles, styles: tableStyles,
-            columnStyles: { 0: labelCol },
-        });
-
-        // Q1–Q4: Reasons & Experience
-        y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Reasons for Leaving & Job Experience");
-        autoTable(doc, {
-            startY: y,
-            head: [["Question", "Response"]],
-            body: [
-                ["Q1. Why are you leaving?", details?.reason_for_leaving || details?.reasonForLeaving || "N/A"],
-                ["Q2. What would have prevented you from leaving?", details?.other_reason || details?.otherReason || "N/A"],
-                ["Q3. What did you like most about working here?", details?.most_enjoyed || details?.mostEnjoyed || "N/A"],
-                ["Q4. What did you like least / areas needing improvement?", details?.company_improvement || details?.companyImprovement || "N/A"],
-                ["Q7. Was the work as expected?", comments.workAsExpected || "N/A"],
-                ["Q7. Comments on job expectations", comments.workExpectedComments || "N/A"],
-                ["Q8. Workload assessment", comments.workload || "N/A"],
-                ["Q11. Additional suggestions", comments.suggestions || "N/A"],
-            ],
-            theme: "grid", headStyles, styles: tableStyles,
-            columnStyles: { 0: labelCol },
-        });
-
-        // Q5: Supervisor Ratings (stored as averaged score)
-        y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q5 & Q6 — Supervisor & Organisation Ratings");
-        autoTable(doc, {
-            startY: y,
-            head: [["Category", "Score (out of 5)"]],
-            body: [
-                ["Overall Manager / Supervisor Rating", String(details?.rating_manager || details?.ratingManager || "N/A")],
-                ["Overall Job / Organisation Rating", String(details?.rating_job || details?.ratingJob || "N/A")],
-                ["Overall Culture Rating", String(details?.rating_culture || details?.ratingCulture || "N/A")],
-                ["Rating Comments", comments.ratingComments || "N/A"],
-            ],
-            theme: "grid", headStyles, styles: tableStyles,
-            columnStyles: { 0: labelCol },
-        });
-
-        // Q9: Benefits
-        const benefits = comments.benefits || {};
-        y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q9 — Benefits Assessment");
-        autoTable(doc, {
-            startY: y,
-            head: [["Benefit", "Rating"]],
-            body: [
-                ["Annual / Public Holidays", benefits.holidays || "N/A"],
-                ["Annual Leave", benefits.annualLeave || "N/A"],
-                ["Medical Benefits", benefits.medical || "N/A"],
-                ["Sick Leave", benefits.sickLeave || "N/A"],
-                ["Gratuity / End of Service Benefits", benefits.gratuity || "N/A"],
-                ["Education / Training Benefits", benefits.education || "N/A"],
-            ],
-            theme: "grid", headStyles, styles: tableStyles,
-            columnStyles: { 0: labelCol },
-        });
-
-        // Q10: Recommendation
-        y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q10 — Recommendation");
-        autoTable(doc, {
-            startY: y,
-            head: [["Question", "Response"]],
-            body: [
-                ["Would you recommend Mercy Corps as a place to work?", details?.would_recommend || details?.wouldRecommend || "N/A"],
-            ],
-            theme: "grid", headStyles, styles: tableStyles,
-            columnStyles: { 0: labelCol },
-        });
-
-        pdfFooter(doc);
-        doc.save(`Exit_Interview_${iv.staffId}_${iv.employeeName.replace(/\s+/g, "_")}.pdf`);
-        toast.success("Exit Interview PDF downloaded.");
-    };
-
-    const generateClearancePDF = (iv: ExitInterviewDisplay, _details: any) => {
-        const stageOrder = ['Employee', 'Supervisor', 'Operations', 'Finance', 'HR', 'HR_Final', 'HR_Director', 'Completed'];
-        const currentIdx = stageOrder.indexOf(iv.stage);
-        const pastStage = (s: string) => currentIdx > stageOrder.indexOf(s);
-
-        const doc = new jsPDF();
-        doc.setFontSize(18); doc.setFont("helvetica", "bold");
-        doc.text("EXIT CLEARANCE REPORT", 105, 20, { align: "center" });
-        doc.setFontSize(10); doc.setFont("helvetica", "normal");
-        doc.text("Mercy Corps - People Central", 105, 27, { align: "center" });
-        doc.setDrawColor(200); doc.line(14, 31, 196, 31);
-
-        doc.setFontSize(12); doc.setFont("helvetica", "bold");
-        doc.text("Employee Information", 14, 40);
-        autoTable(doc, {
-            startY: 44,
-            head: [["Field", "Details"]],
-            body: employeeInfoBody(iv),
-            theme: "grid",
-            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
-            styles: { fontSize: 10 },
-            columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
-        });
-
-        const y1 = (doc as any).lastAutoTable?.finalY || 90;
-        doc.setFontSize(12); doc.setFont("helvetica", "bold");
-        doc.text("Approval Trail", 14, y1 + 10);
-        autoTable(doc, {
-            startY: y1 + 14,
-            head: [["Stage", "Status"]],
-            body: [
-                ["1. Employee Submission", "Submitted"],
-                ["2. Supervisor (Handover)", pastStage('Supervisor') || iv.handoverStatus === "Accepted" ? "Accepted" : "Pending"],
-                ["3. Operations (Asset Clearance)", pastStage('Operations') || iv.assetsStatus === "Cleared" ? "Cleared" : "Pending"],
-                ["4. Finance (Outstanding Obligations)", pastStage('Finance') || iv.financeStatus === "Cleared" ? "Cleared" : "Pending"],
-                ["5. HR (Final Review & Sign-off)", pastStage('HR') || iv.stage === "Completed" ? "Completed" : "Pending"],
-            ],
-            theme: "grid",
-            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
-            styles: { fontSize: 10 },
-            columnStyles: { 0: { cellWidth: 100 } },
-        });
-
-        const y2 = (doc as any).lastAutoTable?.finalY || 140;
-        doc.setFontSize(12); doc.setFont("helvetica", "bold");
-        doc.text("Clearance Checklist Items", 14, y2 + 10);
-        autoTable(doc, {
-            startY: y2 + 14,
-            head: [["#", "Item", "Department", "Status"]],
-            body: checklistItems.length > 0
-                ? checklistItems.map((item, i) => [String(i + 1), item.name, (item as any).department_name || item.departmentName || "N/A", "Cleared"])
-                : [["—", "No items recorded", "—", "—"]],
-            theme: "grid",
-            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
-            styles: { fontSize: 9 },
-            columnStyles: { 0: { cellWidth: 12 } },
-        });
-
-        pdfFooter(doc);
-        doc.save(`Exit_Clearance_${iv.staffId}_${iv.employeeName.replace(/\s+/g, "_")}.pdf`);
-        toast.success("Exit Clearance PDF downloaded.");
-    };
+    const toEmpInfo = (iv: ExitInterviewDisplay) => ({
+        employeeName: iv.employeeName,
+        staffId: iv.staffId,
+        department: iv.department,
+        location: iv.location,
+        program: iv.program,
+        resignationDate: String((iv as any).resignationDate ?? "N/A"),
+        submittedOn: iv.submittedOn,
+        stage: iv.stage,
+        handoverStatus: iv.handoverStatus,
+        assetsStatus: iv.assetsStatus,
+        financeStatus: iv.financeStatus,
+    });
 
     const handleDownload = async (interview: ExitInterviewDisplay, type: 'interview' | 'clearance') => {
         setDownloadingId(interview.id);
@@ -712,9 +534,11 @@ export default function ExitApprovalsTable() {
             const res = await exitServiceInstance.getExitInterviewById(lookupId as any);
             const details = res?.data || res || {};
             if (type === 'interview') {
-                generateInterviewPDF(interview, details);
+                generateInterviewPDF(toEmpInfo(interview), details);
+                toast.success("Exit Interview PDF downloaded.");
             } else {
-                generateClearancePDF(interview, details);
+                generateClearancePDF(toEmpInfo(interview), details, checklistItems);
+                toast.success("Exit Clearance PDF downloaded.");
             }
         } catch {
             toast.error("Failed to fetch exit details for PDF.");
@@ -1369,14 +1193,14 @@ export default function ExitApprovalsTable() {
                                         Exit Clearance Completed
                                     </div>
                                     <button
-                                        onClick={() => selectedInterview && generateInterviewPDF(selectedInterview, interviewDetails)}
+                                        onClick={() => selectedInterview && generateInterviewPDF(toEmpInfo(selectedInterview), interviewDetails) && toast.success("Exit Interview PDF downloaded.")}
                                         className="w-full px-4 py-2.5 rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 font-medium transition-colors flex items-center justify-center gap-2"
                                     >
                                         <DownloadIcon className="w-4 h-4" />
                                         Download Exit Interview (PDF)
                                     </button>
                                     <button
-                                        onClick={() => selectedInterview && generateClearancePDF(selectedInterview, interviewDetails)}
+                                        onClick={() => selectedInterview && generateClearancePDF(toEmpInfo(selectedInterview), interviewDetails, checklistItems) && toast.success("Exit Clearance PDF downloaded.")}
                                         className="w-full px-4 py-2.5 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 font-medium transition-colors flex items-center justify-center gap-2"
                                     >
                                         <DownloadIcon className="w-4 h-4" />

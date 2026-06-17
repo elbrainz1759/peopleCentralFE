@@ -6,6 +6,9 @@ import Badge from "@/components/ui/badge/Badge";
 import {
     Table, TableBody, TableCell, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { DownloadIcon } from "@/icons";
+import { generateInterviewPDF, generateClearancePDF } from "@/utils/exitPdf";
+import { toast } from "react-hot-toast";
 
 interface MyExitRequest {
     id: number;
@@ -15,6 +18,11 @@ interface MyExitRequest {
     resignationDate: string;
     reasonForLeaving: string;
     createdAt: string;
+    employeeName: string;
+    staffId: string | number;
+    department: string;
+    location: string;
+    program: string;
 }
 
 const STAGE_COLOR: Record<string, "info" | "warning" | "success" | "error" | "light"> = {
@@ -36,12 +44,15 @@ const STATUS_COLOR: Record<string, "info" | "warning" | "success" | "error" | "l
 export default function MyExitRequestsPage() {
     const [requests, setRequests] = useState<MyExitRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchMyRequests = async () => {
             try {
                 const currentUser = authService.getCurrentUser();
                 const staffId = currentUser?.staff_id || currentUser?.staffId || currentUser?.id;
+                const employeeName = `${currentUser?.first_name ?? ""} ${currentUser?.last_name ?? ""}`.trim()
+                    || currentUser?.employee_name || currentUser?.name || "Employee";
 
                 const response = await exitServiceInstance.getAllExitInterviews(1, 1000);
                 const all: any[] = response?.data ?? (Array.isArray(response) ? response : []);
@@ -63,6 +74,11 @@ export default function MyExitRequestsPage() {
                     createdAt: r.created_at ?? r.createdAt
                         ? new Date(r.created_at ?? r.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
                         : "—",
+                    employeeName,
+                    staffId: staffId ?? r.staff_id ?? r.staffId ?? "",
+                    department: r.department_name ?? r.department ?? currentUser?.department_name ?? "",
+                    location: r.location_name ?? r.location ?? currentUser?.location_name ?? "",
+                    program: r.program_name ?? r.program ?? currentUser?.program_name ?? "",
                 })));
             } catch (error) {
                 console.error("Failed to fetch exit requests:", error);
@@ -73,6 +89,47 @@ export default function MyExitRequestsPage() {
 
         fetchMyRequests();
     }, []);
+
+    const handleDownload = async (r: MyExitRequest, type: 'interview' | 'clearance') => {
+        setDownloadingId(r.id);
+        try {
+            const res = await exitServiceInstance.getExitInterviewById(r.uniqueId as any);
+            const details = res?.data || res || {};
+            const checklist = type === 'clearance'
+                ? (await exitServiceInstance.getAllChecklistItems())?.data ?? []
+                : [];
+
+            const emp = {
+                employeeName: r.employeeName,
+                staffId: r.staffId,
+                department: r.department,
+                location: r.location,
+                program: r.program,
+                resignationDate: r.resignationDate,
+                submittedOn: r.createdAt,
+                stage: r.stage,
+            };
+
+            if (type === 'interview') {
+                generateInterviewPDF(emp, details);
+                toast.success("Exit Interview PDF downloaded.");
+            } else {
+                generateClearancePDF(emp, details, checklist);
+                toast.success("Exit Clearance PDF downloaded.");
+            }
+        } catch {
+            toast.error("Failed to generate PDF.");
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
+    const Spinner = () => (
+        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+        </svg>
+    );
 
     return (
         <div className="space-y-6">
@@ -130,6 +187,26 @@ export default function MyExitRequestsPage() {
                                             <span>{r.createdAt}</span>
                                         </div>
                                     </div>
+                                    {r.stage === "Completed" && (
+                                        <div className="flex gap-2 mt-3">
+                                            <button
+                                                onClick={() => handleDownload(r, 'interview')}
+                                                disabled={downloadingId === r.id}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 transition-colors disabled:opacity-50"
+                                            >
+                                                {downloadingId === r.id ? <Spinner /> : <DownloadIcon className="w-3.5 h-3.5" />}
+                                                Interview
+                                            </button>
+                                            <button
+                                                onClick={() => handleDownload(r, 'clearance')}
+                                                disabled={downloadingId === r.id}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-green-200 text-green-600 text-xs font-medium hover:bg-green-50 transition-colors disabled:opacity-50"
+                                            >
+                                                {downloadingId === r.id ? <Spinner /> : <DownloadIcon className="w-3.5 h-3.5" />}
+                                                Clearance
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -141,7 +218,7 @@ export default function MyExitRequestsPage() {
                     <Table>
                         <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                             <TableRow>
-                                {["S/N", "Resignation Date", "Reason", "Stage", "Status", "Submitted On"].map((h) => (
+                                {["S/N", "Resignation Date", "Reason", "Stage", "Status", "Submitted On", "Download"].map((h) => (
                                     <TableCell key={h} isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 whitespace-nowrap">
                                         {h}
                                     </TableCell>
@@ -151,13 +228,13 @@ export default function MyExitRequestsPage() {
                         <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="py-10 text-center text-gray-400">
+                                    <TableCell colSpan={7} className="py-10 text-center text-gray-400">
                                         Loading your exit requests...
                                     </TableCell>
                                 </TableRow>
                             ) : requests.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="py-10 text-center text-gray-400">
+                                    <TableCell colSpan={7} className="py-10 text-center text-gray-400">
                                         No exit requests found. <a href="/exit" className="text-brand-500 hover:underline">Submit one here.</a>
                                     </TableCell>
                                 </TableRow>
@@ -174,6 +251,30 @@ export default function MyExitRequestsPage() {
                                             <Badge size="sm" color={STATUS_COLOR[r.status] ?? "light"}>{r.status}</Badge>
                                         </TableCell>
                                         <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{r.createdAt}</TableCell>
+                                        <TableCell className="py-3">
+                                            {r.stage === "Completed" ? (
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => handleDownload(r, 'interview')}
+                                                        disabled={downloadingId === r.id}
+                                                        title="Download Exit Interview PDF"
+                                                        className="p-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {downloadingId === r.id ? <Spinner /> : <DownloadIcon className="w-4 h-4" />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDownload(r, 'clearance')}
+                                                        disabled={downloadingId === r.id}
+                                                        title="Download Exit Clearance PDF"
+                                                        className="p-1.5 rounded-lg border border-green-200 text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {downloadingId === r.id ? <Spinner /> : <DownloadIcon className="w-4 h-4" />}
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-gray-400">—</span>
+                                            )}
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
