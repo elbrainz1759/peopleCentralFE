@@ -128,8 +128,15 @@ const AppSidebar: React.FC = () => {
         try { user = { ...user, ...JSON.parse(atob(token.split('.')[1])) }; } catch { /* ignore */ }
       }
       const role = (user?.role || user?.designation || "").toLowerCase();
-      const isSuperAdmin = role === 'superadmin';
-      const isAdminRole = role === 'admin' || role.includes('hr') || role.includes('supervisor') || role.includes('finance') || role.includes('operations');
+      const isSuperAdmin = role === 'superadmin' || role === 'super admin' || role === 'systemadmin' || role === 'system admin';
+      const isAdminRole = !isSuperAdmin && (
+        role === 'admin' ||
+        role.includes('hr') ||
+        role.includes('supervisor') ||
+        role.includes('finance') ||
+        role.includes('operation') ||
+        role.includes('compliance')
+      );
       setIsHR(isSuperAdmin);
       setIsAdmin(isAdminRole);
       setIsRegularUser(!isSuperAdmin && !isAdminRole);

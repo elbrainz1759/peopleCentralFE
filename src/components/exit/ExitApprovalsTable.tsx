@@ -124,14 +124,31 @@ export default function ExitApprovalsTable() {
 
         const role = authUser?.role?.toLowerCase() || '';
 
-        // Admins and superadmins always see everything
-        if (role.includes('admin') || role.includes('superadmin') || role === 'hr_manager') {
+        // Superadmin and Admin see all queues
+        if (role === 'superadmin' || role === 'admin') {
             setAvailableQueues(['All', 'HR', 'Operations', 'Finance']);
             setCurrentQueue('All');
             return;
         }
 
-        // For non-admins, resolve the department UUID against the loaded departments list
+        // Role-based queue access (check role name first, then department)
+        if (role === 'hr' || role.includes('hr')) {
+            setAvailableQueues(['HR']);
+            setCurrentQueue('HR');
+            return;
+        }
+        if (role === 'operations' || role === 'operation' || role.includes('operation')) {
+            setAvailableQueues(['Operations']);
+            setCurrentQueue('Operations');
+            return;
+        }
+        if (role === 'finance' || role.includes('finance')) {
+            setAvailableQueues(['Finance']);
+            setCurrentQueue('Finance');
+            return;
+        }
+
+        // Fallback: resolve by department name
         const deptUUID = authUser?.department || authUser?.department_id || '';
         const matchedDept = departments.find(
             (d: any) => d.unique_id === deptUUID || d.uniqueId === deptUUID || d.id === deptUUID
@@ -139,16 +156,16 @@ export default function ExitApprovalsTable() {
         const deptName = (matchedDept?.name || authUser?.department_name || '').toLowerCase();
 
         if (deptName.includes('hr') || deptName.includes('human resources')) {
-            setAvailableQueues(['All', 'HR']);
+            setAvailableQueues(['HR']);
             setCurrentQueue('HR');
         } else if (deptName.includes('operation')) {
-            setAvailableQueues(['All', 'Operations']);
+            setAvailableQueues(['Operations']);
             setCurrentQueue('Operations');
         } else if (deptName.includes('finance')) {
-            setAvailableQueues(['All', 'Finance']);
+            setAvailableQueues(['Finance']);
             setCurrentQueue('Finance');
         } else {
-            // Default: show all queues if department can't be resolved
+            // Default: supervisor/unknown roles see all
             setAvailableQueues(['All', 'HR', 'Operations', 'Finance']);
             setCurrentQueue('All');
         }
@@ -497,10 +514,27 @@ export default function ExitApprovalsTable() {
         return role.includes('hr') || role.includes('admin') || role.includes('superadmin');
     })();
 
-    const generatePDF = (iv: ExitInterviewDisplay, details: any) => {
+    const employeeInfoBody = (iv: ExitInterviewDisplay) => [
+        ["Employee", String(iv.employeeName)],
+        ["Staff ID", String(iv.staffId)],
+        ["Department", String(iv.department)],
+        ["Location", String(iv.location)],
+        ["Program", String(iv.program)],
+        ["Exit Date", String((iv as any).resignationDate ?? "N/A")],
+        ["Submitted", String(iv.submittedOn)],
+    ];
+
+    const pdfFooter = (doc: jsPDF) => {
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFontSize(8); doc.setTextColor(150);
+        doc.text(`Generated on ${new Date().toLocaleString()} — Mercy Corps People Central`, 105, pageHeight - 10, { align: "center" });
+        doc.setTextColor(0);
+    };
+
+    const generateInterviewPDF = (iv: ExitInterviewDisplay, details: any) => {
         const doc = new jsPDF();
         doc.setFontSize(18); doc.setFont("helvetica", "bold");
-        doc.text("EXIT CLEARANCE & INTERVIEW REPORT", 105, 20, { align: "center" });
+        doc.text("EXIT INTERVIEW REPORT", 105, 20, { align: "center" });
         doc.setFontSize(10); doc.setFont("helvetica", "normal");
         doc.text("Mercy Corps - People Central", 105, 27, { align: "center" });
         doc.setDrawColor(200); doc.line(14, 31, 196, 31);
@@ -510,15 +544,72 @@ export default function ExitApprovalsTable() {
         autoTable(doc, {
             startY: 44,
             head: [["Field", "Details"]],
+            body: employeeInfoBody(iv),
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 10 },
+            columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
+        });
+
+        const y1 = (doc as any).lastAutoTable?.finalY || 90;
+        let comments: any = {};
+        try { comments = JSON.parse(details?.additional_comments || details?.additionalComments || "{}"); } catch {}
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        doc.text("Exit Interview Responses", 14, y1 + 10);
+        autoTable(doc, {
+            startY: y1 + 14,
+            head: [["Question", "Response"]],
             body: [
-                ["Employee", String(iv.employeeName)],
-                ["Staff ID", String(iv.staffId)],
-                ["Department", String(iv.department)],
-                ["Location", String(iv.location)],
-                ["Program", String(iv.program)],
-                ["Exit Date", String((iv as any).resignationDate ?? "N/A")],
-                ["Submitted", String(iv.submittedOn)],
+                ["Reason for leaving", details?.reason_for_leaving || details?.reasonForLeaving || "N/A"],
+                ["Liked most about the job", details?.most_enjoyed || details?.mostEnjoyed || "N/A"],
+                ["Improvement suggestions", details?.company_improvement || details?.companyImprovement || "N/A"],
+                ["Work was as expected", comments.workAsExpected || "N/A"],
+                ["Workload assessment", comments.workload || "N/A"],
+                ["Would recommend organisation", details?.would_recommend || details?.wouldRecommend || "N/A"],
+                ["Suggestions for improvement", comments.suggestions || "N/A"],
             ],
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 9, cellPadding: 3 },
+            columnStyles: { 0: { fontStyle: "bold", cellWidth: 65 } },
+        });
+
+        const y2 = (doc as any).lastAutoTable?.finalY || 160;
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        doc.text("Ratings", 14, y2 + 10);
+        autoTable(doc, {
+            startY: y2 + 14,
+            head: [["Category", "Rating (out of 5)"]],
+            body: [
+                ["Job Satisfaction", String(details?.rating_job || details?.ratingJob || "N/A")],
+                ["Manager", String(details?.rating_manager || details?.ratingManager || "N/A")],
+                ["Culture", String(details?.rating_culture || details?.ratingCulture || "N/A")],
+            ],
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 10 },
+            columnStyles: { 0: { fontStyle: "bold", cellWidth: 80 } },
+        });
+
+        pdfFooter(doc);
+        doc.save(`Exit_Interview_${iv.staffId}_${iv.employeeName.replace(/\s+/g, "_")}.pdf`);
+        toast.success("Exit Interview PDF downloaded.");
+    };
+
+    const generateClearancePDF = (iv: ExitInterviewDisplay, _details: any) => {
+        const doc = new jsPDF();
+        doc.setFontSize(18); doc.setFont("helvetica", "bold");
+        doc.text("EXIT CLEARANCE REPORT", 105, 20, { align: "center" });
+        doc.setFontSize(10); doc.setFont("helvetica", "normal");
+        doc.text("Mercy Corps - People Central", 105, 27, { align: "center" });
+        doc.setDrawColor(200); doc.line(14, 31, 196, 31);
+
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        doc.text("Employee Information", 14, 40);
+        autoTable(doc, {
+            startY: 44,
+            head: [["Field", "Details"]],
+            body: employeeInfoBody(iv),
             theme: "grid",
             headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
             styles: { fontSize: 10 },
@@ -545,33 +636,10 @@ export default function ExitApprovalsTable() {
         });
 
         const y2 = (doc as any).lastAutoTable?.finalY || 140;
-        let comments: any = {};
-        try { comments = JSON.parse(details?.additional_comments || details?.additionalComments || "{}"); } catch {}
         doc.setFontSize(12); doc.setFont("helvetica", "bold");
-        doc.text("Exit Interview Responses", 14, y2 + 10);
+        doc.text("Clearance Checklist Items", 14, y2 + 10);
         autoTable(doc, {
             startY: y2 + 14,
-            head: [["Question", "Response"]],
-            body: [
-                ["Reason for leaving", details?.reason_for_leaving || details?.reasonForLeaving || "N/A"],
-                ["Liked most about the job", details?.most_enjoyed || details?.mostEnjoyed || "N/A"],
-                ["Improvement suggestions", details?.company_improvement || details?.companyImprovement || "N/A"],
-                ["Work was as expected", comments.workAsExpected || "N/A"],
-                ["Workload assessment", comments.workload || "N/A"],
-                ["Would recommend organisation", details?.would_recommend || details?.wouldRecommend || "N/A"],
-                ["Suggestions for improvement", comments.suggestions || "N/A"],
-            ],
-            theme: "grid",
-            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
-            styles: { fontSize: 9, cellPadding: 3 },
-            columnStyles: { 0: { fontStyle: "bold", cellWidth: 65 } },
-        });
-
-        const y4 = (doc as any).lastAutoTable?.finalY || 200;
-        doc.setFontSize(12); doc.setFont("helvetica", "bold");
-        doc.text("Clearance Checklist Items", 14, y4 + 10);
-        autoTable(doc, {
-            startY: y4 + 14,
             head: [["#", "Item", "Department", "Status"]],
             body: checklistItems.length > 0
                 ? checklistItems.map((item, i) => [String(i + 1), item.name, (item as any).department_name || item.departmentName || "N/A", "Cleared"])
@@ -582,21 +650,22 @@ export default function ExitApprovalsTable() {
             columnStyles: { 0: { cellWidth: 12 } },
         });
 
-        const pageHeight = doc.internal.pageSize.height;
-        doc.setFontSize(8); doc.setTextColor(150);
-        doc.text(`Generated on ${new Date().toLocaleString()} — Mercy Corps People Central`, 105, pageHeight - 10, { align: "center" });
-        doc.setTextColor(0);
-        doc.save(`Exit_Report_${iv.staffId}_${iv.employeeName.replace(/\s+/g, "_")}.pdf`);
-        toast.success("PDF downloaded.");
+        pdfFooter(doc);
+        doc.save(`Exit_Clearance_${iv.staffId}_${iv.employeeName.replace(/\s+/g, "_")}.pdf`);
+        toast.success("Exit Clearance PDF downloaded.");
     };
 
-    const handleDownload = async (interview: ExitInterviewDisplay) => {
+    const handleDownload = async (interview: ExitInterviewDisplay, type: 'interview' | 'clearance') => {
         setDownloadingId(interview.id);
         try {
             const lookupId = interview.uniqueId || interview.id;
             const res = await exitServiceInstance.getExitInterviewById(lookupId as any);
             const details = res?.data || res || {};
-            generatePDF(interview, details);
+            if (type === 'interview') {
+                generateInterviewPDF(interview, details);
+            } else {
+                generateClearancePDF(interview, details);
+            }
         } catch {
             toast.error("Failed to fetch exit details for PDF.");
         } finally {
@@ -752,17 +821,32 @@ export default function ExitApprovalsTable() {
                                         Review
                                     </Button>
                                     {interview.stage === "Completed" && (
-                                        <button
-                                            onClick={() => handleDownload(interview)}
-                                            disabled={downloadingId === interview.id}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-green-200 text-green-600 text-xs font-medium hover:bg-green-50 transition-colors disabled:opacity-50"
-                                        >
-                                            {downloadingId === interview.id
-                                                ? <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                                                : <DownloadIcon className="w-3.5 h-3.5" />
-                                            }
-                                            PDF
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={() => handleDownload(interview, 'interview')}
+                                                disabled={downloadingId === interview.id}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 text-xs font-medium hover:bg-blue-50 transition-colors disabled:opacity-50"
+                                                title="Exit Interview PDF"
+                                            >
+                                                {downloadingId === interview.id
+                                                    ? <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                                    : <DownloadIcon className="w-3.5 h-3.5" />
+                                                }
+                                                Interview
+                                            </button>
+                                            <button
+                                                onClick={() => handleDownload(interview, 'clearance')}
+                                                disabled={downloadingId === interview.id}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-green-200 text-green-600 text-xs font-medium hover:bg-green-50 transition-colors disabled:opacity-50"
+                                                title="Exit Clearance PDF"
+                                            >
+                                                {downloadingId === interview.id
+                                                    ? <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                                    : <DownloadIcon className="w-3.5 h-3.5" />
+                                                }
+                                                Clearance
+                                            </button>
+                                        </>
                                     )}
                                 </div>
                             </div>
@@ -853,17 +937,30 @@ export default function ExitApprovalsTable() {
                                             Review
                                         </Button>
                                         {interview.stage === "Completed" && (
-                                            <button
-                                                onClick={() => handleDownload(interview)}
-                                                disabled={downloadingId === interview.id}
-                                                className="p-1.5 rounded-lg border border-green-200 dark:border-green-800 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
-                                                title="Download Exit Report PDF"
-                                            >
-                                                {downloadingId === interview.id
-                                                    ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                                                    : <DownloadIcon className="w-4 h-4" />
-                                                }
-                                            </button>
+                                            <>
+                                                <button
+                                                    onClick={() => handleDownload(interview, 'interview')}
+                                                    disabled={downloadingId === interview.id}
+                                                    className="p-1.5 rounded-lg border border-blue-200 dark:border-blue-800 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
+                                                    title="Download Exit Interview PDF"
+                                                >
+                                                    {downloadingId === interview.id
+                                                        ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                                        : <DownloadIcon className="w-4 h-4" />
+                                                    }
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDownload(interview, 'clearance')}
+                                                    disabled={downloadingId === interview.id}
+                                                    className="p-1.5 rounded-lg border border-green-200 dark:border-green-800 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
+                                                    title="Download Exit Clearance PDF"
+                                                >
+                                                    {downloadingId === interview.id
+                                                        ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                                        : <DownloadIcon className="w-4 h-4" />
+                                                    }
+                                                </button>
+                                            </>
                                         )}
                                         {isUserHR && (
                                             <button
@@ -1222,11 +1319,18 @@ export default function ExitApprovalsTable() {
                                         Exit Clearance Completed
                                     </div>
                                     <button
-                                        onClick={() => selectedInterview && generatePDF(selectedInterview, interviewDetails)}
-                                        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition-colors flex items-center justify-center gap-2"
+                                        onClick={() => selectedInterview && generateInterviewPDF(selectedInterview, interviewDetails)}
+                                        className="w-full px-4 py-2.5 rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 font-medium transition-colors flex items-center justify-center gap-2"
                                     >
                                         <DownloadIcon className="w-4 h-4" />
-                                        Download Full Exit Report (PDF)
+                                        Download Exit Interview (PDF)
+                                    </button>
+                                    <button
+                                        onClick={() => selectedInterview && generateClearancePDF(selectedInterview, interviewDetails)}
+                                        className="w-full px-4 py-2.5 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 font-medium transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <DownloadIcon className="w-4 h-4" />
+                                        Download Exit Clearance (PDF)
                                     </button>
                                 </div>
                             ) : selectedInterview?.stage !== 'HR' && (
