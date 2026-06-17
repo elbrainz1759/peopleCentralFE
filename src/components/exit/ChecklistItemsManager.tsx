@@ -67,7 +67,12 @@ export default function ChecklistItemsManager() {
     try {
       const response = await exitServiceInstance.getAllChecklistItems();
       const itemsData = response.data || response || [];
-      setChecklistItems(Array.isArray(itemsData) ? itemsData : []);
+      const items = (Array.isArray(itemsData) ? itemsData : []).map((item: any) => ({
+        ...item,
+        uniqueId: item.uniqueId || item.unique_id,
+        departmentName: item.departmentName || item.department_name,
+      }));
+      setChecklistItems(items);
     } catch (error) {
       console.error("Failed to fetch checklist items:", error);
       toast.error("Could not load checklist items");
