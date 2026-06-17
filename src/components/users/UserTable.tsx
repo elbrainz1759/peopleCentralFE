@@ -131,21 +131,18 @@ export default function UserTable() {
         const id = editingUser.unique_id || editingUser.id;
         setIsSaving(true);
         try {
-            await Promise.all([
-                userService.updateEmployee(id, {
-                    firstName: editForm.firstName,
-                    lastName: editForm.lastName,
-                    staffId: parseInt(editForm.staffId, 10) || 0,
-                    email: editForm.email,
-                    status: editingUser.status ?? "Active",
-                    designation: editForm.designation,
-                    locationId: editForm.locationId,
-                    programId: editForm.programId,
-                    departmentId: editForm.departmentId,
-                    countryId: editForm.countryId,
-                }),
-                userService.updateUserRole(id, editForm.role),
-            ]);
+            await userService.updateUser(id, {
+                firstName: editForm.firstName,
+                lastName: editForm.lastName,
+                staffId: parseInt(editForm.staffId, 10) || 0,
+                email: editForm.email,
+                designation: editForm.designation,
+                locationId: editForm.locationId,
+                programId: editForm.programId,
+                departmentId: editForm.departmentId,
+                countryId: editForm.countryId,
+                role: editForm.role,
+            });
             toast.success("User updated successfully");
             setEditingUser(null);
             fetchUsers();

@@ -98,6 +98,21 @@ export class UserService {
         return api.patch<any>(`/users/${id}`, { role });
     }
 
+    public async updateUser(id: string, data: {
+        firstName?: string;
+        lastName?: string;
+        staffId?: number;
+        email?: string;
+        designation?: string;
+        locationId?: string;
+        programId?: string;
+        departmentId?: string;
+        countryId?: string;
+        role?: string;
+    }): Promise<any> {
+        return api.patch<any>(`/users/${id}`, data);
+    }
+
     public async deleteUser(id: string): Promise<any> {
         return api.delete(`/users/${id}`);
     }
