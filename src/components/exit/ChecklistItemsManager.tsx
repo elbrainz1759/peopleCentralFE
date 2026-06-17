@@ -70,6 +70,7 @@ export default function ChecklistItemsManager() {
       const items = (Array.isArray(itemsData) ? itemsData : []).map((item: any) => ({
         ...item,
         uniqueId: item.uniqueId || item.unique_id,
+        departmentId: item.departmentId || item.department_id || item.department,
         departmentName: item.departmentName || item.department_name,
       }));
       setChecklistItems(items);
@@ -124,7 +125,7 @@ export default function ChecklistItemsManager() {
   const handleEdit = (item: ChecklistItem) => {
     setEditingItem(item);
     setFormData({
-      departmentId: item.department || "", // Use department field from API
+      departmentId: item.departmentId || (item as any).department_id || item.department || "",
       name: item.name,
     });
     setIsDrawerOpen(true);
