@@ -597,6 +597,10 @@ export default function ExitApprovalsTable() {
     };
 
     const generateClearancePDF = (iv: ExitInterviewDisplay, _details: any) => {
+        const stageOrder = ['Employee', 'Supervisor', 'Operations', 'Finance', 'HR', 'HR_Final', 'HR_Director', 'Completed'];
+        const currentIdx = stageOrder.indexOf(iv.stage);
+        const pastStage = (s: string) => currentIdx > stageOrder.indexOf(s);
+
         const doc = new jsPDF();
         doc.setFontSize(18); doc.setFont("helvetica", "bold");
         doc.text("EXIT CLEARANCE REPORT", 105, 20, { align: "center" });
@@ -624,10 +628,10 @@ export default function ExitApprovalsTable() {
             head: [["Stage", "Status"]],
             body: [
                 ["1. Employee Submission", "Submitted"],
-                ["2. Supervisor (Handover)", iv.handoverStatus],
-                ["3. Operations (Asset Clearance)", iv.assetsStatus],
-                ["4. Finance (Outstanding Obligations)", iv.financeStatus],
-                ["5. HR (Final Review & Sign-off)", "Completed"],
+                ["2. Supervisor (Handover)", pastStage('Supervisor') || iv.handoverStatus === "Accepted" ? "Accepted" : "Pending"],
+                ["3. Operations (Asset Clearance)", pastStage('Operations') || iv.assetsStatus === "Cleared" ? "Cleared" : "Pending"],
+                ["4. Finance (Outstanding Obligations)", pastStage('Finance') || iv.financeStatus === "Cleared" ? "Cleared" : "Pending"],
+                ["5. HR (Final Review & Sign-off)", pastStage('HR') || iv.stage === "Completed" ? "Completed" : "Pending"],
             ],
             theme: "grid",
             headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
