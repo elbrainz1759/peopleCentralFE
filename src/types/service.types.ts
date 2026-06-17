@@ -99,7 +99,7 @@ export interface ApiResponse<T> {
 export interface CreateLeaveTypeRequest {
     name: string;
     description: string;
-    country: string;
+    countryId: string;
     hours?: number;
     trigger?: number;
     requireDocument?: 'Yes' | 'No';
@@ -111,6 +111,7 @@ export interface LeaveType {
     name: string;
     description: string;
     country: string;
+    country_id?: string;
     // response fields (snake_case from API)
     require_document?: 'Yes' | 'No';
     trigger_value?: number;

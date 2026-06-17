@@ -40,7 +40,7 @@ export default function LeaveTypesPage() {
     const [countries, setCountries] = useState<any[]>([]);
 
     // Form state
-    const [form, setForm] = useState({ name: "", description: "", country: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
+    const [form, setForm] = useState({ name: "", description: "", countryId: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fetchLeaveTypes = useCallback(async (page = 1) => {
@@ -76,20 +76,20 @@ export default function LeaveTypesPage() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.name.trim() || !form.description.trim() || !form.country.trim()) return;
+        if (!form.name.trim() || !form.description.trim() || !form.countryId.trim()) return;
 
         setIsSubmitting(true);
         try {
             await userService.createLeaveType({
                 name: form.name,
                 description: form.description,
-                country: form.country,
+                countryId: form.countryId,
                 trigger: form.trigger,
                 requireDocument: form.requireDocument,
             });
             toast.success("Leave type created successfully!");
             setIsAddOpen(false);
-            setForm({ name: "", description: "", country: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
+            setForm({ name: "", description: "", countryId: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
             fetchLeaveTypes(1);
         } catch (error: any) {
             toast.error(error.message || "Failed to create leave type");
@@ -100,10 +100,13 @@ export default function LeaveTypesPage() {
 
     const openEdit = (lt: LeaveType) => {
         setEditingLeaveType(lt);
+        const matchedCountry = countries.find(
+            (c: any) => c.unique_id === lt.country_id || c.name === lt.country
+        );
         setForm({
             name: lt.name ?? "",
             description: (lt as any).description ?? "",
-            country: lt.country ?? "",
+            countryId: matchedCountry?.unique_id ?? lt.country_id ?? "",
             trigger: lt.trigger ?? 0,
             requireDocument: lt.requireDocument ?? "No",
         });
@@ -114,21 +117,21 @@ export default function LeaveTypesPage() {
         e.preventDefault();
         const id = editingLeaveType?.unique_id;
         if (!id) return;
-        if (!form.name.trim() || !form.description.trim() || !form.country.trim()) return;
+        if (!form.name.trim() || !form.description.trim() || !form.countryId.trim()) return;
 
         setIsSubmitting(true);
         try {
             await userService.updateLeaveType(id, {
                 name: form.name,
                 description: form.description,
-                country: form.country,
+                countryId: form.countryId,
                 trigger: form.trigger,
                 requireDocument: form.requireDocument,
             });
             toast.success("Leave type updated");
             setIsEditOpen(false);
             setEditingLeaveType(null);
-            setForm({ name: "", description: "", country: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
+            setForm({ name: "", description: "", countryId: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
             fetchLeaveTypes(currentPage);
         } catch (error: any) {
             toast.error(error.message || "Failed to update leave type");
@@ -448,7 +451,7 @@ export default function LeaveTypesPage() {
                     setIsAddOpen(false);
                     setIsEditOpen(false);
                     setEditingLeaveType(null);
-                    setForm({ name: "", description: "", country: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
+                    setForm({ name: "", description: "", countryId: "", requireDocument: "No" as "Yes" | "No", trigger: 0 });
                 }}
                 title={isEditOpen ? "Edit Leave Type" : "Add New Leave Type"}
             >
@@ -486,9 +489,9 @@ export default function LeaveTypesPage() {
                             Country <span className="text-red-500">*</span>
                         </label>
                         <CustomSelect
-                            value={form.country}
-                            onChange={(v) => setForm({ ...form, country: v })}
-                            options={countries.map((c: any) => ({ value: c.name, label: c.name }))}
+                            value={form.countryId}
+                            onChange={(v) => setForm({ ...form, countryId: v })}
+                            options={countries.map((c: any) => ({ value: c.unique_id, label: c.name }))}
                             placeholder="Select a country"
                         />
                     </div>

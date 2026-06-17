@@ -21,10 +21,11 @@ const PAGE_LIMIT = 10;
 // DTO Structure matching the backend
 interface LeaveTypeConfigDto {
     leaveTypeId: string | number;
-    country: string;
+    countryId: string;
     annualHours: number;
     monthlyAccrualHours?: number | null;
     leavePolicyId: string; // Required - id of a leave type
+    period: 'Monthly' | 'Annually';
 }
 
 interface LeaveType {
@@ -41,6 +42,7 @@ interface LeaveTypeConfig extends LeaveType {
     leavePolicyId?: string;
     annualHours?: number;
     monthlyAccrualHours?: number;
+    period?: 'Monthly' | 'Annually';
     approvalWorkflow?: string;
     effectiveDate?: string;
     createdAt?: string;
@@ -70,22 +72,24 @@ export default function LeaveTypeConfigsPage() {
     // Form state
     const [form, setForm] = useState<LeaveTypeConfigDto>({
         leaveTypeId: 0,
-        country: "",
+        countryId: "",
         annualHours: 0,
         monthlyAccrualHours: null,
         leavePolicyId: "",
+        period: "Annually",
     });
-    // UI-only fields (not sent to the backend)
+    // UI-only field for raw hours input
     const [hoursInput, setHoursInput] = useState<number>(0);
-    const [hoursPeriod, setHoursPeriod] = useState<"month" | "year">("year");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const applyHoursAndPeriod = (rawHours: number, period: "month" | "year") => {
-        const computed = period === "month" ? rawHours * 12 : rawHours;
+    const applyHoursAndPeriod = (rawHours: number, period: 'Monthly' | 'Annually') => {
+        const annualHours = period === "Monthly" ? rawHours * 12 : rawHours;
+        const monthlyAccrualHours = period === "Monthly" ? rawHours : rawHours > 0 ? Number((rawHours / 12).toFixed(2)) : null;
         setForm((prev) => ({
             ...prev,
-            annualHours: Number(computed.toFixed(2)),
-            monthlyAccrualHours: rawHours ? Number(computed.toFixed(2)) : null,
+            period,
+            annualHours: Number(annualHours.toFixed(2)),
+            monthlyAccrualHours: rawHours ? monthlyAccrualHours : null,
         }));
     };
 
@@ -101,6 +105,7 @@ export default function LeaveTypeConfigsPage() {
             item.monthly_accrual_hours != null
                 ? Number(item.monthly_accrual_hours)
                 : item.monthlyAccrualHours,
+        period: item.period ?? item.Period ?? undefined,
         approvalWorkflow: item.approval_workflow ?? item.approvalWorkflow,
         createdAt: item.created_at ?? item.createdAt,
         updatedAt: item.updated_at ?? item.updatedAt,
@@ -160,7 +165,7 @@ export default function LeaveTypeConfigsPage() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.leavePolicyId || !form.country.trim() || !form.annualHours) return;
+        if (!form.leavePolicyId || !form.countryId.trim() || !form.annualHours) return;
 
         setIsSubmitting(true);
         try {
@@ -171,9 +176,10 @@ export default function LeaveTypeConfigsPage() {
 
             const response = await userService.createLeaveTypeConfig({
                 leaveTypeId: leaveTypeUniqueId,
-                country: form.country,
+                countryId: form.countryId,
                 annualHours: form.annualHours,
-                ...(form.monthlyAccrualHours ? { monthlyAccrualHours: form.monthlyAccrualHours } : {}),
+                monthlyAccrualHours: form.monthlyAccrualHours ?? undefined,
+                period: form.period,
             });
 
             console.log('Configuration created:', response);
@@ -181,10 +187,11 @@ export default function LeaveTypeConfigsPage() {
             setIsAddOpen(false);
             setForm({
                 leaveTypeId: 0,
-                country: "",
+                countryId: "",
                 annualHours: 0,
                 monthlyAccrualHours: null,
                 leavePolicyId: "",
+                period: "Annually",
             });
             setHoursInput(0);
             setHoursPeriod("year");
@@ -199,22 +206,30 @@ export default function LeaveTypeConfigsPage() {
 
     const openEdit = (config: LeaveTypeConfig) => {
         setEditingConfig(config);
+        const matchedCountry = countries.find(
+            (c: any) => String(c.unique_id ?? c.id) === String(config.country) || c.name === config.country
+        );
+        const period: 'Monthly' | 'Annually' = config.period === 'Monthly' ? 'Monthly' : 'Annually';
+        const annualHours = Number(config.annualHours ?? 0);
+        const rawHours = period === 'Monthly'
+            ? Number(config.monthlyAccrualHours ?? annualHours / 12)
+            : annualHours;
         setForm({
             leaveTypeId: 0,
-            country: config.country ?? "",
-            annualHours: Number(config.annualHours ?? 0),
+            countryId: matchedCountry?.unique_id ?? config.country ?? "",
+            annualHours,
             monthlyAccrualHours: config.monthlyAccrualHours ?? null,
             leavePolicyId: config.leavePolicyId ?? "",
+            period,
         });
-        setHoursPeriod("year");
-        setHoursInput(Number(config.annualHours ?? 0));
+        setHoursInput(rawHours);
         setIsEditOpen(true);
     };
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingConfig?.unique_id) return;
-        if (!form.leavePolicyId || !form.country.trim() || !form.annualHours) return;
+        if (!form.leavePolicyId || !form.countryId.trim() || !form.annualHours) return;
 
         setIsSubmitting(true);
         try {
@@ -225,9 +240,10 @@ export default function LeaveTypeConfigsPage() {
 
             await userService.updateLeaveTypeConfig(editingConfig.unique_id, {
                 leaveTypeId: leaveTypeUniqueId,
-                country: form.country,
+                countryId: form.countryId,
                 annualHours: form.annualHours,
-                ...(form.monthlyAccrualHours ? { monthlyAccrualHours: form.monthlyAccrualHours } : {}),
+                monthlyAccrualHours: form.monthlyAccrualHours ?? undefined,
+                period: form.period,
             });
 
             toast.success("Leave type configuration updated");
@@ -559,8 +575,8 @@ export default function LeaveTypeConfigsPage() {
                             Country <span className="text-red-500">*</span>
                         </label>
                         <CustomSelect
-                            value={form.country}
-                            onChange={(v) => setForm({ ...form, country: v })}
+                            value={form.countryId}
+                            onChange={(v) => setForm({ ...form, countryId: v })}
                             options={countries.map((c: any) => ({ value: c.unique_id ?? c.id, label: c.name }))}
                             placeholder="Select a country"
                         />
@@ -576,7 +592,7 @@ export default function LeaveTypeConfigsPage() {
                             onChange={(e) => {
                                 const val = Number(e.target.value);
                                 setHoursInput(val);
-                                applyHoursAndPeriod(val, hoursPeriod);
+                                applyHoursAndPeriod(val, form.period);
                             }}
                             className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 outline-none dark:bg-gray-900 dark:border-gray-800 dark:text-white"
                             placeholder="e.g. 160"
@@ -591,15 +607,14 @@ export default function LeaveTypeConfigsPage() {
                             Period <span className="text-red-500">*</span>
                         </label>
                         <CustomSelect
-                            value={hoursPeriod}
+                            value={form.period}
                             onChange={(v) => {
-                                const period = v as "month" | "year";
-                                setHoursPeriod(period);
+                                const period = v as 'Monthly' | 'Annually';
                                 applyHoursAndPeriod(hoursInput, period);
                             }}
                             options={[
-                                { value: "year", label: "Year" },
-                                { value: "month", label: "Month" },
+                                { value: "Annually", label: "Annually" },
+                                { value: "Monthly", label: "Monthly" },
                             ]}
                             placeholder="Select period"
                         />
