@@ -533,62 +533,108 @@ export default function ExitApprovalsTable() {
 
     const generateInterviewPDF = (iv: ExitInterviewDisplay, details: any) => {
         const doc = new jsPDF();
-        doc.setFontSize(18); doc.setFont("helvetica", "bold");
-        doc.text("EXIT INTERVIEW REPORT", 105, 20, { align: "center" });
-        doc.setFontSize(10); doc.setFont("helvetica", "normal");
-        doc.text("Mercy Corps - People Central", 105, 27, { align: "center" });
-        doc.setDrawColor(200); doc.line(14, 31, 196, 31);
-
-        doc.setFontSize(12); doc.setFont("helvetica", "bold");
-        doc.text("Employee Information", 14, 40);
-        autoTable(doc, {
-            startY: 44,
-            head: [["Field", "Details"]],
-            body: employeeInfoBody(iv),
-            theme: "grid",
-            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
-            styles: { fontSize: 10 },
-            columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
-        });
-
-        const y1 = (doc as any).lastAutoTable?.finalY || 90;
         let comments: any = {};
         try { comments = JSON.parse(details?.additional_comments || details?.additionalComments || "{}"); } catch {}
-        doc.setFontSize(12); doc.setFont("helvetica", "bold");
-        doc.text("Exit Interview Responses", 14, y1 + 10);
+
+        const tableStyles = { fontSize: 9, cellPadding: 3 };
+        const headStyles = { fillColor: [220, 53, 69] as [number, number, number], textColor: 255 as unknown as number[], fontStyle: "bold" as const };
+        const labelCol = { fontStyle: "bold" as const, cellWidth: 70 };
+
+        const sectionTitle = (doc: jsPDF, y: number, title: string) => {
+            doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.setFillColor(245, 245, 245); doc.rect(14, y, 182, 7, "F");
+            doc.setTextColor(60); doc.text(title, 16, y + 5.5);
+            doc.setTextColor(0);
+            return y + 10;
+        };
+
+        // Header
+        doc.setFontSize(18); doc.setFont("helvetica", "bold");
+        doc.text("EXIT INTERVIEW REPORT", 105, 18, { align: "center" });
+        doc.setFontSize(10); doc.setFont("helvetica", "normal");
+        doc.text("Mercy Corps Nigeria - People Central", 105, 25, { align: "center" });
+        doc.setDrawColor(200); doc.line(14, 29, 196, 29);
+
+        // Employee Information
+        let y = sectionTitle(doc, 33, "Employee Information");
         autoTable(doc, {
-            startY: y1 + 14,
-            head: [["Question", "Response"]],
+            startY: y,
+            head: [["Field", "Details"]],
             body: [
-                ["Reason for leaving", details?.reason_for_leaving || details?.reasonForLeaving || "N/A"],
-                ["Liked most about the job", details?.most_enjoyed || details?.mostEnjoyed || "N/A"],
-                ["Improvement suggestions", details?.company_improvement || details?.companyImprovement || "N/A"],
-                ["Work was as expected", comments.workAsExpected || "N/A"],
-                ["Workload assessment", comments.workload || "N/A"],
-                ["Would recommend organisation", details?.would_recommend || details?.wouldRecommend || "N/A"],
-                ["Suggestions for improvement", comments.suggestions || "N/A"],
+                ["Employee Name", String(iv.employeeName)],
+                ["Staff ID", String(iv.staffId)],
+                ["Department", String(iv.department)],
+                ["Location", String(iv.location)],
+                ["Program", String(iv.program)],
+                ["Exit / Termination Date", String((details?.resignation_date || details?.resignationDate || (iv as any).resignationDate) ?? "N/A")],
+                ["Date Submitted", String(iv.submittedOn)],
             ],
-            theme: "grid",
-            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
-            styles: { fontSize: 9, cellPadding: 3 },
-            columnStyles: { 0: { fontStyle: "bold", cellWidth: 65 } },
+            theme: "grid", headStyles, styles: tableStyles,
+            columnStyles: { 0: labelCol },
         });
 
-        const y2 = (doc as any).lastAutoTable?.finalY || 160;
-        doc.setFontSize(12); doc.setFont("helvetica", "bold");
-        doc.text("Ratings", 14, y2 + 10);
+        // Q1–Q4: Reasons & Experience
+        y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Reasons for Leaving & Job Experience");
         autoTable(doc, {
-            startY: y2 + 14,
-            head: [["Category", "Rating (out of 5)"]],
+            startY: y,
+            head: [["Question", "Response"]],
             body: [
-                ["Job Satisfaction", String(details?.rating_job || details?.ratingJob || "N/A")],
-                ["Manager", String(details?.rating_manager || details?.ratingManager || "N/A")],
-                ["Culture", String(details?.rating_culture || details?.ratingCulture || "N/A")],
+                ["Q1. Why are you leaving?", details?.reason_for_leaving || details?.reasonForLeaving || "N/A"],
+                ["Q2. What would have prevented you from leaving?", details?.other_reason || details?.otherReason || "N/A"],
+                ["Q3. What did you like most about working here?", details?.most_enjoyed || details?.mostEnjoyed || "N/A"],
+                ["Q4. What did you like least / areas needing improvement?", details?.company_improvement || details?.companyImprovement || "N/A"],
+                ["Q7. Was the work as expected?", comments.workAsExpected || "N/A"],
+                ["Q7. Comments on job expectations", comments.workExpectedComments || "N/A"],
+                ["Q8. Workload assessment", comments.workload || "N/A"],
+                ["Q11. Additional suggestions", comments.suggestions || "N/A"],
             ],
-            theme: "grid",
-            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
-            styles: { fontSize: 10 },
-            columnStyles: { 0: { fontStyle: "bold", cellWidth: 80 } },
+            theme: "grid", headStyles, styles: tableStyles,
+            columnStyles: { 0: labelCol },
+        });
+
+        // Q5: Supervisor Ratings (stored as averaged score)
+        y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q5 & Q6 — Supervisor & Organisation Ratings");
+        autoTable(doc, {
+            startY: y,
+            head: [["Category", "Score (out of 5)"]],
+            body: [
+                ["Overall Manager / Supervisor Rating", String(details?.rating_manager || details?.ratingManager || "N/A")],
+                ["Overall Job / Organisation Rating", String(details?.rating_job || details?.ratingJob || "N/A")],
+                ["Overall Culture Rating", String(details?.rating_culture || details?.ratingCulture || "N/A")],
+                ["Rating Comments", comments.ratingComments || "N/A"],
+            ],
+            theme: "grid", headStyles, styles: tableStyles,
+            columnStyles: { 0: labelCol },
+        });
+
+        // Q9: Benefits
+        const benefits = comments.benefits || {};
+        y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q9 — Benefits Assessment");
+        autoTable(doc, {
+            startY: y,
+            head: [["Benefit", "Rating"]],
+            body: [
+                ["Annual / Public Holidays", benefits.holidays || "N/A"],
+                ["Annual Leave", benefits.annualLeave || "N/A"],
+                ["Medical Benefits", benefits.medical || "N/A"],
+                ["Sick Leave", benefits.sickLeave || "N/A"],
+                ["Gratuity / End of Service Benefits", benefits.gratuity || "N/A"],
+                ["Education / Training Benefits", benefits.education || "N/A"],
+            ],
+            theme: "grid", headStyles, styles: tableStyles,
+            columnStyles: { 0: labelCol },
+        });
+
+        // Q10: Recommendation
+        y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q10 — Recommendation");
+        autoTable(doc, {
+            startY: y,
+            head: [["Question", "Response"]],
+            body: [
+                ["Would you recommend Mercy Corps as a place to work?", details?.would_recommend || details?.wouldRecommend || "N/A"],
+            ],
+            theme: "grid", headStyles, styles: tableStyles,
+            columnStyles: { 0: labelCol },
         });
 
         pdfFooter(doc);
