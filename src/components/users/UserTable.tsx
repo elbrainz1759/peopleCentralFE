@@ -10,11 +10,14 @@ import {
     TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
-import { EyeIcon, PencilIcon, TrashBinIcon, MoreDotIcon } from "@/icons";
+import { PencilIcon, TrashBinIcon, MoreDotIcon } from "@/icons";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Modal } from "../ui/modal";
 import CustomSelect from "../form/CustomSelect";
+import { Drawer } from "../ui/drawer/Drawer";
+import Input from "../form/input/InputField";
+import Label from "../form/Label";
 
 interface User {
     id: string;
@@ -23,18 +26,46 @@ interface User {
     role: string;
     firstName?: string;
     lastName?: string;
+    first_name?: string;
+    last_name?: string;
+    staffId?: string | number;
+    staff_id?: string | number;
+    designation?: string;
+    locationId?: string;
+    location_id?: string;
+    programId?: string;
+    program_id?: string;
+    departmentId?: string;
+    department_id?: string;
+    countryId?: string;
+    country_id?: string;
     status?: string;
 }
 
 export default function UserTable() {
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<string[]>([]);
+    const [departments, setDepartments] = useState<any[]>([]);
+    const [programs, setPrograms] = useState<any[]>([]);
+    const [countries, setCountries] = useState<any[]>([]);
+    const [locations, setLocations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [selectedRole, setSelectedRole] = useState("");
+    const [editForm, setEditForm] = useState({
+        firstName: "",
+        lastName: "",
+        staffId: "",
+        email: "",
+        designation: "",
+        locationId: "",
+        programId: "",
+        departmentId: "",
+        countryId: "",
+        role: "",
+    });
     const [isSaving, setIsSaving] = useState(false);
 
     const [deletingUser, setDeletingUser] = useState<User | null>(null);
@@ -42,17 +73,25 @@ export default function UserTable() {
 
     useEffect(() => {
         fetchUsers();
-        fetchRoles();
+        fetchLookupData();
     }, []);
 
-    const fetchRoles = async () => {
+    const fetchLookupData = async () => {
         try {
-            const data: any = await userService.getAllRoles();
-            const list: any[] = data?.data ?? (Array.isArray(data) ? data : []);
-            setRoles(list.map((r: any) => r.name));
-        } catch {
-            // fallback — leave roles empty; user can retry
-        }
+            const [rolesRes, deptsRes, progsRes, countriesRes, locsRes] = await Promise.all([
+                userService.getAllRoles().catch(() => []),
+                userService.getAllDepartments().catch(() => []),
+                userService.getAllPrograms().catch(() => []),
+                userService.getAllCountries().catch(() => []),
+                userService.getAllLocations().catch(() => []),
+            ]);
+            const toList = (r: any) => (r as any)?.data ?? (Array.isArray(r) ? r : []);
+            setRoles(toList(rolesRes).map((r: any) => r.name));
+            setDepartments(toList(deptsRes));
+            setPrograms(toList(progsRes));
+            setCountries(toList(countriesRes));
+            setLocations(toList(locsRes));
+        } catch { /* ignore */ }
     };
 
     const fetchUsers = async () => {
@@ -61,35 +100,57 @@ export default function UserTable() {
             const data = await userService.getAll();
             setUsers(Array.isArray(data) ? data : []);
         } catch (error: any) {
-            console.error("Error fetching users:", error);
             toast.error("Failed to load users");
         } finally {
             setIsLoading(false);
         }
     };
 
-    const toggleDropdown = (id: string) => {
-        setOpenDropdownId(openDropdownId === id ? null : id);
-    };
-
+    const toggleDropdown = (id: string) => setOpenDropdownId(openDropdownId === id ? null : id);
     const closeDropdown = () => setOpenDropdownId(null);
 
-    const openEditModal = (user: User) => {
+    const openEditDrawer = (user: User) => {
         setEditingUser(user);
-        setSelectedRole(user.role);
+        setEditForm({
+            firstName: user.firstName ?? user.first_name ?? "",
+            lastName: user.lastName ?? user.last_name ?? "",
+            staffId: String(user.staffId ?? user.staff_id ?? ""),
+            email: user.email ?? "",
+            designation: user.designation ?? "",
+            locationId: user.locationId ?? user.location_id ?? "",
+            programId: user.programId ?? user.program_id ?? "",
+            departmentId: user.departmentId ?? user.department_id ?? "",
+            countryId: user.countryId ?? user.country_id ?? "",
+            role: user.role ?? "",
+        });
     };
 
-    const handleSaveRole = async () => {
+    const handleSaveUser = async (e: React.FormEvent) => {
+        e.preventDefault();
         if (!editingUser) return;
+        const id = editingUser.unique_id || editingUser.id;
         setIsSaving(true);
         try {
-            const id = editingUser.unique_id || editingUser.id;
-            await userService.updateUserRole(id, selectedRole);
-            toast.success("Role updated successfully");
+            await Promise.all([
+                userService.updateEmployee(id, {
+                    firstName: editForm.firstName,
+                    lastName: editForm.lastName,
+                    staffId: parseInt(editForm.staffId, 10) || 0,
+                    email: editForm.email,
+                    status: editingUser.status ?? "Active",
+                    designation: editForm.designation,
+                    locationId: editForm.locationId,
+                    programId: editForm.programId,
+                    departmentId: editForm.departmentId,
+                    countryId: editForm.countryId,
+                }),
+                userService.updateUserRole(id, editForm.role),
+            ]);
+            toast.success("User updated successfully");
             setEditingUser(null);
             fetchUsers();
         } catch (err: any) {
-            toast.error(err.message || "Failed to update role");
+            toast.error(err.message || "Failed to update user");
         } finally {
             setIsSaving(false);
         }
@@ -112,11 +173,11 @@ export default function UserTable() {
     };
 
     const filteredUsers = users.filter((user) => {
-        const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
+        const fullName = `${user.firstName ?? user.first_name ?? ""} ${user.lastName ?? user.last_name ?? ""}`.toLowerCase();
         return (
             fullName.includes(searchTerm.toLowerCase()) ||
             user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (user.id || '').toLowerCase().includes(searchTerm.toLowerCase())
+            (user.id || "").toLowerCase().includes(searchTerm.toLowerCase())
         );
     });
 
@@ -144,7 +205,6 @@ export default function UserTable() {
                     </div>
                 </div>
 
-                {/* Desktop table */}
                 <div className="max-w-full overflow-x-auto min-h-[400px]">
                     <Table>
                         <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
@@ -176,10 +236,10 @@ export default function UserTable() {
                                         <TableCell className="py-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-10 w-10 flex items-center justify-center rounded-full shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-bold text-xs uppercase">
-                                                    {(user.firstName?.[0] || "") + (user.lastName?.[0] || user.email[0])}
+                                                    {((user.firstName ?? user.first_name ?? "")?.[0] ?? "") + ((user.lastName ?? user.last_name ?? "")?.[0] ?? user.email[0])}
                                                 </div>
                                                 <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                                    {user.firstName ? `${user.firstName} ${user.lastName}` : "N/A"}
+                                                    {(user.firstName ?? user.first_name) ? `${user.firstName ?? user.first_name} ${user.lastName ?? user.last_name}` : "N/A"}
                                                 </span>
                                             </div>
                                         </TableCell>
@@ -209,7 +269,7 @@ export default function UserTable() {
                                                     className="w-40 right-0 mt-2 top-full"
                                                 >
                                                     <DropdownItem
-                                                        onItemClick={() => { closeDropdown(); openEditModal(user); }}
+                                                        onItemClick={() => { closeDropdown(); openEditDrawer(user); }}
                                                         className="flex gap-2 items-center"
                                                     >
                                                         <PencilIcon className="w-4 h-4" />
@@ -233,35 +293,113 @@ export default function UserTable() {
                 </div>
             </div>
 
-            {/* Edit Role Modal */}
-            <Modal isOpen={!!editingUser} onClose={() => setEditingUser(null)} className="max-w-sm mx-4 p-6">
-                <div className="pt-4 pb-2">
-                    <h3 className="text-base font-semibold text-gray-800 dark:text-white mb-1">Edit User</h3>
-                    <p className="text-sm text-gray-500 mb-5">{editingUser?.email}</p>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Role</label>
-                    <CustomSelect
-                        value={selectedRole}
-                        onChange={(v) => setSelectedRole(v)}
-                        options={roles.map((r) => ({ value: r, label: r }))}
-                        placeholder="Select role"
-                    />
-                    <div className="flex gap-3 mt-6">
+            {/* Edit User Drawer */}
+            <Drawer
+                isOpen={!!editingUser}
+                onClose={() => setEditingUser(null)}
+                title="Edit User"
+            >
+                <form onSubmit={handleSaveUser} className="p-6 space-y-5">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label>First Name</Label>
+                            <Input type="text" placeholder="John"
+                                value={editForm.firstName}
+                                onChange={(e) => setEditForm(p => ({ ...p, firstName: e.target.value }))} />
+                        </div>
+                        <div>
+                            <Label>Last Name</Label>
+                            <Input type="text" placeholder="Doe"
+                                value={editForm.lastName}
+                                onChange={(e) => setEditForm(p => ({ ...p, lastName: e.target.value }))} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label>Staff ID</Label>
+                        <Input type="number" placeholder="e.g. 1042"
+                            value={editForm.staffId}
+                            onChange={(e) => setEditForm(p => ({ ...p, staffId: e.target.value }))} />
+                    </div>
+
+                    <div>
+                        <Label>Email Address</Label>
+                        <Input type="email" placeholder="you@mercycorps.org"
+                            value={editForm.email}
+                            onChange={(e) => setEditForm(p => ({ ...p, email: e.target.value }))} />
+                    </div>
+
+                    <div>
+                        <Label>Designation</Label>
+                        <Input type="text" placeholder="e.g. Software Engineer"
+                            value={editForm.designation}
+                            onChange={(e) => setEditForm(p => ({ ...p, designation: e.target.value }))} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label>Country</Label>
+                            <CustomSelect
+                                value={editForm.countryId}
+                                onChange={(v) => setEditForm(p => ({ ...p, countryId: v }))}
+                                options={countries.map((c: any) => ({ value: c.unique_id, label: c.name }))}
+                                placeholder="Select Country"
+                            />
+                        </div>
+                        <div>
+                            <Label>Department</Label>
+                            <CustomSelect
+                                value={editForm.departmentId}
+                                onChange={(v) => setEditForm(p => ({ ...p, departmentId: v }))}
+                                options={departments.map((d: any) => ({ value: d.unique_id, label: d.name }))}
+                                placeholder="Select Department"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label>Location</Label>
+                            <CustomSelect
+                                value={editForm.locationId}
+                                onChange={(v) => setEditForm(p => ({ ...p, locationId: v }))}
+                                options={locations.map((l: any) => ({ value: l.unique_id, label: l.name }))}
+                                placeholder="Select Location"
+                            />
+                        </div>
+                        <div>
+                            <Label>Program</Label>
+                            <CustomSelect
+                                value={editForm.programId}
+                                onChange={(v) => setEditForm(p => ({ ...p, programId: v }))}
+                                options={programs.map((p: any) => ({ value: p.unique_id, label: p.name }))}
+                                placeholder="Select Program"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label>Role</Label>
+                        <CustomSelect
+                            value={editForm.role}
+                            onChange={(v) => setEditForm(p => ({ ...p, role: v }))}
+                            options={roles.map((r) => ({ value: r, label: r }))}
+                            placeholder="Select Role"
+                        />
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
                         <button
-                            onClick={() => setEditingUser(null)}
-                            className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSaveRole}
+                            type="submit"
                             disabled={isSaving}
-                            className="flex-1 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+                            className="w-full py-4 bg-brand-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/20 hover:bg-brand-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                            {isSaving ? "Saving..." : "Save"}
+                            {isSaving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
+                            {isSaving ? "Saving..." : "Save Changes"}
                         </button>
                     </div>
-                </div>
-            </Modal>
+                </form>
+            </Drawer>
 
             {/* Delete Confirmation Modal */}
             <Modal isOpen={!!deletingUser} onClose={() => setDeletingUser(null)} className="max-w-sm mx-4 p-6">
