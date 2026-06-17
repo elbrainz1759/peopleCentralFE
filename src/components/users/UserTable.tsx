@@ -213,7 +213,7 @@ export default function UserTable() {
                                                         className="flex gap-2 items-center"
                                                     >
                                                         <PencilIcon className="w-4 h-4" />
-                                                        Edit Role
+                                                        Edit User
                                                     </DropdownItem>
                                                     <DropdownItem
                                                         onItemClick={() => { closeDropdown(); setDeletingUser(user); }}
@@ -236,7 +236,7 @@ export default function UserTable() {
             {/* Edit Role Modal */}
             <Modal isOpen={!!editingUser} onClose={() => setEditingUser(null)} className="max-w-sm mx-4 p-6">
                 <div className="pt-4 pb-2">
-                    <h3 className="text-base font-semibold text-gray-800 dark:text-white mb-1">Edit Role</h3>
+                    <h3 className="text-base font-semibold text-gray-800 dark:text-white mb-1">Edit User</h3>
                     <p className="text-sm text-gray-500 mb-5">{editingUser?.email}</p>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Role</label>
                     <CustomSelect
