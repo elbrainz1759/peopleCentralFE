@@ -62,10 +62,16 @@ function employeeInfoBody(emp: ExitPdfEmployee) {
     ];
 }
 
+const val = (d: any, ...keys: string[]) => {
+    for (const k of keys) {
+        const v = d?.[k];
+        if (v !== undefined && v !== null && v !== "") return String(v);
+    }
+    return "N/A";
+};
+
 export function generateInterviewPDF(emp: ExitPdfEmployee, details: any) {
     const doc = new jsPDF();
-    let comments: any = {};
-    try { comments = JSON.parse(details?.additional_comments || details?.additionalComments || "{}"); } catch { /* */ }
 
     doc.setFontSize(18); doc.setFont("helvetica", "bold");
     doc.text("EXIT INTERVIEW REPORT", 105, 18, { align: "center" });
@@ -80,47 +86,69 @@ export function generateInterviewPDF(emp: ExitPdfEmployee, details: any) {
         columnStyles: { 0: labelCol },
     });
 
-    y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Reasons for Leaving & Job Experience");
+    y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q1–Q4 & Q7–Q8 — Reasons for Leaving & Job Experience");
     autoTable(doc, {
         startY: y, head: [["Question", "Response"]],
         body: [
-            ["Q1. Why are you leaving?", details?.reason_for_leaving || details?.reasonForLeaving || "N/A"],
-            ["Q2. What would have prevented you from leaving?", details?.other_reason || details?.otherReason || "N/A"],
-            ["Q3. What did you like most about working here?", details?.most_enjoyed || details?.mostEnjoyed || "N/A"],
-            ["Q4. What did you like least / areas needing improvement?", details?.company_improvement || details?.companyImprovement || "N/A"],
-            ["Q7. Was the work as expected?", comments.workAsExpected || "N/A"],
-            ["Q7. Comments on job expectations", comments.workExpectedComments || "N/A"],
-            ["Q8. Workload assessment", comments.workload || "N/A"],
-            ["Q11. Additional suggestions", comments.suggestions || "N/A"],
+            ["Q1. Reason for leaving (category)", val(details, "reason_for_leaving", "reasonForLeaving")],
+            ["Q1. Why are you leaving? (detail)", val(details, "why_leaving", "whyLeaving")],
+            ["Q2. What would have prevented you from leaving?", val(details, "what_would_prevent", "whatWouldPrevent", "other_reason", "otherReason")],
+            ["Q3. What did you like most about working here?", val(details, "most_enjoyed", "mostEnjoyed")],
+            ["Q4. What did you like least / areas for improvement?", val(details, "company_improvement", "companyImprovement")],
+            ["Q7. Was the work as expected?", val(details, "work_as_expected", "workAsExpected")],
+            ["Q7. Comments on job expectations", val(details, "work_expected_comments", "workExpectedComments")],
+            ["Q8. Workload assessment", val(details, "workload")],
+            ["Q11. Additional suggestions", val(details, "suggestions")],
         ],
         theme: "grid", headStyles, styles: tableStyles,
         columnStyles: { 0: labelCol },
     });
 
-    y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q5 & Q6 — Supervisor & Organisation Ratings");
+    y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q5 — Supervisor Evaluation");
     autoTable(doc, {
-        startY: y, head: [["Category", "Score (out of 5)"]],
+        startY: y, head: [["Criteria", "Rating"]],
         body: [
-            ["Overall Manager / Supervisor Rating", String(details?.rating_manager || details?.ratingManager || "N/A")],
-            ["Overall Job / Organisation Rating", String(details?.rating_job || details?.ratingJob || "N/A")],
-            ["Overall Culture Rating", String(details?.rating_culture || details?.ratingCulture || "N/A")],
-            ["Rating Comments", comments.ratingComments || "N/A"],
+            ["Is fair and consistent in treatment", val(details, "supervisor_fair", "supervisorFair")],
+            ["Provides recognition for good work", val(details, "supervisor_recognition", "supervisorRecognition")],
+            ["Handles complaints well", val(details, "supervisor_complaints", "supervisorComplaints")],
+            ["Is sensitive to employees' needs", val(details, "supervisor_sensitive", "supervisorSensitive")],
+            ["Provides feedback on performance", val(details, "supervisor_feedback", "supervisorFeedback")],
+            ["Communicates well with staff", val(details, "supervisor_communication", "supervisorCommunication")],
+            ["Follows company policies", val(details, "supervisor_policies", "supervisorPolicies")],
         ],
         theme: "grid", headStyles, styles: tableStyles,
         columnStyles: { 0: labelCol },
     });
 
-    const benefits = comments.benefits || {};
+    y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q6 — Organisation Ratings");
+    autoTable(doc, {
+        startY: y, head: [["Area", "Rating"]],
+        body: [
+            ["Cooperation within department", val(details, "rating_coop_dept", "ratingCoopDept")],
+            ["Cooperation with other departments", val(details, "rating_coop_other", "ratingCoopOther")],
+            ["Training & development", val(details, "rating_training", "ratingTraining")],
+            ["Equipment & resources", val(details, "rating_equipment", "ratingEquipment")],
+            ["Performance review process", val(details, "rating_perf_review", "ratingPerfReview")],
+            ["Orientation / onboarding", val(details, "rating_orientation", "ratingOrientation")],
+            ["Pay & compensation", val(details, "rating_pay", "ratingPay")],
+            ["Career development opportunities", val(details, "rating_career_dev", "ratingCareerDev")],
+            ["Work conditions", val(details, "rating_work_conditions", "ratingWorkConditions")],
+            ["Comments", val(details, "rating_comments", "ratingComments")],
+        ],
+        theme: "grid", headStyles, styles: tableStyles,
+        columnStyles: { 0: labelCol },
+    });
+
     y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Q9 — Benefits Assessment");
     autoTable(doc, {
         startY: y, head: [["Benefit", "Rating"]],
         body: [
-            ["Annual / Public Holidays", benefits.holidays || "N/A"],
-            ["Annual Leave", benefits.annualLeave || "N/A"],
-            ["Medical Benefits", benefits.medical || "N/A"],
-            ["Sick Leave", benefits.sickLeave || "N/A"],
-            ["Gratuity / End of Service Benefits", benefits.gratuity || "N/A"],
-            ["Education / Training Benefits", benefits.education || "N/A"],
+            ["Annual / Public Holidays", val(details, "benefit_holidays", "benefitHolidays")],
+            ["Annual Leave", val(details, "benefit_annual_leave", "benefitAnnualLeave")],
+            ["Medical Benefits", val(details, "benefit_medical", "benefitMedical")],
+            ["Sick Leave", val(details, "benefit_sick_leave", "benefitSickLeave")],
+            ["Gratuity / End of Service Benefits", val(details, "benefit_gratuity", "benefitGratuity")],
+            ["Education / Training Benefits", val(details, "benefit_education", "benefitEducation")],
         ],
         theme: "grid", headStyles, styles: tableStyles,
         columnStyles: { 0: labelCol },
@@ -130,7 +158,7 @@ export function generateInterviewPDF(emp: ExitPdfEmployee, details: any) {
     autoTable(doc, {
         startY: y, head: [["Question", "Response"]],
         body: [
-            ["Would you recommend Mercy Corps as a place to work?", details?.would_recommend || details?.wouldRecommend || "N/A"],
+            ["Would you recommend Mercy Corps as a place to work?", val(details, "would_recommend", "wouldRecommend")],
         ],
         theme: "grid", headStyles, styles: tableStyles,
         columnStyles: { 0: labelCol },
