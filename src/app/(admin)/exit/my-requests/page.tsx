@@ -31,6 +31,8 @@ const STAGE_COLOR: Record<string, "info" | "warning" | "success" | "error" | "li
     Operations: "warning",
     Finance: "warning",
     HR: "warning",
+    HR_Final: "success",
+    HR_Director: "success",
     Completed: "success",
 };
 
@@ -187,7 +189,7 @@ export default function MyExitRequestsPage() {
                                             <span>{r.createdAt}</span>
                                         </div>
                                     </div>
-                                    {r.stage === "Completed" && (
+                                    {r.stage === "Completed" || r.status === "Completed" || r.status === "Approved" && (
                                         <div className="flex gap-2 mt-3">
                                             <button
                                                 onClick={() => handleDownload(r, 'interview')}
@@ -252,7 +254,7 @@ export default function MyExitRequestsPage() {
                                         </TableCell>
                                         <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{r.createdAt}</TableCell>
                                         <TableCell className="py-3">
-                                            {r.stage === "Completed" ? (
+                                            {r.stage === "Completed" || r.status === "Completed" || r.status === "Approved" ? (
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => handleDownload(r, 'interview')}
