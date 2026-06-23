@@ -72,12 +72,41 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ env.AWS_REGION }}
 
+      - name: Ensure EC2 instance is running
+        run: |
+          INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+          if [ -z "$INSTANCE_ID" ]; then
+            echo "EC2_INSTANCE_ID secret not set — skipping auto-start"
+            exit 0
+          fi
+          STATE=$(aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text)
+          echo "Current state: $STATE"
+          if [ "$STATE" = "stopped" ] || [ "$STATE" = "stopping" ]; then
+            echo "Starting instance..."
+            aws ec2 start-instances --instance-ids "$INSTANCE_ID"
+            aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
+            echo "Instance is running. Waiting 30s for SSH to become ready..."
+            sleep 30
+          elif [ "$STATE" = "pending" ]; then
+            aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
+            sleep 20
+          else
+            echo "Instance already in state: $STATE"
+          fi
+
       - name: SSH into EC2 and deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:     ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key:      ${{ secrets.EC2_SSH_KEY }}
+          host:              ${{ secrets.EC2_HOST }}
+          username:          ubuntu
+          key:               ${{ secrets.EC2_SSH_KEY }}
+          timeout:           120s
+          connect_timeout:   60s
+          command_timeout:   10m
+          strict_host_key_checking: false
           script: |
             set -e
 
