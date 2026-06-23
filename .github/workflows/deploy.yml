@@ -72,11 +72,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ env.AWS_REGION }}
 
-      - name: Ensure EC2 instance is running
+      - name: Ensure EC2 instance is running and resolve host
+        id: ec2
         run: |
           INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
           if [ -z "$INSTANCE_ID" ]; then
-            echo "EC2_INSTANCE_ID secret not set — skipping auto-start"
+            echo "EC2_INSTANCE_ID secret not set — falling back to EC2_HOST secret"
+            echo "host=${{ secrets.EC2_HOST }}" >> $GITHUB_OUTPUT
             exit 0
           fi
           STATE=$(aws ec2 describe-instances \
@@ -97,10 +99,23 @@ jobs:
             echo "Instance already in state: $STATE"
           fi
 
+          # Resolve the CURRENT public IP — it changes on every restart unless an
+          # Elastic IP is attached. Prefer this over the (possibly stale) EC2_HOST secret.
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+          if [ -z "$PUBLIC_IP" ] || [ "$PUBLIC_IP" = "None" ]; then
+            echo "No public IP on instance — falling back to EC2_HOST secret"
+            PUBLIC_IP="${{ secrets.EC2_HOST }}"
+          fi
+          echo "Deploy host: $PUBLIC_IP"
+          echo "host=$PUBLIC_IP" >> $GITHUB_OUTPUT
+
       - name: SSH into EC2 and deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:              ${{ secrets.EC2_HOST }}
+          host:              ${{ steps.ec2.outputs.host }}
           username:          ubuntu
           key:               ${{ secrets.EC2_SSH_KEY }}
           timeout:           120s
