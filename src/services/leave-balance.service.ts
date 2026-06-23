@@ -32,6 +32,22 @@ export class LeaveBalanceService {
   }
 
   /**
+   * Get all staff leave balances (paginated, for HR admin view)
+   */
+  async getAllLeaveBalances(page = 1, limit = 10, year?: number, search?: string): Promise<any> {
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+      if (year) params.append('year', String(year));
+      if (search) params.append('search', search);
+      const response = await api.get<any>(`/leave-balances?${params.toString()}`);
+      return response;
+    } catch (error) {
+      console.error('LeaveBalanceService getAllLeaveBalances error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Bulk upload leave balances
    */
   async bulkUploadLeaveBalances(balances: BulkUploadRequest[]): Promise<any> {
