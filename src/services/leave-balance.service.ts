@@ -87,6 +87,23 @@ export class LeaveBalanceService {
   }
 
   /**
+   * Get accrual run history
+   */
+  async getAccrualLog(leaveTypeId?: number, year?: number): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      if (leaveTypeId) params.append('leaveTypeId', String(leaveTypeId));
+      if (year) params.append('year', String(year));
+      const query = params.toString();
+      const response = await api.get<any>(`/leave-balances/accrual-log${query ? `?${query}` : ''}`);
+      return response;
+    } catch (error) {
+      console.error('LeaveBalanceService getAccrualLog error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Update leave balance
    */
   async updateLeaveBalance(id: number, data: Partial<LeaveBalance>): Promise<any> {
