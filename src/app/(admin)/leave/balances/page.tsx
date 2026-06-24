@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { leaveBalanceService, LeaveBalance } from "@/services/leave-balance.service";
+import { leaveBalanceService } from "@/services/leave-balance.service";
 import { userService } from "@/services/user.service";
 import { toast } from "react-hot-toast";
 import LeaveBalanceBulkUpload from "@/components/leave/LeaveBalanceBulkUpload";
@@ -21,6 +21,18 @@ const PAGE_LIMIT = 10;
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - i);
 
+// Flattened row: API returns one staff per record with a nested balances[] array.
+interface FlatLeaveBalance {
+  id?: number;
+  staff_id: string | number;
+  full_name?: string;
+  leave_type_id: string | number;
+  leave_type_name?: string;
+  total_hours: number;
+  used_hours: number;
+  remaining_hours: number;
+}
+
 interface AccrualEntry {
   id?: number;
   leave_type_id?: number;
@@ -36,7 +48,7 @@ interface AccrualEntry {
 
 export default function LeaveBalanceManagement() {
   // Balances state
-  const [balances, setBalances] = useState<LeaveBalance[]>([]);
+  const [balances, setBalances] = useState<FlatLeaveBalance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -71,7 +83,21 @@ export default function LeaveBalanceManagement() {
     try {
       const response = await leaveBalanceService.getAllLeaveBalances(page, PAGE_LIMIT, yearVal, searchVal || undefined);
       const raw = response?.data ?? (Array.isArray(response) ? response : []);
-      setBalances(Array.isArray(raw) ? raw : []);
+      // Each record is a staff member holding a nested balances[] array — flatten
+      // into one row per (staff × leave type) for the table.
+      const flat: FlatLeaveBalance[] = (Array.isArray(raw) ? raw : []).flatMap((staff: any) =>
+        (Array.isArray(staff.balances) ? staff.balances : []).map((b: any) => ({
+          id: b.id,
+          staff_id: staff.staff_id,
+          full_name: staff.full_name,
+          leave_type_id: b.leave_type_id,
+          leave_type_name: b.leave_type_name,
+          total_hours: Number(b.total_hours) || 0,
+          used_hours: Number(b.used_hours) || 0,
+          remaining_hours: Number(b.remaining_hours) || 0,
+        }))
+      );
+      setBalances(flat);
       const meta = response?.meta;
       setTotalRecords(meta?.total ?? raw.length);
       setTotalPages(meta?.last_page ?? meta?.totalPages ?? 1);
@@ -224,12 +250,12 @@ export default function LeaveBalanceManagement() {
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {balances.map((balance) => {
-                  const total = parseFloat(balance.total_hours || "0");
-                  const used = parseFloat(balance.used_hours || "0");
-                  const remaining = parseFloat(balance.remaining_hours || "0");
+                  const total = balance.total_hours;
+                  const used = balance.used_hours;
+                  const remaining = balance.remaining_hours;
                   const { color, label } = statusProps(used, total);
                   return (
-                    <div key={balance.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div key={`${balance.staff_id}-${balance.leave_type_id}`} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <p className="font-medium text-gray-800 dark:text-white/90 text-sm">{balance.leave_type_name || `Leave Type ${balance.leave_type_id}`}</p>
@@ -244,9 +270,11 @@ export default function LeaveBalanceManagement() {
                           <span className={remaining < 20 ? "text-red-500 font-medium" : "text-green-500 font-medium"}>{remaining}h</span>
                         </div>
                       </div>
-                      <button onClick={() => handleDelete(balance.id!)} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50">
-                        <TrashBinIcon className="w-3.5 h-3.5" /> Delete
-                      </button>
+                      {balance.id != null && (
+                        <button onClick={() => handleDelete(balance.id!)} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50">
+                          <TrashBinIcon className="w-3.5 h-3.5" /> Delete
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -271,13 +299,13 @@ export default function LeaveBalanceManagement() {
                   <TableRow><TableCell colSpan={8} className="py-8 text-center text-gray-500">No leave balances found.</TableCell></TableRow>
                 ) : (
                   balances.map((balance, index) => {
-                    const total = parseFloat(balance.total_hours || "0");
-                    const used = parseFloat(balance.used_hours || "0");
-                    const remaining = parseFloat(balance.remaining_hours || "0");
+                    const total = balance.total_hours;
+                    const used = balance.used_hours;
+                    const remaining = balance.remaining_hours;
                     const { color, label } = statusProps(used, total);
                     return (
-                      <TableRow key={balance.id}>
-                        <TableCell className="py-3 text-gray-500 text-theme-sm">{startRecord + index}</TableCell>
+                      <TableRow key={`${balance.staff_id}-${balance.leave_type_id}`}>
+                        <TableCell className="py-3 text-gray-500 text-theme-sm">{index + 1}</TableCell>
                         <TableCell className="py-3 text-gray-500 text-theme-sm">{balance.staff_id}</TableCell>
                         <TableCell className="py-3 text-gray-800 dark:text-white/90 text-theme-sm font-medium">{balance.leave_type_name || `Type ${balance.leave_type_id}`}</TableCell>
                         <TableCell className="py-3 text-gray-500 text-theme-sm">{total}h</TableCell>
@@ -287,18 +315,20 @@ export default function LeaveBalanceManagement() {
                         </TableCell>
                         <TableCell className="py-3"><Badge size="sm" color={color}>{label}</Badge></TableCell>
                         <TableCell className="py-3">
-                          <div className="relative">
-                            <button onClick={() => toggleDropdown(String(balance.id))}
-                              className="dropdown-toggle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                              style={{ transform: "rotate(90deg)" }}>
-                              <MoreDotIcon className="w-5 h-5" />
-                            </button>
-                            <Dropdown isOpen={openDropdownId === String(balance.id)} onClose={closeDropdown} className="w-40 right-0 mt-2 top-full">
-                              <DropdownItem onItemClick={() => { closeDropdown(); handleDelete(balance.id!); }} className="flex gap-2 items-center text-red-500">
-                                <TrashBinIcon className="w-4 h-4" /> Delete
-                              </DropdownItem>
-                            </Dropdown>
-                          </div>
+                          {balance.id != null && (
+                            <div className="relative">
+                              <button onClick={() => toggleDropdown(String(balance.id))}
+                                className="dropdown-toggle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                style={{ transform: "rotate(90deg)" }}>
+                                <MoreDotIcon className="w-5 h-5" />
+                              </button>
+                              <Dropdown isOpen={openDropdownId === String(balance.id)} onClose={closeDropdown} className="w-40 right-0 mt-2 top-full">
+                                <DropdownItem onItemClick={() => { closeDropdown(); handleDelete(balance.id!); }} className="flex gap-2 items-center text-red-500">
+                                  <TrashBinIcon className="w-4 h-4" /> Delete
+                                </DropdownItem>
+                              </Dropdown>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
