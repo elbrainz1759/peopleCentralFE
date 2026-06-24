@@ -259,7 +259,7 @@ export default function LeaveBalanceManagement() {
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <p className="font-medium text-gray-800 dark:text-white/90 text-sm">{balance.leave_type_name || `Leave Type ${balance.leave_type_id}`}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Staff ID: {balance.staff_id}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{balance.full_name || "—"} · Staff ID: {balance.staff_id}</p>
                         </div>
                         <Badge size="sm" color={color}>{label}</Badge>
                       </div>
@@ -287,16 +287,16 @@ export default function LeaveBalanceManagement() {
             <Table>
               <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                 <TableRow>
-                  {["S/N", "Staff ID", "Leave Type", "Total Hours", "Used Hours", "Remaining", "Status", "Actions"].map((h) => (
+                  {["S/N", "Staff ID", "Name", "Leave Type", "Total Hours", "Used Hours", "Remaining", "Status", "Actions"].map((h) => (
                     <TableCell key={h} isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 whitespace-nowrap">{h}</TableCell>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={8} className="py-8 text-center text-gray-500">Loading leave balances...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="py-8 text-center text-gray-500">Loading leave balances...</TableCell></TableRow>
                 ) : balances.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="py-8 text-center text-gray-500">No leave balances found.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="py-8 text-center text-gray-500">No leave balances found.</TableCell></TableRow>
                 ) : (
                   balances.map((balance, index) => {
                     const total = balance.total_hours;
@@ -307,6 +307,7 @@ export default function LeaveBalanceManagement() {
                       <TableRow key={`${balance.staff_id}-${balance.leave_type_id}`}>
                         <TableCell className="py-3 text-gray-500 text-theme-sm">{index + 1}</TableCell>
                         <TableCell className="py-3 text-gray-500 text-theme-sm">{balance.staff_id}</TableCell>
+                        <TableCell className="py-3 text-gray-800 dark:text-white/90 text-theme-sm">{balance.full_name || "—"}</TableCell>
                         <TableCell className="py-3 text-gray-800 dark:text-white/90 text-theme-sm font-medium">{balance.leave_type_name || `Type ${balance.leave_type_id}`}</TableCell>
                         <TableCell className="py-3 text-gray-500 text-theme-sm">{total}h</TableCell>
                         <TableCell className="py-3 text-gray-500 text-theme-sm">{used}h</TableCell>
