@@ -22,6 +22,11 @@ export default function DashboardActions() {
         const now = new Date();
         setDateStr(now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }));
 
+        /**
+         * 
+         * 
+         */
+
         const user = authService.getCurrentUser();
         if (user?.first_name) setUserName(user.first_name);
         else if (user?.name) setUserName(user.name);
