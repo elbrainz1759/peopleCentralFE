@@ -116,7 +116,7 @@ export default function UserDashboard() {
     const pending = myLeaves.filter((l) => l.status === "Pending").length;
     const approved = myLeaves.filter((l) => l.status === "Approved").length;
     const exitCount = myExits.length;
-    const totalBalance = leaveBalance.reduce((sum, b) => sum + Number(b.balance ?? b.remaining_balance ?? 0), 0);
+    const totalBalance = leaveBalance.reduce((sum, b) => sum + Number(b.remaining_hours ?? b.balance ?? b.remaining_balance ?? 0), 0);
 
     const recentLeaves = [...myLeaves]
         .sort((a, b) => new Date(b.created_at ?? b.createdAt ?? 0).getTime() - new Date(a.created_at ?? a.createdAt ?? 0).getTime())

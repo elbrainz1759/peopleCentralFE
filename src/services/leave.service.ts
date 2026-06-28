@@ -48,7 +48,8 @@ export class leaveService {
                 fd.append('document', leaveData.document);
                 return await apiRequest<any>('/leaves', { method: 'POST', body: fd });
             }
-            return await api.post<any>('/leaves', leaveData);
+            // Backend requires staffId as a string (matches the FormData path above).
+            return await api.post<any>('/leaves', { ...leaveData, staffId: String(leaveData.staffId) });
         } catch (error) {
             console.error('LeaveService applyForLeave error:', error);
             throw error;
