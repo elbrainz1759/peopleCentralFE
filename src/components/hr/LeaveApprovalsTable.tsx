@@ -81,11 +81,11 @@ export default function LeaveApprovalsTable() {
     const isHR = currentUserRole.includes('hr') || currentUserRole.includes('admin') || currentUserRole.includes('superadmin');
     const isLineManager = currentUserRole.includes('manager') || currentUserRole.includes('supervisor') || currentUserRole.includes('lead');
     // Graceful: if role is undetected show all actions
-    const canDoLineManagerActions = isLineManager || (!isHR && !isLineManager);
+    // HR/admin can also drive the Line Manager Review step (Pending → Reviewed) from
+    // the UI. The backend enforces the two-step flow, so a Pending request must be
+    // reviewed before HR Final Approval (/approve) will accept it.
+    const canDoLineManagerActions = isLineManager || isHR || (!isHR && !isLineManager);
     const canDoHRActions = isHR || (!isHR && !isLineManager);
-    // HR/admin (not also a line manager) can approve a Pending request directly,
-    // skipping the line-manager review stage — the /approve endpoint accepts Pending.
-    const canHRDirectApprove = isHR && !isLineManager;
 
     const toggleDropdown = (id: number) => setOpenDropdownId(openDropdownId === id ? null : id);
     const closeDropdown = () => setOpenDropdownId(null);
@@ -264,7 +264,7 @@ export default function LeaveApprovalsTable() {
     // ── Filtering ─────────────────────────────────────────────────
     const baseData = filterStatus === "All" ? tableData : tableData.filter(r => r.status === (filterStatus === "Awaiting HR" ? "Reviewed" : filterStatus));
     const inMyQueue = (r: LeaveRequest) =>
-        ((canDoLineManagerActions || canHRDirectApprove) && r.status === "Pending") ||
+        (canDoLineManagerActions && r.status === "Pending") ||
         (canDoHRActions && r.status === "Reviewed");
     const filteredData = activeTab === "my-queue" ? baseData.filter(inMyQueue) : baseData;
 
@@ -281,22 +281,6 @@ export default function LeaveApprovalsTable() {
                 <>
                     <button onClick={() => openCommentModal("line-manager-approve", record.id)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-blue-200 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-900/30">
-                        <CheckCircleIcon className="w-3.5 h-3.5" /> Approve
-                    </button>
-                    <button onClick={() => openCommentModal("reject", record.id)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30">
-                        <CloseIcon className="w-3.5 h-3.5" /> Reject
-                    </button>
-                    <button onClick={() => openCommentModal("cancel", record.id)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
-                        <CloseIcon className="w-3.5 h-3.5" /> Cancel
-                    </button>
-                </>
-            )}
-            {record.status === "Pending" && canHRDirectApprove && (
-                <>
-                    <button onClick={() => openCommentModal("hr-finalize", record.id)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-green-200 text-xs font-medium text-green-600 hover:bg-green-50 dark:border-green-900/30">
                         <CheckCircleIcon className="w-3.5 h-3.5" /> Approve
                     </button>
                     <button onClick={() => openCommentModal("reject", record.id)}
@@ -347,19 +331,6 @@ export default function LeaveApprovalsTable() {
                 <>
                     <DropdownItem onItemClick={() => openCommentModal("line-manager-approve", record.id)} className="flex gap-2 items-center text-blue-600 hover:text-blue-700">
                         <CheckCircleIcon className="w-4 h-4" /> Line Manager Approve
-                    </DropdownItem>
-                    <DropdownItem onItemClick={() => openCommentModal("reject", record.id)} className="flex gap-2 items-center text-red-500 hover:text-red-700">
-                        <CloseIcon className="w-4 h-4" /> Reject
-                    </DropdownItem>
-                    <DropdownItem onItemClick={() => openCommentModal("cancel", record.id)} className="flex gap-2 items-center text-gray-500 hover:text-gray-700">
-                        <CloseIcon className="w-4 h-4" /> Cancel Leave
-                    </DropdownItem>
-                </>
-            )}
-            {record.status === "Pending" && canHRDirectApprove && (
-                <>
-                    <DropdownItem onItemClick={() => openCommentModal("hr-finalize", record.id)} className="flex gap-2 items-center text-green-600 hover:text-green-700">
-                        <CheckCircleIcon className="w-4 h-4" /> Approve
                     </DropdownItem>
                     <DropdownItem onItemClick={() => openCommentModal("reject", record.id)} className="flex gap-2 items-center text-red-500 hover:text-red-700">
                         <CloseIcon className="w-4 h-4" /> Reject
@@ -681,18 +652,6 @@ export default function LeaveApprovalsTable() {
                                 <button onClick={() => openCommentModal("reject", selectedRequest.id)}
                                     className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2">
                                     <CloseIcon className="w-5 h-5" /> Reject Request
-                                </button>
-                            </div>
-                        )}
-                        {selectedRequest.status === "Pending" && canHRDirectApprove && (
-                            <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                                <button onClick={() => openCommentModal("hr-finalize", selectedRequest.id)}
-                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
-                                    <CheckCircleIcon className="w-5 h-5" /> Approve
-                                </button>
-                                <button onClick={() => openCommentModal("reject", selectedRequest.id)}
-                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-lg font-medium transition-colors border border-red-200 flex items-center justify-center gap-2">
-                                    <CloseIcon className="w-5 h-5" /> Reject
                                 </button>
                             </div>
                         )}

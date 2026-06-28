@@ -298,7 +298,7 @@ export default function MultiStepExitForm() {
 
       await exitServiceInstance.createExitInterview(exitInterviewData);
       toast.success("Exit interview submitted successfully!");
-      router.push("/exit/approvals");
+      router.push("/exit/my-requests");
 
       setFormData(emptyForm);
       setCurrentStep(1);
