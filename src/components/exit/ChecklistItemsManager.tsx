@@ -116,7 +116,7 @@ export default function ChecklistItemsManager() {
       fetchChecklistItems();
     } catch (error: any) {
       console.error("Failed to save checklist item:", error);
-      toast.error(error.response?.data?.message || "Failed to save checklist item");
+      toast.error(error?.response?.data?.message || error?.message || "Failed to save checklist item");
     } finally {
       setIsSubmitting(false);
     }

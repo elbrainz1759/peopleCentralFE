@@ -157,7 +157,7 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
       if (onSuccess) onSuccess();
     } catch (error: any) {
       console.error("Bulk upload error:", error);
-      toast.error(error.response?.data?.message || "Failed to upload leave balances");
+      toast.error(error?.response?.data?.message || error?.message || "Failed to upload leave balances");
     } finally {
       setIsSubmitting(false);
     }

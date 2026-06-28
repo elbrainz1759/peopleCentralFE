@@ -1219,14 +1219,22 @@ export default function ExitApprovalsTable() {
                                         Exit Clearance Completed
                                     </div>
                                     <button
-                                        onClick={() => selectedInterview && generateInterviewPDF(toEmpInfo(selectedInterview), interviewDetails) && toast.success("Exit Interview PDF downloaded.")}
+                                        onClick={() => {
+                                            if (!selectedInterview) return;
+                                            generateInterviewPDF(toEmpInfo(selectedInterview), interviewDetails);
+                                            toast.success("Exit Interview PDF downloaded.");
+                                        }}
                                         className="w-full px-4 py-2.5 rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 font-medium transition-colors flex items-center justify-center gap-2"
                                     >
                                         <DownloadIcon className="w-4 h-4" />
                                         Download Exit Interview (PDF)
                                     </button>
                                     <button
-                                        onClick={() => selectedInterview && generateClearancePDF(toEmpInfo(selectedInterview), interviewDetails, checklistItems) && toast.success("Exit Clearance PDF downloaded.")}
+                                        onClick={() => {
+                                            if (!selectedInterview) return;
+                                            generateClearancePDF(toEmpInfo(selectedInterview), interviewDetails, checklistItems);
+                                            toast.success("Exit Clearance PDF downloaded.");
+                                        }}
                                         className="w-full px-4 py-2.5 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 font-medium transition-colors flex items-center justify-center gap-2"
                                     >
                                         <DownloadIcon className="w-4 h-4" />

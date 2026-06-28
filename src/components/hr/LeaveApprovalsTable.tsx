@@ -122,7 +122,7 @@ export default function LeaveApprovalsTable() {
             setHrEditRecord(null);
             fetchLeaves();
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Failed to update leave record.");
+            toast.error(error?.response?.data?.message || error?.message || "Failed to update leave record.");
         } finally {
             setIsSavingHREdit(false);
         }

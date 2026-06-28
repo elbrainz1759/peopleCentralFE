@@ -226,7 +226,7 @@ export default function ExitInterviewForm() {
             setSubmitted(true);
             toast.success("Exit interview submitted successfully.");
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Failed to submit. Please try again.");
+            toast.error(error?.response?.data?.message || error?.message || "Failed to submit. Please try again.");
         } finally {
             setIsSubmitting(false);
         }

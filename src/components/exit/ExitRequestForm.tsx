@@ -250,7 +250,7 @@ export default function ExitRequestForm({ onClose, initialData }: { onClose: () 
       }, 2000);
     } catch (error: any) {
       console.error("Exit interview submission error:", error);
-      toast.error(error.response?.data?.message || "Failed to submit exit interview");
+      toast.error(error?.response?.data?.message || error?.message || "Failed to submit exit interview");
     } finally {
       setIsSubmitting(false);
     }
