@@ -15,6 +15,7 @@ import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Drawer } from "../ui/drawer/Drawer";
 import { Modal } from "../ui/modal";
 import { ExitService, ChecklistItem as ServiceChecklistItem } from "@/services/exit.service";
+import { userService } from "@/services/user.service";
 import { toast } from "react-hot-toast";
 import Button from "../ui/button/Button";
 import { generateInterviewPDF, generateClearancePDF } from "@/utils/exitPdf";
@@ -59,6 +60,7 @@ export default function ExitApprovalsTable() {
     const [newItemName, setNewItemName] = useState("");
     const [selectedDeptId, setSelectedDeptId] = useState("");
     const [departments, setDepartments] = useState<any[]>([]);
+    const [employees, setEmployees] = useState<any[]>([]);
     const [isAddingItem, setIsAddingItem] = useState(false);
     const [showChecklistManager, setShowChecklistManager] = useState(false);
     
@@ -116,6 +118,7 @@ export default function ExitApprovalsTable() {
 
         fetchChecklistItems();
         fetchDepartments();
+        fetchEmployees();
     }, []);
 
     useEffect(() => {
@@ -174,7 +177,7 @@ export default function ExitApprovalsTable() {
         if (currentQueue === 'All' || currentQueue === 'HR' || departments.length > 0) {
             fetchInterviews();
         }
-    }, [currentQueue, departments]);
+    }, [currentQueue, departments, employees]);
 
     const fetchInterviews = async () => {
         setIsLoadingInterviews(true);
@@ -189,21 +192,35 @@ export default function ExitApprovalsTable() {
             }
 
             const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
-            
+
+            // The exit list endpoint often omits the employee's name/designation, so
+            // join against the employees directory by staff_id to fill the gaps.
+            const empByStaff = new Map<string, any>();
+            employees.forEach((e: any) => {
+                const sid = String(e.staff_id ?? e.staffId ?? '');
+                if (sid) empByStaff.set(sid, e);
+                const uid = String(e.unique_id ?? e.uniqueId ?? '');
+                if (uid) empByStaff.set(uid, e);
+            });
+
             // Map the API structure to the Display structure
             let mapped = data.map((item: any) => {
-                const fName = item.staff_first_name || '';
-                const lName = item.staff_last_name || '';
-                const fullName = (fName || lName) ? `${fName} ${lName}`.trim() : `Staff #${item.staff_id || item.id}`;
+                const staffId = item.staff_id || item.id;
+                const emp = empByStaff.get(String(staffId));
+                const fName = item.staff_first_name || emp?.first_name || '';
+                const lName = item.staff_last_name || emp?.last_name || '';
+                const joinedName = `${fName} ${lName}`.trim();
+                const fullName = item.staff_name || item.employee_name || emp?.employee_name || emp?.name
+                    || (joinedName || `Staff #${staffId}`);
 
                 return {
                     id: item.id,
                     uniqueId: item.unique_id || item.uniqueId || item.id,
-                    staffId: item.staff_id || item.id,
+                    staffId,
                     supervisorId: item.supervisor_id || '',
-                    employeeName: item.staff_name || fullName,
-                    department: item.department_name || item.department?.name || item.department || 'N/A',
-                    designation: item.designation_name || item.designation || 'Not Specified',
+                    employeeName: fullName,
+                    department: item.department_name || item.department?.name || item.department || emp?.department_name || 'N/A',
+                    designation: item.designation_name || item.designation || emp?.designation || emp?.job_title || 'Not Specified',
                     supervisor: item.supervisor?.name || item.supervisor || 'N/A',
                     stage: (() => {
                         const s = item.stage || 'N/A';
@@ -242,6 +259,15 @@ export default function ExitApprovalsTable() {
             toast.error("Failed to fetch records. Try again.");
         } finally {
             setIsLoadingInterviews(false);
+        }
+    };
+
+    const fetchEmployees = async () => {
+        try {
+            const response = await userService.getAllEmployees();
+            setEmployees(response?.data || response || []);
+        } catch (error) {
+            console.error("Failed to fetch employees:", error);
         }
     };
 

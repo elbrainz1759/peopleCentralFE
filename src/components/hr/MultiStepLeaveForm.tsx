@@ -243,7 +243,7 @@ export default function MultiStepLeaveForm({
                 toast.success(`Leave application(s) submitted on behalf of ${proxyEmp?.employee_name ?? proxyEmp?.name ?? "employee"}.`);
                 onClose();
             } catch (error: any) {
-                toast.error(error.response?.data?.message || "Failed to submit leave application");
+                toast.error(error?.response?.data?.message || error?.message || "Failed to submit leave application");
             } finally { setIsSubmitting(false); }
             return;
         }

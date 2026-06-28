@@ -236,6 +236,8 @@ export default function MultiStepExitForm() {
   };
 
   const handleSubmit = async () => {
+    if (!formData.resignationDate) { toast.error("Please select your resignation date."); setCurrentStep(1); return; }
+    if (!formData.reasonForLeaving) { toast.error("Please select a reason for leaving."); setCurrentStep(1); return; }
     setIsSubmitting(true);
 
     try {
@@ -303,7 +305,7 @@ export default function MultiStepExitForm() {
 
     } catch (error: any) {
       console.error("Failed to submit exit interview:", error);
-      toast.error(error.response?.data?.message || "Failed to submit exit interview");
+      toast.error(error?.response?.data?.message || error?.message || "Failed to submit exit interview");
     } finally {
       setIsSubmitting(false);
     }
@@ -316,6 +318,10 @@ export default function MultiStepExitForm() {
   };
 
   const nextStep = () => {
+    if (currentStep === 1) {
+      if (!formData.resignationDate) { toast.error("Please select your resignation date."); return; }
+      if (!formData.reasonForLeaving) { toast.error("Please select a reason for leaving."); return; }
+    }
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -429,7 +435,15 @@ export default function MultiStepExitForm() {
                   <DatePicker
                     id="resignationDate"
                     value={formData.resignationDate}
-                    onChange={(_, dateStr) => setFormData(prev => ({ ...prev, resignationDate: dateStr }))}
+                    onChange={(selectedDates, dateStr) => {
+                      // Prefer flatpickr's formatted string (timezone-safe); fall back to
+                      // the selected Date formatted in local time so the state always binds.
+                      const d = selectedDates?.[0];
+                      const local = d
+                        ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+                        : "";
+                      setFormData(prev => ({ ...prev, resignationDate: dateStr || local }));
+                    }}
                     placeholder="YYYY-MM-DD"
                   />
                   {formData.resignationDate && (
