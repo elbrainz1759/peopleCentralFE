@@ -29,6 +29,7 @@ interface LeaveRequest {
     status: "Approved" | "Pending" | "Reviewed" | "Rejected";
     appliedOn: string;
     dateCreated: string;
+    durations?: any[];
 }
 
 type CommentAction = { type: "line-manager-approve" | "hr-finalize" | "reject" | "cancel"; id: number } | null;
@@ -149,10 +150,6 @@ export default function LeaveApprovalsTable() {
                 ["Employee Name", record.employeeName],
                 ["Department", record.department],
                 ["Role", record.role],
-                ["Leave Type", record.leaveType],
-                ["Start Date", record.startDate],
-                ["End Date", record.endDate],
-                ["Duration", record.duration],
                 ["Reason", record.reason || "N/A"],
                 ["Applied On", record.appliedOn],
                 ["Status", statusLabel(record.status)],
@@ -161,6 +158,30 @@ export default function LeaveApprovalsTable() {
             headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
             styles: { fontSize: 10 },
             columnStyles: { 0: { fontStyle: "bold", cellWidth: 55 } },
+        });
+
+        // One row per leave type with its own dates and hours (a single request can
+        // span multiple types/date ranges); fall back to the summary if not available.
+        const breakdownRows = (record.durations && record.durations.length > 0)
+            ? record.durations.map((d: any) => [
+                d.leave_type_name || d.leaveType?.name || record.leaveType || "—",
+                d.start_date ? new Date(d.start_date).toLocaleDateString() : "—",
+                d.end_date ? new Date(d.end_date).toLocaleDateString() : "—",
+                d.hours != null ? `${d.hours} hrs` : "—",
+            ])
+            : [[record.leaveType, record.startDate, record.endDate, record.duration]];
+
+        const yB = (doc as any).lastAutoTable?.finalY || 100;
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Leave Breakdown", 14, yB + 12);
+        autoTable(doc, {
+            startY: yB + 16,
+            head: [["Leave Type", "Start Date", "End Date", "Duration"]],
+            body: breakdownRows,
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 10 },
         });
 
         const y1 = (doc as any).lastAutoTable?.finalY || 110;
@@ -213,6 +234,7 @@ export default function LeaveApprovalsTable() {
                 status: item.status,
                 appliedOn: new Date(item.created_at).toLocaleDateString(),
                 dateCreated: new Date(item.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+                durations: item.durations ?? [],
             }));
             setTableData(mappedData);
         } catch (error: any) {

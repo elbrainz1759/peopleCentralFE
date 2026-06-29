@@ -31,6 +31,7 @@ interface LeaveRecord {
     appliedOn: string;
     handoverNotes?: string;
     supervisor?: string;
+    durations?: any[];
 }
 
 const tableData: LeaveRecord[] = [
@@ -131,7 +132,8 @@ export default function LeaveHistoryTable() {
                     reason: item.reason,
                     status: item.status, // Assuming status comes back correctly
                     appliedOn: item.created_at ? new Date(item.created_at).toLocaleDateString() : "-",
-                    handoverNotes: item.handover_note
+                    handoverNotes: item.handover_note,
+                    durations: item.durations ?? [],
                 }));
                 
                 console.log("Mapped data:", mappedData); // Debug log
@@ -196,10 +198,6 @@ export default function LeaveHistoryTable() {
             body: [
                 ["Employee Name", employeeName],
                 ["Department", department],
-                ["Leave Type", record.leaveType],
-                ["Start Date", record.startDate],
-                ["End Date", record.endDate],
-                ["Duration", record.duration],
                 ["Reason", record.reason || "N/A"],
                 ["Applied On", record.appliedOn],
                 ["Status", record.status],
@@ -208,6 +206,29 @@ export default function LeaveHistoryTable() {
             headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
             styles: { fontSize: 10 },
             columnStyles: { 0: { fontStyle: "bold", cellWidth: 55 } },
+        });
+
+        // One row per leave type with its own dates and hours; fall back to summary.
+        const breakdownRows = (record.durations && record.durations.length > 0)
+            ? record.durations.map((d: any) => [
+                d.leave_type_name || d.leaveType?.name || record.leaveType || "—",
+                d.start_date ? new Date(d.start_date).toLocaleDateString() : "—",
+                d.end_date ? new Date(d.end_date).toLocaleDateString() : "—",
+                d.hours != null ? `${d.hours} hrs` : "—",
+            ])
+            : [[record.leaveType, record.startDate, record.endDate, record.duration]];
+
+        const yB = (doc as any).lastAutoTable?.finalY || 90;
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Leave Breakdown", 14, yB + 12);
+        autoTable(doc, {
+            startY: yB + 16,
+            head: [["Leave Type", "Start Date", "End Date", "Duration"]],
+            body: breakdownRows,
+            theme: "grid",
+            headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: "bold" },
+            styles: { fontSize: 10 },
         });
 
         const y1 = (doc as any).lastAutoTable?.finalY || 100;
