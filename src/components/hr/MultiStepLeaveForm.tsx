@@ -182,6 +182,21 @@ export default function MultiStepLeaveForm({
                 else if (d.startDate && d.endDate && d.endDate < d.startDate)
                     newErrors[`endDate_${i}`] = "End date must be after start date.";
             });
+
+            // Backend rejects overlapping date ranges — flag them here first.
+            // ISO (YYYY-MM-DD) strings compare correctly with <=.
+            for (let i = 0; i < formData.dates.length; i++) {
+                const a = formData.dates[i];
+                if (!a.startDate || !a.endDate || a.endDate < a.startDate) continue;
+                for (let j = 0; j < i; j++) {
+                    const b = formData.dates[j];
+                    if (!b.startDate || !b.endDate || b.endDate < b.startDate) continue;
+                    if (a.startDate <= b.endDate && b.startDate <= a.endDate) {
+                        newErrors[`startDate_${i}`] = `These dates overlap with leave row ${j + 1}. Use non-overlapping date ranges.`;
+                        break;
+                    }
+                }
+            }
         }
 
         if (step === 1 && proxyMode) {
