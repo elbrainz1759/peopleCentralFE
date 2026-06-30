@@ -8,6 +8,7 @@ import Badge from "@/components/ui/badge/Badge";
 import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { addPdfLogo } from "@/utils/pdfLogo";
 
 const exitServiceInstance = ExitService.getInstance();
 const leaveServiceInstance = leaveService.getInstance();
@@ -258,6 +259,7 @@ export default function ReportsPage() {
         setIsExporting(true);
         try {
             const doc = new jsPDF({ orientation: "landscape" });
+            addPdfLogo(doc);
             doc.setFontSize(16);
             doc.setFont("helvetica", "bold");
             doc.text(`${activeTab === "leave" ? "Leave" : "Exit"} Report — Mercy Corps`, 148, 16, { align: "center" });

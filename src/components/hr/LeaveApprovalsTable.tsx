@@ -15,6 +15,7 @@ import { Modal } from "../ui/modal";
 import MultiStepLeaveForm from "./MultiStepLeaveForm";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { addPdfLogo } from "@/utils/pdfLogo";
 
 interface LeaveRequest {
     id: number;
@@ -131,6 +132,7 @@ export default function LeaveApprovalsTable() {
 
     const downloadApprovalPDF = (record: LeaveRequest) => {
         const doc = new jsPDF();
+        addPdfLogo(doc);
         doc.setFontSize(20);
         doc.setFont("helvetica", "bold");
         doc.text("LEAVE APPROVAL NOTICE", 105, 20, { align: "center" });

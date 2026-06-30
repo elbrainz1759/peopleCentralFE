@@ -19,6 +19,7 @@ import { Drawer } from "../ui/drawer/Drawer";
 import MultiStepLeaveForm from "./MultiStepLeaveForm";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { addPdfLogo } from "@/utils/pdfLogo";
 
 interface LeaveRecord {
     id: number;
@@ -179,6 +180,7 @@ export default function LeaveHistoryTable() {
         const department = currentUser?.department_name ?? currentUser?.department ?? "N/A";
 
         const doc = new jsPDF();
+        addPdfLogo(doc);
 
         doc.setFontSize(20);
         doc.setFont("helvetica", "bold");

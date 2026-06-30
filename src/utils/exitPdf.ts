@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { addPdfLogo } from "./pdfLogo";
 
 export interface ExitPdfEmployee {
     employeeName: string;
@@ -72,6 +73,7 @@ const val = (d: any, ...keys: string[]) => {
 
 export function generateInterviewPDF(emp: ExitPdfEmployee, details: any) {
     const doc = new jsPDF();
+    addPdfLogo(doc);
 
     doc.setFontSize(18); doc.setFont("helvetica", "bold");
     doc.text("EXIT INTERVIEW REPORT", 105, 18, { align: "center" });
@@ -174,6 +176,7 @@ export function generateClearancePDF(emp: ExitPdfEmployee, _details: any, checkl
     const pastStage = (s: string) => currentIdx > stageOrder.indexOf(s);
 
     const doc = new jsPDF();
+    addPdfLogo(doc);
     doc.setFontSize(18); doc.setFont("helvetica", "bold");
     doc.text("EXIT CLEARANCE REPORT", 105, 18, { align: "center" });
     doc.setFontSize(10); doc.setFont("helvetica", "normal");
