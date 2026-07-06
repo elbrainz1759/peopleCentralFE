@@ -79,6 +79,10 @@ export default function MultiStepLeaveForm({
     const needsMedicalDoc = isSickLeave && maxWorkingDays > 2;
     const hasTriggerDoc = formData.dates.some((d: any) => {
         const lt = rowLeaveType(d.leaveTypeId) as any;
+        // Sick Leave's document requirement is governed strictly by the day count
+        // (> 2 working days) via needsMedicalDoc — never by the leave-type trigger,
+        // so a 1–2 day sick leave never asks for a document.
+        if (lt?.name?.toLowerCase().includes("sick")) return false;
         return lt?.require_document === 'Yes' || (lt?.trigger_value ?? 0) > 0;
     });
     const needsSupportingDoc = isExaminationLeave || needsMedicalDoc || hasTriggerDoc;
