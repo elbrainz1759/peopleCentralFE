@@ -228,13 +228,6 @@ export default function MultiStepExitForm() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const calculateLastWorkingDay = (resignationDate: string) => {
-    if (!resignationDate) return "N/A";
-    const date = new Date(resignationDate);
-    date.setMonth(date.getMonth() + 1); // Add 1 month
-    return date.toISOString().split('T')[0];
-  };
-
   const handleSubmit = async () => {
     if (!formData.resignationDate) { toast.error("Please select your resignation date."); setCurrentStep(1); return; }
     if (!formData.reasonForLeaving) { toast.error("Please select a reason for leaving."); setCurrentStep(1); return; }
@@ -430,7 +423,7 @@ export default function MultiStepExitForm() {
 
                 <div className="space-y-3.5">
                   <label className="text-sm font-black text-gray-800 dark:text-gray-200 ml-1 tracking-tight">
-                    Resignation Date * <span className="text-xs font-normal text-gray-400">(MM/DD/YY)</span>
+                    Date of Separation / Exit * <span className="text-xs font-normal text-gray-400">(MM/DD/YY)</span>
                   </label>
                   <DatePicker
                     id="resignationDate"
@@ -451,12 +444,6 @@ export default function MultiStepExitForm() {
                       <div className="flex items-center gap-2.5 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 w-fit">
                         <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Selected:</span>
                         <span className="text-sm font-black text-gray-800 dark:text-white">{formatDateMMDDYY(formData.resignationDate)}</span>
-                      </div>
-                      <div className="flex items-center gap-2.5 px-4 py-2 bg-brand-50 dark:bg-brand-500/5 rounded-xl border border-brand-100 dark:border-brand-500/20 w-fit">
-                        <div className="w-2 h-2 rounded-full bg-brand-500"></div>
-                        <p className="text-[11px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-widest">
-                          Commitment End: <span className="opacity-70 font-bold">{formatDateMMDDYY(calculateLastWorkingDay(formData.resignationDate))}</span>
-                        </p>
                       </div>
                     </div>
                   )}
