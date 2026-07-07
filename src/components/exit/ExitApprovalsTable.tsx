@@ -483,13 +483,13 @@ export default function ExitApprovalsTable() {
                     checkListItemIds: selectedChecklistIds.map(Number),
                     notes: 'Documents filed',
                 });
-                toast.success("HR cleared. Forwarded to HR Director for final sign-off.");
+                toast.success("HR cleared. Forwarded to Snr HR Manager for final sign-off.");
                 setIsReviewOpen(false);
                 fetchInterviews();
 
             } else if (stage === 'HR_Final' || stage === 'HR_Director') {
                 await exitServiceInstance.finalizeExitInterview(selectedInterview.uniqueId as any);
-                toast.success("HR Director finalized. Exit clearance process is now closed.");
+                toast.success("Snr HR Manager finalized. Exit clearance process is now closed.");
                 setIsReviewOpen(false);
                 fetchInterviews();
 
@@ -531,6 +531,16 @@ export default function ExitApprovalsTable() {
             case "HR_Director": return "warning";
             case "Completed":  return "success";
             default:           return "light";
+        }
+    };
+
+    // Human-readable stage label. Keeps the internal stage keys (a backend contract)
+    // untouched while showing friendly text — e.g. "HR Director" is now "Snr HR Manager".
+    const stageLabel = (stage: string): string => {
+        switch (stage) {
+            case "HR_Director": return "Snr HR Manager";
+            case "HR_Final":    return "HR Final";
+            default:            return stage;
         }
     };
 
@@ -713,14 +723,14 @@ export default function ExitApprovalsTable() {
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="font-medium text-gray-600 dark:text-gray-300">Stage</span>
-                                        <Badge size="sm" color={getStageColor(interview.stage)}>{interview.stage}</Badge>
+                                        <Badge size="sm" color={getStageColor(interview.stage)}>{stageLabel(interview.stage)}</Badge>
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
                                     <Button size="sm" variant="outline" onClick={() => handleReview(interview)} className="flex-1">
                                         Review
                                     </Button>
-                                    {interview.stage === "Completed" && (
+                                    {(interview.stage === "Completed" || isUserHR) && (
                                         <>
                                             <button
                                                 onClick={() => handleDownload(interview, 'interview')}
@@ -828,7 +838,7 @@ export default function ExitApprovalsTable() {
                                 </TableCell>
                                 <TableCell className="py-3">
                                     <Badge size="sm" color={getStageColor(interview.stage)}>
-                                        {interview.stage}
+                                        {stageLabel(interview.stage)}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="py-3 text-right">
@@ -836,7 +846,7 @@ export default function ExitApprovalsTable() {
                                         <Button size="sm" variant="outline" onClick={() => handleReview(interview)}>
                                             Review
                                         </Button>
-                                        {interview.stage === "Completed" && (
+                                        {(interview.stage === "Completed" || isUserHR) && (
                                             <>
                                                 <button
                                                     onClick={() => handleDownload(interview, 'interview')}

@@ -36,6 +36,13 @@ const STAGE_COLOR: Record<string, "info" | "warning" | "success" | "error" | "li
     Completed: "success",
 };
 
+// Friendly stage labels — keep the internal keys but show readable text.
+const STAGE_LABEL: Record<string, string> = {
+    HR_Director: "Snr HR Manager",
+    HR_Final: "HR Final",
+};
+const stageLabel = (stage: string) => STAGE_LABEL[stage] ?? stage;
+
 const STATUS_COLOR: Record<string, "info" | "warning" | "success" | "error" | "light"> = {
     Pending: "warning",
     Approved: "success",
@@ -174,7 +181,7 @@ export default function MyExitRequestsPage() {
                                     <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
                                         <div className="flex justify-between">
                                             <span className="font-medium text-gray-600 dark:text-gray-300">Stage</span>
-                                            <Badge size="sm" color={STAGE_COLOR[r.stage] ?? "light"}>{r.stage}</Badge>
+                                            <Badge size="sm" color={STAGE_COLOR[r.stage] ?? "light"}>{stageLabel(r.stage)}</Badge>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="font-medium text-gray-600 dark:text-gray-300">Resignation Date</span>
@@ -247,7 +254,7 @@ export default function MyExitRequestsPage() {
                                         <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{r.resignationDate}</TableCell>
                                         <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 max-w-[200px] truncate">{r.reasonForLeaving}</TableCell>
                                         <TableCell className="py-3">
-                                            <Badge size="sm" color={STAGE_COLOR[r.stage] ?? "light"}>{r.stage}</Badge>
+                                            <Badge size="sm" color={STAGE_COLOR[r.stage] ?? "light"}>{stageLabel(r.stage)}</Badge>
                                         </TableCell>
                                         <TableCell className="py-3">
                                             <Badge size="sm" color={STATUS_COLOR[r.status] ?? "light"}>{r.status}</Badge>
