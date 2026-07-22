@@ -43,6 +43,17 @@ function empName(e: any): string {
     return (e?.employee_name || e?.name || `${e?.first_name ?? ""} ${e?.last_name ?? ""}`.trim()) || "";
 }
 
+// Format a picked date as YYYY-MM-DD in LOCAL time. flatpickr's dateStr is
+// already local; using date.toISOString() would shift to UTC and roll the day
+// back one in timezones ahead of UTC (e.g. WAT), so prefer dateStr.
+function pickedYMD(selectedDates: Date[], dateStr: string): string {
+    if (dateStr) return dateStr;
+    const d = selectedDates?.[0];
+    return d
+        ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+        : "";
+}
+
 export default function MultiStepLeaveForm({
     onClose,
     initialData,
@@ -424,17 +435,17 @@ export default function MultiStepLeaveForm({
                                         </div>
                                         <div>
                                             <DatePicker id={`start-date-${index}`} placeholder="Start date" value={range.startDate}
-                                                onChange={(selectedDates) => {
-                                                    const date = selectedDates[0];
-                                                    if (date) handleDateChange(index, "startDate", date.toISOString().split('T')[0]);
+                                                onChange={(selectedDates, dateStr) => {
+                                                    const v = pickedYMD(selectedDates, dateStr);
+                                                    if (v) handleDateChange(index, "startDate", v);
                                                 }} />
                                             {errors[`startDate_${index}`] && <p className="mt-1 text-xs text-red-500">{errors[`startDate_${index}`]}</p>}
                                         </div>
                                         <div>
                                             <DatePicker id={`end-date-${index}`} placeholder="End date" value={range.endDate}
-                                                onChange={(selectedDates) => {
-                                                    const date = selectedDates[0];
-                                                    if (date) handleDateChange(index, "endDate", date.toISOString().split('T')[0]);
+                                                onChange={(selectedDates, dateStr) => {
+                                                    const v = pickedYMD(selectedDates, dateStr);
+                                                    if (v) handleDateChange(index, "endDate", v);
                                                 }} />
                                             {errors[`endDate_${index}`] && <p className="mt-1 text-xs text-red-500">{errors[`endDate_${index}`]}</p>}
                                         </div>
