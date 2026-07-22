@@ -37,6 +37,12 @@ function countWorkingDays(start: string, end: string): number {
     return count;
 }
 
+// Resolve an employee's display name. The API returns first_name/last_name,
+// not employee_name/name, so fall back to those before giving up.
+function empName(e: any): string {
+    return (e?.employee_name || e?.name || `${e?.first_name ?? ""} ${e?.last_name ?? ""}`.trim()) || "";
+}
+
 export default function MultiStepLeaveForm({
     onClose,
     initialData,
@@ -259,7 +265,7 @@ export default function MultiStepLeaveForm({
             setIsSubmitting(true);
             try {
                 await submitGrouped(empStaffId);
-                toast.success(`Leave application(s) submitted on behalf of ${proxyEmp?.employee_name ?? proxyEmp?.name ?? "employee"}.`);
+                toast.success(`Leave application(s) submitted on behalf of ${empName(proxyEmp) || "employee"}.`);
                 onClose();
             } catch (error: any) {
                 toast.error(error?.response?.data?.message || error?.message || "Failed to submit leave application");
@@ -330,7 +336,7 @@ export default function MultiStepLeaveForm({
                                     }}
                                     options={employees.map((e: any) => ({
                                         value: String(e.unique_id ?? e.id),
-                                        label: e.employee_name ?? e.name ?? `Employee ${e.id}`,
+                                        label: empName(e) || `Employee ${e.id}`,
                                     }))}
                                     placeholder={isLoadingEmployees ? "Loading employees..." : "Select employee..."}
                                     disabled={isLoadingEmployees}
@@ -341,10 +347,10 @@ export default function MultiStepLeaveForm({
                                     return emp ? (
                                         <div className="flex items-center gap-2 mt-1">
                                             <div className="h-7 w-7 rounded-full bg-purple-200 dark:bg-purple-800 flex items-center justify-center text-xs font-bold text-purple-700 dark:text-purple-300">
-                                                {(emp.employee_name ?? emp.name ?? "?")[0].toUpperCase()}
+                                                {(empName(emp) || "?")[0].toUpperCase()}
                                             </div>
                                             <div>
-                                                <p className="text-sm font-medium text-purple-800 dark:text-purple-200">{emp.employee_name ?? emp.name}</p>
+                                                <p className="text-sm font-medium text-purple-800 dark:text-purple-200">{empName(emp)}</p>
                                                 <p className="text-xs text-purple-500">{emp.designation ?? emp.job_title ?? ""}</p>
                                             </div>
                                         </div>
@@ -505,7 +511,7 @@ export default function MultiStepLeaveForm({
                                         }}
                                         options={employees
                                             .filter((e: any) => !formData.handoverEntries.some((en, idx) => idx !== i && en.colleagueId === String(e.unique_id ?? e.id)))
-                                            .map((e: any) => ({ value: String(e.unique_id ?? e.id), label: e.employee_name ?? e.name ?? `Employee ${e.id}` }))}
+                                            .map((e: any) => ({ value: String(e.unique_id ?? e.id), label: empName(e) || `Employee ${e.id}` }))}
                                         placeholder={isLoadingEmployees ? "Loading..." : "Select colleague..."}
                                         disabled={isLoadingEmployees}
                                     />
@@ -602,7 +608,7 @@ export default function MultiStepLeaveForm({
                             return emp ? (
                                 <div className="flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-900/10 px-3 py-2 text-sm text-purple-700 dark:text-purple-300">
                                     <span className="font-medium">Applying on behalf of:</span>
-                                    <span>{emp.employee_name ?? emp.name}</span>
+                                    <span>{empName(emp)}</span>
                                 </div>
                             ) : null;
                         })()}
@@ -632,7 +638,7 @@ export default function MultiStepLeaveForm({
                                         const emp = employees.find((e: any) => String(e.unique_id ?? e.id) === String(entry.colleagueId));
                                         return (
                                             <div key={i} className="text-xs">
-                                                <span className="font-medium text-gray-800 dark:text-white">{emp?.employee_name ?? emp?.name ?? "—"}</span>
+                                                <span className="font-medium text-gray-800 dark:text-white">{empName(emp) || "—"}</span>
                                                 {entry.notes && <span className="text-gray-500 ml-1">— {entry.notes}</span>}
                                             </div>
                                         );
