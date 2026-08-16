@@ -104,11 +104,12 @@ export class LeaveBalanceService {
   }
 
   /**
-   * Update leave balance
+   * Update leave balance's total hours (used_hours is preserved; remaining_hours
+   * shifts by the same delta server-side)
    */
-  async updateLeaveBalance(id: number, data: Partial<LeaveBalance>): Promise<any> {
+  async updateLeaveBalance(id: number, totalHours: number): Promise<any> {
     try {
-      const response = await api.patch<any>(`/leave-balances/${id}`, data);
+      const response = await api.patch<any>(`/leave-balances/${id}`, { totalHours });
       return response;
     } catch (error) {
       console.error('LeaveBalanceService update error:', error);

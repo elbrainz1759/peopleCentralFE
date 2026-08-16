@@ -42,32 +42,6 @@ export interface ChecklistItem {
   createdAt?: string;
 }
 
-// Exit Clearance Interface (department-specific clearances)
-export interface ExitClearance {
-  id?: number;
-  uniqueId?: string;
-  exitInterviewId: number;
-  checklistItemId: number;
-  departmentId: number;
-  clearedBy: number;
-  status: 'Pending' | 'Cleared' | 'Not Returned';
-  notes?: string;
-  clearedAt?: string;
-  createdAt?: string;
-}
-
-// Exit Approval Interface
-export interface ExitApproval {
-  id?: number;
-  exitInterviewId: number;
-  approverId: number;
-  approverRole: 'Supervisor' | 'Operations' | 'Finance' | 'HR';
-  status: 'Pending' | 'Approved' | 'Rejected';
-  comments?: string;
-  approvedAt?: string;
-  createdAt?: string;
-}
-
 export class ExitService {
   private static instance: ExitService;
 
@@ -326,62 +300,6 @@ export class ExitService {
       return response;
     } catch (error) {
       console.error('ExitService deleteChecklistItem error:', error);
-      throw error;
-    }
-  }
-
-  // --- Exit Clearance Management ---
-
-  /**
-   * Get clearances for an exit interview
-   */
-  async getClearancesByInterviewId(interviewId: number): Promise<any> {
-    try {
-      const response = await api.get<any>(`/exit-clearances/interview/${interviewId}`);
-      return response;
-    } catch (error) {
-      console.error('ExitService getClearancesByInterviewId error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Update clearance status
-   */
-  async updateClearance(id: number, clearanceData: Partial<ExitClearance>): Promise<any> {
-    try {
-      const response = await api.patch<any>(`/exit-clearances/${id}`, clearanceData);
-      return response;
-    } catch (error) {
-      console.error('ExitService updateClearance error:', error);
-      throw error;
-    }
-  }
-
-  // --- Exit Approval Management ---
-
-  /**
-   * Get approvals for an exit interview
-   */
-  async getApprovalsByInterviewId(interviewId: number): Promise<any> {
-    try {
-      const response = await api.get<any>(`/exit-approvals/interview/${interviewId}`);
-      return response;
-    } catch (error) {
-      console.error('ExitService getApprovalsByInterviewId error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Create exit approval
-   */
-  async createApproval(approvalData: Partial<ExitApproval>): Promise<any> {
-    try {
-      const response = await api.post<any>('/exit-approvals', approvalData);
-      return response;
-    } catch (error) {
-      console.error('ExitService createApproval error:', error);
       throw error;
     }
   }
