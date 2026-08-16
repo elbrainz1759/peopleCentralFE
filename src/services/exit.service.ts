@@ -236,7 +236,7 @@ export class ExitService {
   async clearExitInterviewItems(
     id: number | string,
     payload: {
-      department: 'Operations' | 'Finance' | 'HR';
+      department: 'Supervisor' | 'Operations' | 'Finance' | 'HR' | 'HR_Director';
       checkListItemIds: number[];
       notes?: string;
     }

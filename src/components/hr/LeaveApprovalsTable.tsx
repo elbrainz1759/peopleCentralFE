@@ -63,7 +63,7 @@ export default function LeaveApprovalsTable() {
     const [currentUserRole, setCurrentUserRole] = useState("");
     const [isProxyDrawerOpen, setIsProxyDrawerOpen] = useState(false);
     const [isHREditOpen, setIsHREditOpen] = useState(false);
-    const [hrEditRecord, setHrEditRecord] = useState<{ id: number; reason: string; handoverNote: string } | null>(null);
+    const [hrEditRecord, setHrEditRecord] = useState<{ id: number; reason: string } | null>(null);
     const [isSavingHREdit, setIsSavingHREdit] = useState(false);
 
     // ── Role detection ────────────────────────────────────────────
@@ -107,7 +107,7 @@ export default function LeaveApprovalsTable() {
 
     const openHREdit = (record: LeaveRequest) => {
         closeDropdown();
-        setHrEditRecord({ id: record.id, reason: record.reason || "", handoverNote: "" });
+        setHrEditRecord({ id: record.id, reason: record.reason || "" });
         setIsHREditOpen(true);
     };
 
@@ -117,7 +117,6 @@ export default function LeaveApprovalsTable() {
         try {
             await leaveService.getInstance().updateLeave(hrEditRecord.id, {
                 reason: hrEditRecord.reason,
-                handoverNote: hrEditRecord.handoverNote,
             });
             toast.success("Leave record updated.");
             setIsHREditOpen(false);
@@ -725,15 +724,6 @@ export default function LeaveApprovalsTable() {
                                 rows={3}
                                 value={hrEditRecord.reason}
                                 onChange={e => setHrEditRecord(prev => prev ? { ...prev, reason: e.target.value } : null)}
-                                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 resize-none"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Handover Note (if applicable)</label>
-                            <textarea
-                                rows={2}
-                                value={hrEditRecord.handoverNote}
-                                onChange={e => setHrEditRecord(prev => prev ? { ...prev, handoverNote: e.target.value } : null)}
                                 className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 resize-none"
                             />
                         </div>

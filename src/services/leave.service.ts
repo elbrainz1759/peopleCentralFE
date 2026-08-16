@@ -129,9 +129,9 @@ export class leaveService {
         }
     }
 
-    async cancelLeave(leaveId: number, comments?: string): Promise<any> {
+    async cancelLeave(leaveId: number, reason?: string): Promise<any> {
         try {
-            const response = await api.patch<any>(`/leaves/${leaveId}/cancel`, { comments });
+            const response = await api.patch<any>(`/leaves/${leaveId}/cancel`, { reason });
             return response;
         } catch (error) {
             console.error('LeaveService cancelLeave error:', error);
@@ -139,7 +139,7 @@ export class leaveService {
         }
     }
 
-    async updateLeave(leaveId: number, data: Partial<{ reason: string; handoverNote: string; comments: string }>): Promise<any> {
+    async updateLeave(leaveId: number, data: Partial<{ reason: string }>): Promise<any> {
         try {
             const response = await api.patch<any>(`/leaves/${leaveId}`, data);
             return response;

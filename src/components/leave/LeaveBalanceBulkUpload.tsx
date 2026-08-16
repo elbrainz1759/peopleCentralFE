@@ -13,7 +13,7 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
   const [balances, setBalances] = useState<BulkUploadRequest[]>([
     {
       staffId: 0,
-      leaveTypeId: 0,
+      leaveTypeId: '',
       totalHours: 0
     }
   ]);
@@ -22,7 +22,7 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
-  const [leaveTypes, setLeaveTypes] = useState<{ id: number; name: string }[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<{ id: number; unique_id: string; name: string }[]>([]);
   const [isLoadingLeaveTypes, setIsLoadingLeaveTypes] = useState(false);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
   const addBalanceRow = () => {
     setBalances([...balances, {
       staffId: 0,
-      leaveTypeId: 0,
+      leaveTypeId: '',
       totalHours: 0
     }]);
   };
@@ -74,7 +74,7 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
     const newBalances = [...balances];
     newBalances[index] = {
       ...newBalances[index],
-      [field]: field === 'staffId' || field === 'leaveTypeId' || field === 'totalHours' ? Number(value) : value
+      [field]: field === 'staffId' || field === 'totalHours' ? Number(value) : value
     };
     setBalances(newBalances);
   };
@@ -82,7 +82,7 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
   const handleDownloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
       ["staffId", "leaveTypeId", "totalHours"],
-      [1001, 1, 40],
+      [1001, leaveTypes[0]?.unique_id ?? "", 40],
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "LeaveBalances");
@@ -119,7 +119,7 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
 
         const parsed: BulkUploadRequest[] = rows.map((row: any, i: number) => {
           const staffId = Number(row.staffId || row["Staff ID"] || row["staff_id"] || 0);
-          const leaveTypeId = Number(row.leaveTypeId || row["Leave Type ID"] || row["leave_type_id"] || 0);
+          const leaveTypeId = String(row.leaveTypeId || row["Leave Type ID"] || row["leave_type_id"] || "");
           const totalHours = Number(row.totalHours || row["Total Hours"] || row["total_hours"] || 0);
 
           if (!staffId || !leaveTypeId || !totalHours) {
@@ -248,7 +248,7 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
                   value={balance.leaveTypeId}
                   onChange={(v) => updateBalance(index, 'leaveTypeId', v)}
                   options={leaveTypes.map(type => ({
-                    value: type.id,
+                    value: type.unique_id,
                     label: type.name,
                   }))}
                   placeholder="Type"
@@ -285,7 +285,7 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
             type="button"
             onClick={() => setBalances([{
               staffId: 0,
-              leaveTypeId: 0,
+              leaveTypeId: '',
               totalHours: 0
             }])}
             className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 dark:hover:bg-white/5 transition-colors"

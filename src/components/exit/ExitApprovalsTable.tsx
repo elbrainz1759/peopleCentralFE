@@ -448,7 +448,11 @@ export default function ExitApprovalsTable() {
 
         try {
             if (stage === 'Employee' || stage === 'Supervisor') {
-                await exitServiceInstance.advanceStage(selectedInterview.uniqueId as any, 'Operations');
+                await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
+                    department: 'Supervisor',
+                    checkListItemIds: [],
+                    notes: 'Supervisor handover approved',
+                });
                 toast.success("Supervisor approved. Forwarded to Operations for asset clearance.");
                 setIsReviewOpen(false);
                 fetchInterviews();

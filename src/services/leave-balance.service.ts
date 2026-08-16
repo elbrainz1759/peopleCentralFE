@@ -15,7 +15,7 @@ export interface LeaveBalance {
 
 export interface BulkUploadRequest {
   staffId: number;
-  leaveTypeId: number;
+  leaveTypeId: string;
   totalHours: number;
 }
 
