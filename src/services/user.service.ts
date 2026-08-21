@@ -14,19 +14,6 @@ export class UserService {
     }
 
     /**
-     * creates a new user profile/account
-     */
-    public async create(userData: UserCreateRequest): Promise<any> {
-        try {
-            const response = await api.post<any>('/auth/register', userData);
-            return response;
-        } catch (error) {
-            console.error('UserService create error:', error);
-            throw error;
-        }
-    }
-
-    /**
      * Update a user profile/account (admin or self-service)
      */
 

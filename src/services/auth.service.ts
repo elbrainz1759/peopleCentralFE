@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import { AuthResponse, LoginRequest, RegisterRequest, RefreshRequest } from '@/types/service.types';
+import { AuthResponse, LoginRequest, RefreshRequest } from '@/types/service.types';
 
 export class AuthService {
     private static instance: AuthService;
@@ -76,34 +76,6 @@ export class AuthService {
         const parsedUser = user ? JSON.parse(user) : null;
         console.log('AuthService getCurrentUser:', parsedUser);
         return parsedUser;
-    }
-
-    public async register(userData: RegisterRequest): Promise<AuthResponse> {
-        try {
-            const response = await api.post<AuthResponse>('/auth/register', userData);
-
-            const token = response.accessToken || response.token;
-            const refreshToken = response.refreshToken;
-
-            if (token) {
-                localStorage.setItem('auth_token', token);
-                document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`;
-            }
-
-            if (refreshToken) {
-                localStorage.setItem('refresh_token', refreshToken);
-                document.cookie = `refresh_token=${refreshToken}; path=/; max-age=604800; SameSite=Lax`;
-            }
-
-            if (response.user) {
-                localStorage.setItem('auth_user', JSON.stringify(response.user));
-            }
-
-            return response;
-        } catch (error) {
-            console.error('AuthService register error:', error);
-            throw error;
-        }
     }
 
     /**
