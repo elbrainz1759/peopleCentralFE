@@ -116,11 +116,18 @@ export class UserService {
         }
     }
     /**
-     * gets a list of all employees
+     * Gets a list of all employees. Defaults to a high limit rather than the
+     * backend's page=1/limit=10 default — every caller of this method treats
+     * `.data` as the complete staff list (pickers, dashboards, directories),
+     * none of them implement pagination, so silently truncating to 10 records
+     * once the org has more than 10 employees would hide most of the org from
+     * all of them at once. Pass params to opt into real pagination instead.
      */
-    public async getAllEmployees(): Promise<PaginatedResponse<Employee>> {
+    public async getAllEmployees(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Employee>> {
         try {
-            return await api.get<PaginatedResponse<Employee>>('/employees');
+            const page = params?.page ?? 1;
+            const limit = params?.limit ?? 1000;
+            return await api.get<PaginatedResponse<Employee>>(`/employees?page=${page}&limit=${limit}`);
         } catch (error) {
             console.error('UserService getAllEmployees error:', error);
             throw error;
