@@ -60,22 +60,5 @@
       "react": "^16.8.0 || ^17 || ^18 || ^19",
       "react-dom": "^16.8.0 || ^17 || ^18 || ^19"
     }
-  },
-  "pnpm": {
-    "overrides": {
-      "dompurify": ">=3.4.0",
-      "flatted": ">=3.4.2",
-      "fast-uri": ">=3.1.2",
-      "svgo": ">=3.3.3",
-      "ajv": ">=6.14.0",
-      "@babel/plugin-transform-modules-systemjs": ">=7.29.4",
-      "@eslint/eslintrc>minimatch": "3.1.4",
-      "eslint>minimatch": "3.1.4",
-      "micromatch>picomatch": ">=4.0.4",
-      "tinyglobby>picomatch": ">=4.0.4",
-      "@rollup/plugin-commonjs>picomatch": ">=4.0.4",
-      "@typescript-eslint/typescript-estree>minimatch": "9.0.7",
-      "minimatch>brace-expansion": "5.0.6"
-    }
   }
 }
