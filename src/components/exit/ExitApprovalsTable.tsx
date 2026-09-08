@@ -67,6 +67,11 @@ export default function ExitApprovalsTable() {
     const [selectedChecklistIds, setSelectedChecklistIds] = useState<string[]>([]);
     const [isActioning, setIsActioning] = useState(false);
 
+    // Rehire eligibility — captured by the supervisor at their clearance
+    // step, confidential to HR (see isUserHR below for the display side).
+    const [rehireEligible, setRehireEligible] = useState<"" | "Yes" | "No">("");
+    const [rehireReason, setRehireReason] = useState("");
+
     const [availableQueues, setAvailableQueues] = useState<QueueType[]>(['All', 'HR', 'Operations', 'Finance']);
     const [authUser, setAuthUser] = useState<any>(null);
 
@@ -362,6 +367,8 @@ export default function ExitApprovalsTable() {
         setSelectedInterview(interview);
         setSelectedChecklistIds([]);
         setInterviewDetails(null);
+        setRehireEligible("");
+        setRehireReason("");
         setIsReviewOpen(true);
 
         // Load any previously saved HR assessment from localStorage
@@ -448,10 +455,20 @@ export default function ExitApprovalsTable() {
 
         try {
             if (stage === 'Employee' || stage === 'Supervisor') {
+                if (!rehireEligible) {
+                    toast.error("Please indicate rehire eligibility before approving.");
+                    return;
+                }
+                if (rehireEligible === 'No' && !rehireReason.trim()) {
+                    toast.error("Please provide a reason for the rehire ineligibility.");
+                    return;
+                }
                 await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
                     department: 'Supervisor',
                     checkListItemIds: [],
                     notes: 'Supervisor handover approved',
+                    rehireEligible,
+                    rehireIneligibleReason: rehireEligible === 'No' ? rehireReason.trim() : undefined,
                 });
                 toast.success("Supervisor approved. Forwarded to Operations for asset clearance.");
                 setIsReviewOpen(false);
@@ -964,6 +981,19 @@ export default function ExitApprovalsTable() {
                                 </div>
                             </div>
 
+                            {/* Rehire eligibility — HR-only, red notice when marked ineligible */}
+                            {isUserHR && interviewDetails?.rehire_eligible === 'No' && (
+                                <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/10 dark:border-red-800 px-4 py-3 space-y-1">
+                                    <p className="text-sm font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
+                                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                        Not Eligible for Rehire
+                                    </p>
+                                    {interviewDetails?.rehire_ineligible_reason && (
+                                        <p className="text-sm text-red-600 dark:text-red-300">{interviewDetails.rehire_ineligible_reason}</p>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Checklist section — HR-only confidential section */}
                             {!isUserHR && (
                                 <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
@@ -1222,6 +1252,33 @@ export default function ExitApprovalsTable() {
                                                 {isSavingAssessment ? "Saving & Finalizing..." : isLoadingDetails ? "Loading..." : "Save & Finalize HR Assessment"}
                                             </button>
                                         </>
+                                    )}
+                                </div>
+                            )}
+
+                            {(selectedInterview?.stage === 'Employee' || selectedInterview?.stage === 'Supervisor') && (
+                                <div className="space-y-3 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+                                    <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                        Employee Rehire Eligibility <span className="text-red-500">*</span>
+                                    </label>
+                                    <p className="text-xs text-gray-400">Visible to HR only — the employee will never see this.</p>
+                                    <select
+                                        value={rehireEligible}
+                                        onChange={e => setRehireEligible(e.target.value as "" | "Yes" | "No")}
+                                        className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500"
+                                    >
+                                        <option value="">Select...</option>
+                                        <option value="Yes">Yes — eligible for rehire</option>
+                                        <option value="No">No — not eligible for rehire</option>
+                                    </select>
+                                    {rehireEligible === 'No' && (
+                                        <textarea
+                                            rows={2}
+                                            value={rehireReason}
+                                            onChange={e => setRehireReason(e.target.value)}
+                                            placeholder="Reason for ineligibility (required)..."
+                                            className="w-full rounded-lg border border-red-200 dark:border-red-900/40 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-red-500 resize-none"
+                                        />
                                     )}
                                 </div>
                             )}

@@ -213,6 +213,10 @@ export class ExitService {
       department: 'Supervisor' | 'Operations' | 'Finance' | 'HR' | 'HR_Director';
       checkListItemIds: number[];
       notes?: string;
+      // Only meaningful when department === 'Supervisor'. Confidential —
+      // the backend redacts these from any response that isn't HR/Superadmin.
+      rehireEligible?: 'Yes' | 'No';
+      rehireIneligibleReason?: string;
     }
   ): Promise<any> {
     try {
