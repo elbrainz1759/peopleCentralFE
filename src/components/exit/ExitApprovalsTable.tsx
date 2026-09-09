@@ -189,9 +189,10 @@ export default function ExitApprovalsTable() {
         try {
             let res;
             if (currentQueue === 'Operations' || currentQueue === 'Finance') {
-                const targetDept = departments.find((d: any) => d.name?.toLowerCase() === currentQueue.toLowerCase());
-                const deptIdentifier = targetDept?.unique_id || targetDept?.uniqueId || targetDept?.id || currentQueue;
-                res = await exitServiceInstance.getPendingExitInterviewsByDepartment(deptIdentifier);
+                // GET /exit-interviews/pending/:department matches the exit
+                // interview's literal `stage` value ("Operations"/"Finance"),
+                // not a department UUID — always pass the queue name as-is.
+                res = await exitServiceInstance.getPendingExitInterviewsByDepartment(currentQueue);
             } else {
                 res = await exitServiceInstance.getAllExitInterviews();
             }
