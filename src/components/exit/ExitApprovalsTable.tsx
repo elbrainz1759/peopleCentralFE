@@ -246,13 +246,19 @@ export default function ExitApprovalsTable() {
                 };
             });
 
-            // Pending records are only visible to the assigned supervisor and super_admin
-            const isSuperAdmin = (authUser?.role || '').toLowerCase().includes('superadmin');
-            const userUniqueId = authUser?.unique_id || authUser?.uniqueId || '';
-            mapped = mapped.filter((m: any) => {
-                if ((m.status || 'Pending') !== 'Pending') return true;
-                return isSuperAdmin || (userUniqueId && String(m.supervisorId) === String(userUniqueId));
-            });
+            // Pending records are only visible to the assigned supervisor and super_admin.
+            // This only applies to the generic "All" queue (raw getAllExitInterviews(),
+            // unscoped) — the role-scoped queues (Operations/Finance/HR) are already
+            // correctly filtered server-side by stage + that department's clearance
+            // status, and are not the exit's supervisor, so this check must not run there.
+            if (currentQueue === 'All') {
+                const isSuperAdmin = (authUser?.role || '').toLowerCase().includes('superadmin');
+                const userUniqueId = authUser?.unique_id || authUser?.uniqueId || '';
+                mapped = mapped.filter((m: any) => {
+                    if ((m.status || 'Pending') !== 'Pending') return true;
+                    return isSuperAdmin || (userUniqueId && String(m.supervisorId) === String(userUniqueId));
+                });
+            }
 
             if (currentQueue === 'HR') {
                 mapped = mapped.filter((m: any) => m.stage === 'HR');
