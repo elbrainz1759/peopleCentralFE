@@ -512,6 +512,10 @@ export default function ExitApprovalsTable() {
                 fetchInterviews();
 
             } else if (stage === 'Finance') {
+                if (selectedChecklistIds.length === 0) {
+                    toast.error("Please verify at least one item before approving.");
+                    return;
+                }
                 await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
                     department: 'Finance',
                     checkListItemIds: selectedChecklistIds.map(Number),
