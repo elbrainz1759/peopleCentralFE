@@ -67,6 +67,12 @@ export default function ExitApprovalsTable() {
     const [selectedChecklistIds, setSelectedChecklistIds] = useState<string[]>([]);
     const [isActioning, setIsActioning] = useState(false);
 
+    // Approve/reject comment — optional on approve, required on reject.
+    // Prior stages' comments (and any rejection reasons) are pulled in
+    // alongside so each stage can see what came before it.
+    const [actionComment, setActionComment] = useState("");
+    const [clearanceHistory, setClearanceHistory] = useState<any[]>([]);
+
     // Rehire eligibility — captured by the supervisor at their clearance
     // step, confidential to HR (see isUserHR below for the display side).
     const [rehireEligible, setRehireEligible] = useState<"" | "Yes" | "No">("");
@@ -376,7 +382,17 @@ export default function ExitApprovalsTable() {
         setInterviewDetails(null);
         setRehireEligible("");
         setRehireReason("");
+        setActionComment("");
+        setClearanceHistory([]);
         setIsReviewOpen(true);
+
+        // Prior stages' comments/rejection reasons, so this stage can see them
+        try {
+            const lookupId = interview.uniqueId || interview.id;
+            const statusRes = await exitServiceInstance.getClearanceStatus(lookupId as any);
+            const clearances = statusRes?.data?.clearances || statusRes?.clearances || [];
+            setClearanceHistory(clearances.filter((c: any) => c?.notes));
+        } catch { /* silent — history is supplementary */ }
 
         // Load any previously saved HR assessment from localStorage
         const key = interview.uniqueId || interview.id;
@@ -473,7 +489,7 @@ export default function ExitApprovalsTable() {
                 await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
                     department: 'Supervisor',
                     checkListItemIds: [],
-                    notes: 'Supervisor handover approved',
+                    notes: actionComment.trim() || undefined,
                     rehireEligible,
                     rehireIneligibleReason: rehireEligible === 'No' ? rehireReason.trim() : undefined,
                 });
@@ -489,7 +505,7 @@ export default function ExitApprovalsTable() {
                 await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
                     department: 'Operations',
                     checkListItemIds: selectedChecklistIds.map(Number),
-                    notes: 'Assets returned',
+                    notes: actionComment.trim() || undefined,
                 });
                 toast.success("Operations cleared. Forwarded to Finance.");
                 setIsReviewOpen(false);
@@ -499,7 +515,7 @@ export default function ExitApprovalsTable() {
                 await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
                     department: 'Finance',
                     checkListItemIds: selectedChecklistIds.map(Number),
-                    notes: 'Final salary processed',
+                    notes: actionComment.trim() || undefined,
                 });
                 toast.success("Finance cleared. Forwarded to HR for final review.");
                 setIsReviewOpen(false);
@@ -509,7 +525,7 @@ export default function ExitApprovalsTable() {
                 await exitServiceInstance.clearExitInterviewItems(selectedInterview.uniqueId as any, {
                     department: 'HR',
                     checkListItemIds: selectedChecklistIds.map(Number),
-                    notes: 'Documents filed',
+                    notes: actionComment.trim() || undefined,
                 });
                 toast.success("HR cleared. Forwarded to Snr HR Manager for final sign-off.");
                 setIsReviewOpen(false);
@@ -536,10 +552,47 @@ export default function ExitApprovalsTable() {
         }
     };
 
-    const handleReject = () => {
+    const handleReject = async () => {
         if (!selectedInterview) return;
-        toast.error(`Clearance rejected for ${selectedInterview.employeeName}`);
-        setIsReviewOpen(false);
+
+        const stage = selectedInterview.stage;
+        const rejectableStages: Record<string, 'Supervisor' | 'Operations' | 'Finance' | 'HR' | 'HR_Director'> = {
+            Employee: 'Supervisor',
+            Supervisor: 'Supervisor',
+            Operations: 'Operations',
+            Finance: 'Finance',
+            HR: 'HR',
+            HR_Final: 'HR_Director',
+            HR_Director: 'HR_Director',
+        };
+        const department = rejectableStages[stage];
+        if (!department) {
+            toast.error(`No reject action available for stage: ${stage}`);
+            return;
+        }
+
+        // Comment is required on reject — it becomes the reason HR (and the
+        // employee) see by email, so there has to be something to send.
+        if (!actionComment.trim()) {
+            toast.error("Please provide a reason before rejecting.");
+            return;
+        }
+
+        setIsActioning(true);
+        try {
+            await exitServiceInstance.rejectExitInterviewDepartment(selectedInterview.uniqueId as any, {
+                department,
+                reason: actionComment.trim(),
+            });
+            toast.success(`Clearance rejected for ${selectedInterview.employeeName}. HR has been notified.`);
+            setIsReviewOpen(false);
+            fetchInterviews();
+        } catch (error: any) {
+            console.error("Rejection error", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to reject record.");
+        } finally {
+            setIsActioning(false);
+        }
     };
 
     const toggleChecklistId = (uid: string) => {
@@ -576,6 +629,24 @@ export default function ExitApprovalsTable() {
         const role = (authUser?.role || authUser?.designation || "").toLowerCase();
         return role.includes('hr') || role.includes('admin') || role.includes('superadmin');
     })();
+
+    // Which roles may act on (see the checklist for, and clear) each stage —
+    // mirrors the backend's CLEARANCE_ROLES. HR/Superadmin can act on any
+    // stage on the department's behalf, matching clearDepartment()'s own rule.
+    const STAGE_ACTION_ROLES: Record<string, string[]> = {
+        Operations: ['operation', 'operations'],
+        Finance: ['finance'],
+        HR: ['hr'],
+        HR_Final: ['hr'],
+        HR_Director: ['hr'],
+    };
+
+    const canActOnStage = (stage: string | undefined): boolean => {
+        if (isUserHR) return true;
+        const role = (authUser?.role || "").toLowerCase();
+        const allowed = STAGE_ACTION_ROLES[stage || ''] || [];
+        return allowed.some(r => role.includes(r));
+    };
 
     const toEmpInfo = (iv: ExitInterviewDisplay) => ({
         employeeName: iv.employeeName,
@@ -1001,13 +1072,15 @@ export default function ExitApprovalsTable() {
                                 </div>
                             )}
 
-                            {/* Checklist section — HR-only confidential section */}
-                            {!isUserHR && (
+                            {/* Checklist section — visible to whoever can act on the current
+                                stage (that stage's role, or HR/Superadmin), not HR alone. This
+                                is the reviewer's own clearance checklist, not confidential HR data. */}
+                            {!canActOnStage(selectedInterview.stage) && (
                                 <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
                                     Exit interview notes and checklist details are restricted to HR staff only.
                                 </div>
                             )}
-                            {isUserHR && selectedInterview.stage !== 'Completed' && (selectedInterview as any)?.status !== 'Completed' && (() => {
+                            {canActOnStage(selectedInterview.stage) && selectedInterview.stage !== 'Completed' && (selectedInterview as any)?.status !== 'Completed' && (() => {
                                 const stage = selectedInterview.stage;
 
                                 // Stage → canonical department name + accepted synonyms
@@ -1023,8 +1096,14 @@ export default function ExitApprovalsTable() {
                                 if (!mapping || mapping.canonical === 'Supervisor') return null;
 
                                 const normalize = (s: any) => String(s || '').toLowerCase().trim();
-                                const matchesStageDept = (name: any) =>
-                                    !!name && mapping.synonyms.includes(normalize(name));
+                                const matchesStageDept = (name: any) => {
+                                    const n = normalize(name);
+                                    if (!n) return false;
+                                    // Exact synonym match, or a looser "contains the canonical
+                                    // word" fallback — real department names don't always match
+                                    // a hardcoded list verbatim (e.g. "Finance and Compliance").
+                                    return mapping.synonyms.includes(n) || n.includes(mapping.canonical.toLowerCase());
+                                };
 
                                 const stageDept = departments.find((d: any) =>
                                     matchesStageDept(d?.name)
@@ -1085,6 +1164,53 @@ export default function ExitApprovalsTable() {
                                     </div>
                                 );
                             })()}
+
+                            {/* Previous stages' comments + this stage's own comment box.
+                                Optional to approve, required to reject — enforced in
+                                handleReject(). Visible to whoever can act on the current
+                                stage, same as the checklist above. */}
+                            {canActOnStage(selectedInterview.stage) && selectedInterview.stage !== 'Completed' && (selectedInterview as any)?.status !== 'Completed' && (
+                                <div className="space-y-3">
+                                    {clearanceHistory.length > 0 && (
+                                        <div className="space-y-2">
+                                            <h5 className="font-semibold text-gray-800 dark:text-white/90 border-b pb-2 border-gray-100 dark:border-gray-800">
+                                                Previous Comments
+                                            </h5>
+                                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                                                {clearanceHistory.map((c: any) => (
+                                                    <div
+                                                        key={c.id}
+                                                        className={`text-sm rounded-lg border px-3 py-2 ${c.action === 'Rejected'
+                                                            ? 'border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800'
+                                                            : 'border-gray-100 bg-gray-50 dark:bg-gray-800/20 dark:border-gray-800'}`}
+                                                    >
+                                                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter text-gray-400 mb-1">
+                                                            <span>{c.department}{c.action === 'Rejected' ? ' — Rejected' : ''}</span>
+                                                            <span>{c.cleared_by}</span>
+                                                        </div>
+                                                        <p className={c.action === 'Rejected' ? 'text-red-700 dark:text-red-300' : 'text-gray-700 dark:text-gray-300'}>
+                                                            {c.notes}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                            Comment (optional to approve, required to reject)
+                                        </label>
+                                        <textarea
+                                            value={actionComment}
+                                            onChange={(e) => setActionComment(e.target.value)}
+                                            rows={3}
+                                            placeholder="Add a comment for this stage — visible to the next reviewer and, if rejecting, emailed to HR."
+                                            className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             {/* ── HR Assessment Section (HR-only, only when Operations & Finance have cleared) ── */}
                             {isUserHR && (selectedInterview?.stage === 'HR' || selectedInterview?.stage === 'HR_Final' || selectedInterview?.stage === 'HR_Director') && (

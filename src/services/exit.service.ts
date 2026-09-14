@@ -229,6 +229,43 @@ export class ExitService {
   }
 
   /**
+   * Operations, Finance, HR (or the assigned Supervisor) rejects their stage —
+   * flags that department as 'Rejected' with a required reason and holds the
+   * record at its current stage for HR to follow up on. Does not advance or
+   * roll back the workflow.
+   */
+  async rejectExitInterviewDepartment(
+    id: number | string,
+    payload: {
+      department: 'Supervisor' | 'Operations' | 'Finance' | 'HR' | 'HR_Director';
+      reason: string;
+    }
+  ): Promise<any> {
+    try {
+      const response = await api.post<any>(`/exit-interviews/${id}/reject`, payload);
+      return response;
+    } catch (error) {
+      console.error(`ExitService rejectExitInterviewDepartment error for ${payload.department}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clearance status + the per-stage comment/rejection history
+   * (exit_interview_clearances rows), so a later stage's reviewer can see
+   * what earlier stages noted.
+   */
+  async getClearanceStatus(id: number | string): Promise<any> {
+    try {
+      const response = await api.get<any>(`/exit-interviews/${id}/clearance-status`);
+      return response;
+    } catch (error) {
+      console.error('ExitService getClearanceStatus error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * HR final submission
    */
   async finalizeExitInterview(id: number): Promise<any> {
