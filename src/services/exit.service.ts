@@ -168,7 +168,7 @@ export class ExitService {
 
   async saveHRAssessment(
     id: number | string,
-    _assessment: { assessmentNotes: string; keyThemes: string; recommendation: string; assessedBy: string; assessedAt: string }
+    _assessment: { recommendation: string; assessedBy: string; assessedAt: string }
   ): Promise<any> {
     // Assessment text stored in localStorage; this call clears the HR stage.
     return api.post<any>(`/exit-interviews/${id}/clear`, {

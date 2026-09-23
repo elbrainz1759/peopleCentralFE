@@ -85,12 +85,10 @@ export default function ExitApprovalsTable() {
     const [interviewDetails, setInterviewDetails] = useState<any>(null);
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
     const [hrAssessment, setHrAssessment] = useState<{
-        assessmentNotes: string;
-        keyThemes: string;
         recommendation: "" | "Rehire" | "Do Not Rehire" | "Neutral";
         assessedBy: string;
         assessedAt: string;
-    }>({ assessmentNotes: "", keyThemes: "", recommendation: "", assessedBy: "", assessedAt: "" });
+    }>({ recommendation: "", assessedBy: "", assessedAt: "" });
     const [isSavingAssessment, setIsSavingAssessment] = useState(false);
 
     // HR record-edit state
@@ -397,7 +395,7 @@ export default function ExitApprovalsTable() {
         // Load any previously saved HR assessment from localStorage
         const key = interview.uniqueId || interview.id;
         const saved = loadSavedAssessment(key);
-        setHrAssessment(saved || { assessmentNotes: "", keyThemes: "", recommendation: "", assessedBy: "", assessedAt: "" });
+        setHrAssessment(saved || { recommendation: "", assessedBy: "", assessedAt: "" });
 
         // Fetch full interview details for Q&A display — use uniqueId (UUID), not numeric id
         setIsLoadingDetails(true);
@@ -425,8 +423,8 @@ export default function ExitApprovalsTable() {
 
     const saveHRAssessment = async () => {
         if (!selectedInterview) return;
-        if (!hrAssessment.assessmentNotes.trim() && !hrAssessment.keyThemes.trim() && !hrAssessment.recommendation) {
-            toast.error("Please fill in at least one assessment field before saving.");
+        if (!hrAssessment.recommendation) {
+            toast.error("Please select a re-hire recommendation before saving.");
             return;
         }
         setIsSavingAssessment(true);
@@ -1343,26 +1341,6 @@ export default function ExitApprovalsTable() {
                                                 </div>
                                             )}
 
-                                            <div>
-                                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Assessment Notes</label>
-                                                <textarea
-                                                    rows={3}
-                                                    value={hrAssessment.assessmentNotes}
-                                                    onChange={e => setHrAssessment(prev => ({ ...prev, assessmentNotes: e.target.value }))}
-                                                    placeholder="Key observations from the exit interview..."
-                                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 resize-none"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Key Themes Identified</label>
-                                                <textarea
-                                                    rows={2}
-                                                    value={hrAssessment.keyThemes}
-                                                    onChange={e => setHrAssessment(prev => ({ ...prev, keyThemes: e.target.value }))}
-                                                    placeholder="Common patterns or themes raised by the employee..."
-                                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-500 resize-none"
-                                                />
-                                            </div>
                                             <div>
                                                 <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Re-hire Recommendation</label>
                                                 <select
