@@ -38,7 +38,7 @@ const STAGE_COLOR: Record<string, "info" | "warning" | "success" | "error" | "li
 
 // Friendly stage labels — keep the internal keys but show readable text.
 const STAGE_LABEL: Record<string, string> = {
-    HR_Director: "Snr HR Manager",
+    HR_Director: "HR Lead",
     HR_Final: "HR Final",
 };
 const stageLabel = (stage: string) => STAGE_LABEL[stage] ?? stage;

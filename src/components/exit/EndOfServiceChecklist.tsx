@@ -547,12 +547,12 @@ export default function EndOfServiceChecklist() {
                     </div>
                 </div>
 
-                {/* ── Snr HR Manager Final Approval ── */}
+                {/* ── HR Lead Final Approval ── */}
                 <div className="border-t-2 border-gray-900 dark:border-gray-400 pt-5 space-y-3">
                     <p className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">
                         Approved for Payment of Final Paycheck
                     </p>
-                    <SignatureLine label="Signature of Snr HR Manager" />
+                    <SignatureLine label="Signature of HR Lead" />
                 </div>
 
                 {/* ── Required Attachments ── */}

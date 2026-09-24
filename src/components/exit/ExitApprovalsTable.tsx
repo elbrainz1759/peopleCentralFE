@@ -529,13 +529,13 @@ export default function ExitApprovalsTable() {
                     checkListItemIds: selectedChecklistIds.map(Number),
                     notes: actionComment.trim() || undefined,
                 });
-                toast.success("HR cleared. Forwarded to Snr HR Manager for final sign-off.");
+                toast.success("HR cleared. Forwarded to HR Lead for final sign-off.");
                 setIsReviewOpen(false);
                 fetchInterviews();
 
             } else if (stage === 'HR_Final' || stage === 'HR_Director') {
                 await exitServiceInstance.finalizeExitInterview(selectedInterview.uniqueId as any);
-                toast.success("Snr HR Manager finalized. Exit clearance process is now closed.");
+                toast.success("HR Lead finalized. Exit clearance process is now closed.");
                 setIsReviewOpen(false);
                 fetchInterviews();
 
@@ -618,10 +618,10 @@ export default function ExitApprovalsTable() {
     };
 
     // Human-readable stage label. Keeps the internal stage keys (a backend contract)
-    // untouched while showing friendly text — e.g. "HR Director" is now "Snr HR Manager".
+    // untouched while showing friendly text — e.g. "HR Director" is now "HR Lead".
     const stageLabel = (stage: string): string => {
         switch (stage) {
-            case "HR_Director": return "Snr HR Manager";
+            case "HR_Director": return "HR Lead";
             case "HR_Final":    return "HR Final";
             default:            return stage;
         }
