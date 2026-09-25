@@ -632,18 +632,27 @@ export default function ExitApprovalsTable() {
         return role.includes('hr') || role.includes('admin') || role.includes('superadmin');
     })();
 
+    // HR_Director/HR_Final is the final exit sign-off — exclusive to "HR Lead"
+    // and Superadmin, deliberately narrower than isUserHR (which plain "HR"
+    // also matches). Mirrors the backend's CLEARANCE_ROLES.HR_Director.
+    const isUserHRLead = (() => {
+        const role = (authUser?.role || "").toLowerCase();
+        return role === 'hr lead' || role.includes('superadmin');
+    })();
+
     // Which roles may act on (see the checklist for, and clear) each stage —
-    // mirrors the backend's CLEARANCE_ROLES. HR/Superadmin can act on any
-    // stage on the department's behalf, matching clearDepartment()'s own rule.
+    // mirrors the backend's CLEARANCE_ROLES. HR/HR Lead/Superadmin can act on
+    // any non-final stage on the department's behalf, matching
+    // clearDepartment()'s own rule; the final HR_Director/HR_Final stage is
+    // handled separately below since it excludes plain "HR".
     const STAGE_ACTION_ROLES: Record<string, string[]> = {
         Operations: ['operation', 'operations'],
         Finance: ['finance'],
         HR: ['hr'],
-        HR_Final: ['hr'],
-        HR_Director: ['hr'],
     };
 
     const canActOnStage = (stage: string | undefined): boolean => {
+        if (stage === 'HR_Final' || stage === 'HR_Director') return isUserHRLead;
         if (isUserHR) return true;
         const role = (authUser?.role || "").toLowerCase();
         const allowed = STAGE_ACTION_ROLES[stage || ''] || [];
@@ -1215,7 +1224,7 @@ export default function ExitApprovalsTable() {
                             )}
 
                             {/* ── HR Assessment Section (HR-only, only when Operations & Finance have cleared) ── */}
-                            {isUserHR && (selectedInterview?.stage === 'HR' || selectedInterview?.stage === 'HR_Final' || selectedInterview?.stage === 'HR_Director') && (
+                            {((isUserHR && selectedInterview?.stage === 'HR') || (isUserHRLead && (selectedInterview?.stage === 'HR_Final' || selectedInterview?.stage === 'HR_Director'))) && (
                                 <div className="space-y-4">
                                     <h5 className="font-semibold text-gray-800 dark:text-white/90 border-b pb-2 border-gray-100 dark:border-gray-800 flex items-center gap-2">
                                         HR Assessment
