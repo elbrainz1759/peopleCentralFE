@@ -198,9 +198,9 @@ export default function MultiStepLeaveForm({
                 if (!d.leaveTypeId) newErrors[`leaveTypeId_${i}`] = "Select a leave type.";
                 if (!d.startDate) newErrors[`startDate_${i}`] = "Start date is required.";
                 if (!d.endDate) newErrors[`endDate_${i}`] = "End date is required.";
-                if (d.startDate && d.endDate && d.startDate === d.endDate)
-                    newErrors[`endDate_${i}`] = "Start and end date cannot be the same.";
-                else if (d.startDate && d.endDate && d.endDate < d.startDate)
+                // A single-day leave (start === end) is valid — only reject
+                // an end date that comes before the start date.
+                if (d.startDate && d.endDate && d.endDate < d.startDate)
                     newErrors[`endDate_${i}`] = "End date must be after start date.";
             });
 
