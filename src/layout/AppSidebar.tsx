@@ -32,7 +32,10 @@ const userNavItems: NavItem[] = [
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
 ];
 
-const adminNavItems: NavItem[] = [
+// HR / HR Lead — full back-office access, matching what those roles are
+// actually allowed to do on the backend (employee records, approvals,
+// leave/exit administration).
+const hrNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
@@ -64,6 +67,34 @@ const adminNavItems: NavItem[] = [
       { name: "Approvals", path: "/exit/approvals" },
       { name: "End of Service", path: "/exit/end-of-service" },
       { name: "Checklist", path: "/exit/checklist" },
+    ],
+  },
+];
+
+// Finance / Operations / Compliance — reviewer access to their own approval
+// queues only. No "HR Administration" (employee database, pending account
+// approvals, user management) and no leave-config pages — those are
+// HR/HR Lead/Superadmin-only on the backend, and were previously shown
+// (and clickable) here even though the underlying actions would 403.
+const limitedAdminNavItems: NavItem[] = [
+  { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
+  { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
+  { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
+  {
+    icon: <CalenderIcon />,
+    name: "Leave Management",
+    subItems: [
+      { name: "Apply for Leave", path: "/leave/apply" },
+      { name: "Approvals", path: "/leave/approvals" },
+    ],
+  },
+  {
+    icon: <ListIcon />,
+    name: "Exit Management",
+    subItems: [
+      { name: "Exit Request", path: "/exit" },
+      { name: "Approvals", path: "/exit/approvals" },
+      { name: "End of Service", path: "/exit/end-of-service" },
     ],
   },
 ];
@@ -118,6 +149,7 @@ const AppSidebar: React.FC = () => {
   const [isHR, setIsHR] = useState(false);
   const [isRegularUser, setIsRegularUser] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isHRRole, setIsHRRole] = useState(false);
 
   useEffect(() => {
     try {
@@ -129,17 +161,23 @@ const AppSidebar: React.FC = () => {
       }
       const role = (user?.role || user?.designation || "").toLowerCase();
       const isSuperAdmin = role === 'superadmin' || role === 'super admin' || role === 'systemadmin' || role === 'system admin';
-      const isAdminRole = !isSuperAdmin && (
+      // "HR"/"HR Lead" get the full back-office nav (hrNavItems, below).
+      // Finance/Operations/Compliance/generic "admin" only get their own
+      // approval queues (limitedAdminNavItems) — they're not HR staff and
+      // shouldn't see or reach Employee Database/Pending Approvals/User
+      // Management even though the backend already blocks the mutations.
+      const isHRAdminRole = !isSuperAdmin && role.includes('hr');
+      const isLimitedAdminRole = !isSuperAdmin && !isHRAdminRole && (
         role === 'admin' ||
-        role.includes('hr') ||
         role.includes('supervisor') ||
         role.includes('finance') ||
         role.includes('operation') ||
         role.includes('compliance')
       );
       setIsHR(isSuperAdmin);
-      setIsAdmin(isAdminRole);
-      setIsRegularUser(!isSuperAdmin && !isAdminRole);
+      setIsHRRole(isHRAdminRole);
+      setIsAdmin(isLimitedAdminRole);
+      setIsRegularUser(!isSuperAdmin && !isHRAdminRole && !isLimitedAdminRole);
     } catch { /* ignore */ }
   }, []);
 
@@ -263,7 +301,7 @@ const AppSidebar: React.FC = () => {
   // const isActive = (path: string) => path === pathname;
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
-  const currentNavItems = isRegularUser ? userNavItems : isAdmin ? adminNavItems : superAdminNavItems;
+  const currentNavItems = isRegularUser ? userNavItems : isHRRole ? hrNavItems : isAdmin ? limitedAdminNavItems : superAdminNavItems;
 
   useEffect(() => {
     // Check if the current path matches any submenu item

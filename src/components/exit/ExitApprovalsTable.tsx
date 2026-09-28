@@ -72,6 +72,7 @@ export default function ExitApprovalsTable() {
     // alongside so each stage can see what came before it.
     const [actionComment, setActionComment] = useState("");
     const [clearanceHistory, setClearanceHistory] = useState<any[]>([]);
+    const [priorClearances, setPriorClearances] = useState<any[]>([]);
 
     // Rehire eligibility — captured by the supervisor at their clearance
     // step, confidential to HR (see isUserHR below for the display side).
@@ -266,7 +267,15 @@ export default function ExitApprovalsTable() {
             }
 
             if (currentQueue === 'HR') {
-                mapped = mapped.filter((m: any) => m.stage === 'HR');
+                // Plain HR only ever sees the ordinary HR stage. HR Lead (and
+                // Superadmin) also own the final HR_Director/HR_Final sign-off,
+                // which lives in this same "HR" queue tab since role detection
+                // above routes any "*hr*" role — including "HR Lead" — here.
+                const role = (authUser?.role || '').toLowerCase();
+                const isHRLead = role === 'hr lead' || role.includes('superadmin');
+                mapped = mapped.filter((m: any) =>
+                    m.stage === 'HR' || (isHRLead && (m.stage === 'HR_Director' || m.stage === 'HR_Final'))
+                );
             }
 
             setExitInterviews(mapped);
@@ -382,6 +391,7 @@ export default function ExitApprovalsTable() {
         setRehireReason("");
         setActionComment("");
         setClearanceHistory([]);
+        setPriorClearances([]);
         setIsReviewOpen(true);
 
         // Prior stages' comments/rejection reasons, so this stage can see them
@@ -389,7 +399,21 @@ export default function ExitApprovalsTable() {
             const lookupId = interview.uniqueId || interview.id;
             const statusRes = await exitServiceInstance.getClearanceStatus(lookupId as any);
             const clearances = statusRes?.data?.clearances || statusRes?.clearances || [];
-            setClearanceHistory(clearances.filter((c: any) => c?.notes));
+            setPriorClearances(clearances);
+
+            // clearDepartment() writes the same comment onto every checklist
+            // item's row when a stage checks off more than one item, so a
+            // single comment attached to N items becomes N identical rows
+            // here. Keep only the first occurrence per department/author/text.
+            const seen = new Set<string>();
+            const dedupedComments = clearances.filter((c: any) => {
+                if (!c?.notes) return false;
+                const key = `${c.department}|${c.cleared_by}|${c.notes}|${c.action}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            setClearanceHistory(dedupedComments);
         } catch { /* silent — history is supplementary */ }
 
         // Load any previously saved HR assessment from localStorage
@@ -1175,6 +1199,46 @@ export default function ExitApprovalsTable() {
                                     </div>
                                 );
                             })()}
+
+                            {/* Read-only record of what earlier departments already checked
+                                off — HR's own checklist section above only ever shows HR's
+                                items, so without this the final reviewer(s) have no visibility
+                                into what Operations/Finance actually verified. */}
+                            {canActOnStage(selectedInterview.stage) &&
+                                (selectedInterview.stage === 'HR' || selectedInterview.stage === 'HR_Final' || selectedInterview.stage === 'HR_Director') &&
+                                (() => {
+                                    const groups = ['Supervisor', 'Operations', 'Finance'].map((dept) => ({
+                                        dept,
+                                        items: Array.from(new Set(
+                                            priorClearances
+                                                .filter((c: any) => c.department === dept && c.item_name)
+                                                .map((c: any) => c.item_name as string)
+                                        )),
+                                    })).filter((g) => g.items.length > 0);
+                                    if (groups.length === 0) return null;
+                                    return (
+                                        <div className="space-y-2">
+                                            <h5 className="font-semibold text-gray-800 dark:text-white/90 border-b pb-2 border-gray-100 dark:border-gray-800">
+                                                Prior Clearance Checklist
+                                            </h5>
+                                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                                {groups.map(({ dept, items }) => (
+                                                    <div key={dept} className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/20 p-3">
+                                                        <p className="text-[10px] font-bold uppercase tracking-tighter text-gray-400 mb-1.5">{dept}</p>
+                                                        <ul className="space-y-1">
+                                                            {items.map((name) => (
+                                                                <li key={name} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                                                    <CheckCircleIcon className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                                                                    {name}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
 
                             {/* Previous stages' comments + this stage's own comment box.
                                 Optional to approve, required to reject — enforced in
