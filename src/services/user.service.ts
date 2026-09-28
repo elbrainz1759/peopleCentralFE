@@ -57,6 +57,21 @@ export class UserService {
     }
 
     /**
+     * HR-triggered password reset — generates a new temporary password and
+     * emails it to the account holder. The new password is never returned
+     * to the caller, only sent by email.
+     */
+    public async resetUserPassword(email: string): Promise<any> {
+        try {
+            const response = await api.post<any>('/auth/reset-user-password', { email });
+            return response;
+        } catch (error) {
+            console.error('UserService resetUserPassword error:', error);
+            throw error;
+        }
+    }
+
+    /**
      * updates an existing employee profile
      */
     public async updateEmployee(id: string, employeeData: Partial<EmployeeCreateRequest>): Promise<any> {

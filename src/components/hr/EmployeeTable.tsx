@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
-import { EyeIcon, PencilIcon, TrashBinIcon, MoreDotIcon } from "@/icons";
+import { EyeIcon, PencilIcon, TrashBinIcon, MoreDotIcon, LockIcon } from "@/icons";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Drawer } from "../ui/drawer/Drawer";
@@ -72,6 +72,23 @@ export default function EmployeeTable() {
     const handleEdit = (employee: Employee) => {
         setEditEmployee(employee);
         setIsEditOpen(true);
+    };
+
+    const [resettingId, setResettingId] = useState<string | null>(null);
+    const handleResetPassword = async (employee: Employee) => {
+        if (!employee.email) return;
+        if (!confirm(`Send a new password to ${employee.email}? Their current password will stop working immediately.`)) return;
+
+        const key = String(employee.id || employee.staff_id);
+        setResettingId(key);
+        try {
+            await userService.resetUserPassword(employee.email);
+            toast.success(`New password sent to ${employee.email}`);
+        } catch (error: any) {
+            toast.error(error?.message || "Failed to reset password");
+        } finally {
+            setResettingId(null);
+        }
     };
 
 const PENDING_STATUSES = ["On-boarding", "Pending", "pending"];
@@ -280,6 +297,10 @@ const PENDING_STATUSES = ["On-boarding", "Pending", "pending"];
                                                 </DropdownItem>
                                                 <DropdownItem onItemClick={() => { closeDropdown(); handleEdit(emp); }} className="flex gap-2 items-center">
                                                     <PencilIcon className="w-4 h-4" /> Edit Record
+                                                </DropdownItem>
+                                                <DropdownItem onItemClick={() => { closeDropdown(); handleResetPassword(emp); }} className="flex gap-2 items-center">
+                                                    <LockIcon className="w-4 h-4" />
+                                                    {resettingId === String(emp.id || emp.staff_id) ? "Sending..." : "Reset Password"}
                                                 </DropdownItem>
                                                 <DropdownItem onItemClick={() => { closeDropdown(); alert("Deleting " + emp.first_name); }} className="flex gap-2 items-center text-red-500">
                                                     <TrashBinIcon className="w-4 h-4" /> Delete
