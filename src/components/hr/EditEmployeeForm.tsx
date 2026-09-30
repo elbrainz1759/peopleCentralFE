@@ -207,8 +207,10 @@ export default function EditEmployeeForm({ employee, onSuccess }: EditEmployeeFo
                                 <CustomSelect
                                     value={formData.locationId}
                                     onChange={(v) => setFormData((prev) => ({ ...prev, locationId: v }))}
-                                    options={locations.map((l: any) => ({ value: l.unique_id, label: l.name }))}
-                                    placeholder="Select Location"
+                                    options={locations
+                                        .filter((l: any) => !formData.countryId || l.country_id === formData.countryId)
+                                        .map((l: any) => ({ value: l.unique_id, label: l.name }))}
+                                    placeholder={formData.countryId ? "Select Location" : "Select a country first"}
                                 />
                             ) : (
                                 <input
@@ -254,7 +256,7 @@ export default function EditEmployeeForm({ employee, onSuccess }: EditEmployeeFo
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Country</label>
                             <CustomSelect
                                 value={formData.countryId}
-                                onChange={(v) => setFormData((prev) => ({ ...prev, countryId: v }))}
+                                onChange={(v) => setFormData((prev) => ({ ...prev, countryId: v, locationId: "" }))}
                                 options={countries.map((c: any) => ({ value: c.unique_id, label: c.name }))}
                                 placeholder="Choose Country"
                             />

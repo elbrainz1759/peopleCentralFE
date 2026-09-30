@@ -229,7 +229,10 @@ export class UserService {
     }
 
     public async getAllLocations(): Promise<any[]> {
-        return api.get('/locations');
+        // Backend defaults to limit=10 when unspecified — there are more
+        // locations than that, so callers that need the full list (e.g. a
+        // country-filtered dropdown) would silently see only a slice of it.
+        return api.get('/locations?limit=1000');
     }
 
     public async createLocation(data: { name: string; countryId: string }): Promise<any> {

@@ -189,7 +189,7 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
               <Label>Country <span className="text-error-500">*</span></Label>
               <CustomSelect
                 value={formData.countryId}
-                onChange={(v) => setFormData((prev) => ({ ...prev, countryId: v }))}
+                onChange={(v) => setFormData((prev) => ({ ...prev, countryId: v, locationId: "" }))}
                 options={countries.map((c: any) => ({ value: c.unique_id, label: c.name }))}
                 placeholder="Select Country"
               />
@@ -212,8 +212,10 @@ export default function SignUpForm({ onSuccess }: { onSuccess?: () => void }) {
               <CustomSelect
                 value={formData.locationId}
                 onChange={(v) => setFormData((prev) => ({ ...prev, locationId: v }))}
-                options={locations.map((l: any) => ({ value: l.unique_id, label: l.name }))}
-                placeholder="Select Location"
+                options={locations
+                  .filter((l: any) => !formData.countryId || l.country_id === formData.countryId)
+                  .map((l: any) => ({ value: l.unique_id, label: l.name }))}
+                placeholder={formData.countryId ? "Select Location" : "Select a country first"}
               />
             </div>
             <div>
