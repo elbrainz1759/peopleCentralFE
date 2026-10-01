@@ -228,6 +228,15 @@ export class UserService {
         return api.get('/countries');
     }
 
+    /**
+     * Countries the logged-in caller may create org-structure entities
+     * (e.g. a location) in — just their own country, unless they're
+     * Superadmin. Use this instead of getAllCountries() for that flow.
+     */
+    public async getScopedCountries(): Promise<any[]> {
+        return api.get('/countries/scoped');
+    }
+
     public async getAllLocations(): Promise<any[]> {
         // Backend defaults to limit=10 when unspecified — there are more
         // locations than that, so callers that need the full list (e.g. a

@@ -54,7 +54,10 @@ export default function LocationsPage() {
 
     const fetchCountries = async () => {
         try {
-            const response: any = await userService.getAllCountries();
+            // Scoped to the caller's own country (Superadmin gets all of
+            // them) — a location can only be created under a country this
+            // user is actually allowed to create one in.
+            const response: any = await userService.getScopedCountries();
             const countriesData = response?.data || (Array.isArray(response) ? response : []);
             setCountries(countriesData);
         } catch (error) {
@@ -328,6 +331,11 @@ export default function LocationsPage() {
                             options={countries.map((c: any) => ({ value: c.unique_id, label: c.name }))}
                             placeholder="Select Country"
                         />
+                        {countries.length === 0 && (
+                            <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                                No country is set on your own employee record, so there's nothing to select here — ask a Superadmin to set it, or to add this location for you.
+                            </p>
+                        )}
                     </div>
                     <button
                         type="submit"
