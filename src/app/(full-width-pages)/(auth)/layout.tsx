@@ -55,7 +55,7 @@ export default function AuthLayout({
 
         {/* Form column */}
         <main className="flex min-h-screen flex-col justify-center px-5 py-10 sm:px-10">
-          <div className="mx-auto w-full max-w-[420px]">
+          <div className="mx-auto w-full max-w-[480px]">
             <Link href="/" className="mb-10 inline-flex items-center lg:hidden">
               <Image
                 width={180}
