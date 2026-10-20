@@ -189,7 +189,10 @@ export class UserService {
     }
 
     public async getAllRoles(): Promise<any[]> {
-        return api.get('/roles');
+        // Backend defaults to limit=10 when unspecified — harmless today
+        // but silently truncates the role picker the moment an 11th role
+        // is added, the same class of bug fixed for getAllLocations().
+        return api.get('/roles?limit=1000');
     }
 
     public async createRole(data: { name: string; description?: string }): Promise<any> {
