@@ -38,6 +38,14 @@ const userNavItems: NavItem[] = [
       { name: "Approvals", path: "/leave/approvals" },
     ],
   },
+  {
+    icon: <ListIcon />,
+    name: "Exit Management",
+    subItems: [
+      { name: "Exit Request", path: "/exit" },
+      { name: "Approvals", path: "/exit/approvals" },
+    ],
+  },
 ];
 
 // HR / HR Lead — full back-office access, matching what those roles are
