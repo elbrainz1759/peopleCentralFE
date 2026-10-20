@@ -264,10 +264,10 @@ export default function LeaveBalanceManagement() {
                         <Badge size="sm" color={color}>{label}</Badge>
                       </div>
                       <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
-                        <div className="flex justify-between"><span className="font-medium text-gray-600 dark:text-gray-300">Total</span><span>{total}h</span></div>
-                        <div className="flex justify-between"><span className="font-medium text-gray-600 dark:text-gray-300">Used</span><span>{used}h</span></div>
+                        <div className="flex justify-between"><span className="font-medium text-gray-600 dark:text-gray-300">Total</span><span>{total.toFixed(2)}h</span></div>
+                        <div className="flex justify-between"><span className="font-medium text-gray-600 dark:text-gray-300">Used</span><span>{used.toFixed(2)}h</span></div>
                         <div className="flex justify-between"><span className="font-medium text-gray-600 dark:text-gray-300">Remaining</span>
-                          <span className={remaining < 20 ? "text-red-500 font-medium" : "text-green-500 font-medium"}>{remaining}h</span>
+                          <span className={remaining < 20 ? "text-red-500 font-medium" : "text-green-500 font-medium"}>{remaining.toFixed(2)}h</span>
                         </div>
                       </div>
                       {balance.id != null && (
@@ -309,10 +309,10 @@ export default function LeaveBalanceManagement() {
                         <TableCell className="py-3 text-gray-500 text-theme-sm">{balance.staff_id}</TableCell>
                         <TableCell className="py-3 text-gray-800 dark:text-white/90 text-theme-sm">{balance.full_name || "—"}</TableCell>
                         <TableCell className="py-3 text-gray-800 dark:text-white/90 text-theme-sm font-medium">{balance.leave_type_name || `Type ${balance.leave_type_id}`}</TableCell>
-                        <TableCell className="py-3 text-gray-500 text-theme-sm">{total}h</TableCell>
-                        <TableCell className="py-3 text-gray-500 text-theme-sm">{used}h</TableCell>
+                        <TableCell className="py-3 text-gray-500 text-theme-sm">{total.toFixed(2)}h</TableCell>
+                        <TableCell className="py-3 text-gray-500 text-theme-sm">{used.toFixed(2)}h</TableCell>
                         <TableCell className="py-3 text-theme-sm">
-                          <span className={`font-medium ${remaining < 20 ? "text-red-500" : "text-green-500"}`}>{remaining}h</span>
+                          <span className={`font-medium ${remaining < 20 ? "text-red-500" : "text-green-500"}`}>{remaining.toFixed(2)}h</span>
                         </TableCell>
                         <TableCell className="py-3"><Badge size="sm" color={color}>{label}</Badge></TableCell>
                         <TableCell className="py-3">

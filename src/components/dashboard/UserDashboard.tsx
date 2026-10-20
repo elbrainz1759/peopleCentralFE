@@ -131,7 +131,7 @@ export default function UserDashboard() {
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <StatCard
                     title="Leave Balance"
-                    value={`${totalBalance} hrs`}
+                    value={`${totalBalance.toFixed(2)} hrs`}
                     footer="available hours"
                     icon={<PieChartIcon className="text-brand-500" />}
                     iconBg="bg-brand-50 dark:bg-brand-500/10"

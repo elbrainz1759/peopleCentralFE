@@ -390,7 +390,7 @@ export default function MultiStepLeaveForm({
                                             <div key={balance.id} className="flex justify-between items-center text-sm">
                                                 <span className="font-medium text-blue-800 dark:text-blue-200">{typeName}</span>
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-blue-700 dark:text-blue-300">{remainingHours}h remaining of {totalHours}h</span>
+                                                    <span className="text-blue-700 dark:text-blue-300">{remainingHours.toFixed(2)}h remaining of {totalHours.toFixed(2)}h</span>
                                                     <div className="w-20 bg-blue-200 dark:bg-blue-800 rounded-full h-2">
                                                         <div
                                                             className={`h-2 rounded-full ${usagePercentage >= 80 ? 'bg-red-500' : usagePercentage >= 60 ? 'bg-yellow-500' : 'bg-green-500'}`}
