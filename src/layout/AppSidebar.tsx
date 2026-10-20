@@ -30,6 +30,14 @@ const userNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
+  {
+    icon: <CalenderIcon />,
+    name: "Leave Management",
+    subItems: [
+      { name: "Apply for Leave", path: "/leave/apply" },
+      { name: "Approvals", path: "/leave/approvals" },
+    ],
+  },
 ];
 
 // HR / HR Lead — full back-office access, matching what those roles are
