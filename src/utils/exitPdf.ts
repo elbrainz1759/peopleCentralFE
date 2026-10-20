@@ -27,6 +27,52 @@ const headStyles = {
 const tableStyles = { fontSize: 9, cellPadding: 3 };
 const labelCol = { fontStyle: "bold" as const, cellWidth: 70 };
 
+// A signature-style block recording exactly when the employee submitted —
+// distinct from pdfFooter()'s "Generated on" timestamp, which is just when
+// this particular PDF was produced (e.g. downloaded weeks later by HR).
+function signatureBlock(
+    doc: jsPDF,
+    y: number,
+    employeeName: string,
+    submittedAtRaw: string | undefined
+): number {
+    const pageHeight = doc.internal.pageSize.height;
+    if (y > pageHeight - 35) {
+        doc.addPage();
+        y = 20;
+    }
+
+    const submittedAt = submittedAtRaw
+        ? new Date(submittedAtRaw).toLocaleString()
+        : "N/A";
+
+    doc.setDrawColor(200);
+    doc.line(14, y, 90, y);
+    y += 5;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(60);
+    doc.text("Digitally Signed / Created", 14, y);
+    y += 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(100);
+    doc.text(`${employeeName} — submitted ${submittedAt}`, 14, y);
+    y += 4.5;
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(150);
+    doc.text(
+        "This is a system-generated record reflecting the exact date and time of digital submission.",
+        14,
+        y
+    );
+    doc.setTextColor(0);
+    return y;
+}
+
 function pdfFooter(doc: jsPDF) {
     const pageHeight = doc.internal.pageSize.height;
     doc.setFontSize(8);
@@ -69,6 +115,17 @@ const val = (d: any, ...keys: string[]) => {
         if (v !== undefined && v !== null && v !== "") return String(v);
     }
     return "N/A";
+};
+
+// Like val(), but returns undefined instead of "N/A" when missing — needed
+// wherever the raw value gets parsed (e.g. new Date(...)) rather than shown
+// as text, since "N/A" would otherwise parse as an Invalid Date.
+const rawVal = (d: any, ...keys: string[]): string | undefined => {
+    for (const k of keys) {
+        const v = d?.[k];
+        if (v !== undefined && v !== null && v !== "") return String(v);
+    }
+    return undefined;
 };
 
 export function generateInterviewPDF(emp: ExitPdfEmployee, details: any) {
@@ -166,11 +223,18 @@ export function generateInterviewPDF(emp: ExitPdfEmployee, details: any) {
         columnStyles: { 0: labelCol },
     });
 
+    signatureBlock(
+        doc,
+        (doc as any).lastAutoTable.finalY + 10,
+        emp.employeeName,
+        rawVal(details, "created_at", "createdAt")
+    );
+
     pdfFooter(doc);
     doc.save(`Exit_Interview_${emp.staffId}_${String(emp.employeeName).replace(/\s+/g, "_")}.pdf`);
 }
 
-export function generateClearancePDF(emp: ExitPdfEmployee, _details: any, checklistItems: any[]) {
+export function generateClearancePDF(emp: ExitPdfEmployee, details: any, checklistItems: any[]) {
     const stageOrder = ["Employee", "Supervisor", "Operations", "Finance", "HR", "HR_Final", "HR_Director", "Completed"];
     const currentIdx = stageOrder.indexOf(emp.stage);
     const pastStage = (s: string) => currentIdx > stageOrder.indexOf(s);
@@ -217,6 +281,13 @@ export function generateClearancePDF(emp: ExitPdfEmployee, _details: any, checkl
         theme: "grid", headStyles, styles: tableStyles,
         columnStyles: { 0: { cellWidth: 12 } },
     });
+
+    signatureBlock(
+        doc,
+        (doc as any).lastAutoTable.finalY + 10,
+        emp.employeeName,
+        rawVal(details, "created_at", "createdAt")
+    );
 
     pdfFooter(doc);
     doc.save(`Exit_Clearance_${emp.staffId}_${String(emp.employeeName).replace(/\s+/g, "_")}.pdf`);
