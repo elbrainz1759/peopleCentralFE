@@ -136,20 +136,18 @@ export default function ExitApprovalsTable() {
 
         const role = authUser?.role?.toLowerCase() || '';
 
-        // Superadmin and Admin see all queues
-        if (role === 'superadmin' || role === 'admin') {
+        // Only Operations/Finance/HR(+HR Lead)/Superadmin get full, company-
+        // wide visibility — everyone else (Program, User, any other role)
+        // only ever sees their own exit request plus their direct reports',
+        // via the "All" queue's ownership filter below. Role is the sole
+        // signal here — not department name, which only said where someone
+        // works, not what they're allowed to see.
+        if (role === 'superadmin') {
             setAvailableQueues(['All', 'HR', 'Operations', 'Finance']);
             setCurrentQueue('All');
             return;
         }
-
-        // Role-based queue access (check role name first, then department).
-        // "All" always stays reachable alongside the department-matched
-        // queue — anyone can end up supervising someone regardless of their
-        // own role/department (exactly how a plain line-manager approves
-        // leave), so locking them into a single queue would hide their own
-        // supervisees' Supervisor-stage exits with no way to switch to them.
-        if (role === 'hr' || role.includes('hr')) {
+        if (role.includes('hr')) {
             setAvailableQueues(['HR', 'All']);
             setCurrentQueue('HR');
             return;
@@ -165,28 +163,11 @@ export default function ExitApprovalsTable() {
             return;
         }
 
-        // Fallback: resolve by department name
-        const deptUUID = authUser?.department || authUser?.department_id || '';
-        const matchedDept = departments.find(
-            (d: any) => d.unique_id === deptUUID || d.uniqueId === deptUUID || d.id === deptUUID
-        );
-        const deptName = (matchedDept?.name || authUser?.department_name || '').toLowerCase();
-
-        if (deptName.includes('hr') || deptName.includes('human resources')) {
-            setAvailableQueues(['HR', 'All']);
-            setCurrentQueue('HR');
-        } else if (deptName.includes('operation')) {
-            setAvailableQueues(['Operations', 'All']);
-            setCurrentQueue('Operations');
-        } else if (deptName.includes('finance')) {
-            setAvailableQueues(['Finance', 'All']);
-            setCurrentQueue('Finance');
-        } else {
-            // Default: supervisor/unknown roles see all
-            setAvailableQueues(['All', 'HR', 'Operations', 'Finance']);
-            setCurrentQueue('All');
-        }
-    }, [authUser, departments]);
+        // Everyone else — Program, User, any other role: a single "All"
+        // queue, scoped to their own request and their direct reports'.
+        setAvailableQueues(['All']);
+        setCurrentQueue('All');
+    }, [authUser]);
 
     useEffect(() => {
         if (currentQueue === 'All' || currentQueue === 'HR' || departments.length > 0) {
@@ -257,17 +238,23 @@ export default function ExitApprovalsTable() {
                 };
             });
 
-            // Pending records are only visible to the assigned supervisor and super_admin.
-            // This only applies to the generic "All" queue (raw getAllExitInterviews(),
-            // unscoped) — the role-scoped queues (Operations/Finance/HR) are already
-            // correctly filtered server-side by stage + that department's clearance
-            // status, and are not the exit's supervisor, so this check must not run there.
+            // The "All" queue is the generic view (raw getAllExitInterviews(),
+            // unscoped by the backend) — scope it here by who's allowed to see
+            // everything. Operations/Finance/HR(+HR Lead)/Superadmin get full
+            // visibility, at any stage/status. Everyone else only sees their
+            // own exit request plus their direct reports' — at every status,
+            // not just Pending, so an Operations/Finance/HR-stage exit for
+            // their own supervisee doesn't disappear once the Supervisor
+            // stage clears.
             if (currentQueue === 'All') {
-                const isSuperAdmin = (authUser?.role || '').toLowerCase().includes('superadmin');
+                const role = (authUser?.role || '').toLowerCase();
+                const isPrivileged = role === 'superadmin' || role.includes('hr') || role.includes('operation') || role.includes('finance');
                 const userUniqueId = authUser?.unique_id || authUser?.uniqueId || '';
+                const userStaffId = authUser?.staff_id ?? authUser?.staffId;
                 mapped = mapped.filter((m: any) => {
-                    if ((m.status || 'Pending') !== 'Pending') return true;
-                    return isSuperAdmin || (userUniqueId && String(m.supervisorId) === String(userUniqueId));
+                    if (isPrivileged) return true;
+                    if (userStaffId != null && String(m.staffId) === String(userStaffId)) return true;
+                    return userUniqueId && String(m.supervisorId) === String(userUniqueId);
                 });
             }
 
