@@ -143,19 +143,24 @@ export default function ExitApprovalsTable() {
             return;
         }
 
-        // Role-based queue access (check role name first, then department)
+        // Role-based queue access (check role name first, then department).
+        // "All" always stays reachable alongside the department-matched
+        // queue — anyone can end up supervising someone regardless of their
+        // own role/department (exactly how a plain line-manager approves
+        // leave), so locking them into a single queue would hide their own
+        // supervisees' Supervisor-stage exits with no way to switch to them.
         if (role === 'hr' || role.includes('hr')) {
-            setAvailableQueues(['HR']);
+            setAvailableQueues(['HR', 'All']);
             setCurrentQueue('HR');
             return;
         }
         if (role === 'operations' || role === 'operation' || role.includes('operation')) {
-            setAvailableQueues(['Operations']);
+            setAvailableQueues(['Operations', 'All']);
             setCurrentQueue('Operations');
             return;
         }
         if (role === 'finance' || role.includes('finance')) {
-            setAvailableQueues(['Finance']);
+            setAvailableQueues(['Finance', 'All']);
             setCurrentQueue('Finance');
             return;
         }
@@ -168,13 +173,13 @@ export default function ExitApprovalsTable() {
         const deptName = (matchedDept?.name || authUser?.department_name || '').toLowerCase();
 
         if (deptName.includes('hr') || deptName.includes('human resources')) {
-            setAvailableQueues(['HR']);
+            setAvailableQueues(['HR', 'All']);
             setCurrentQueue('HR');
         } else if (deptName.includes('operation')) {
-            setAvailableQueues(['Operations']);
+            setAvailableQueues(['Operations', 'All']);
             setCurrentQueue('Operations');
         } else if (deptName.includes('finance')) {
-            setAvailableQueues(['Finance']);
+            setAvailableQueues(['Finance', 'All']);
             setCurrentQueue('Finance');
         } else {
             // Default: supervisor/unknown roles see all

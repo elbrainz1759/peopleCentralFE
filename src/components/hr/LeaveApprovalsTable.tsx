@@ -82,12 +82,15 @@ export default function LeaveApprovalsTable() {
 
     const isHR = currentUserRole.includes('hr') || currentUserRole.includes('admin') || currentUserRole.includes('superadmin');
     const isLineManager = currentUserRole.includes('manager') || currentUserRole.includes('supervisor') || currentUserRole.includes('lead');
-    // Graceful: if role is undetected show all actions
-    // HR/admin can also drive the Line Manager Review step (Pending → Reviewed) from
-    // the UI. The backend enforces the two-step flow, so a Pending request must be
-    // reviewed before HR Final Approval (/approve) will accept it.
+    // Line-manager approve/reject is an ownership check on the backend (your
+    // email must match the request's actual supervisor), not a role gate —
+    // any role can be shown the action; the backend rejects non-owners.
+    // HR Final Approval is the opposite: the backend gates it to
+    // @Roles('HR','HR Lead','Superadmin') specifically, so showing that
+    // button to anyone else just sends them into a 403 "Forbidden resource"
+    // when they click it. Only offer it to someone who can actually do it.
     const canDoLineManagerActions = isLineManager || isHR || (!isHR && !isLineManager);
-    const canDoHRActions = isHR || (!isHR && !isLineManager);
+    const canDoHRActions = isHR;
 
     const toggleDropdown = (id: number) => setOpenDropdownId(openDropdownId === id ? null : id);
     const closeDropdown = () => setOpenDropdownId(null);
