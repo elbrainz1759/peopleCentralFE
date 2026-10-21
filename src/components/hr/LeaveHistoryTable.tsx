@@ -92,69 +92,66 @@ export default function LeaveHistoryTable() {
     const [tableData, setTableData] = useState<LeaveRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchUserLeaves = async () => {
-            // Decode JWT to get staff_id — auth_user in localStorage may only have account id
-            let staffId = 0;
-            try {
-                const token = localStorage.getItem('auth_token');
-                if (token) {
-                    const payload = JSON.parse(atob(token.split('.')[1]));
-                    staffId = Number(payload.staff_id || payload.staffId) || 0;
-                }
-                if (!staffId) {
-                    const currentUser = authService.getCurrentUser();
-                    staffId = Number(currentUser?.staff_id || currentUser?.staffId || currentUser?.id) || 1;
-                }
-            } catch {
-                staffId = 1;
+    const fetchUserLeaves = async () => {
+        // Decode JWT to get staff_id — auth_user in localStorage may only have account id
+        let staffId = 0;
+        try {
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                staffId = Number(payload.staff_id || payload.staffId) || 0;
             }
-
-            setIsLoading(true);
-            try {
-                const response = await leaveService.getInstance().getAllLeaves(1, 100, undefined, staffId);
-                console.log("Leave History API Response:", response); // Debug log
-                console.log("Leave History Data:", response.data); // Debug log
-                
-                // Handle different response structures
-                const leavesData = response.data || response || [];
-                console.log("Leaves data to map:", leavesData); // Debug log
-                
-                // Check if it's a single object or array
-                const dataArray = Array.isArray(leavesData) ? leavesData : [leavesData];
-                
-                // Map API data to LeaveRecord format
-                const mappedData = dataArray.map((item: any) => ({
-                    id: item.id,
-                    leaveType: [...new Set((item.durations ?? []).map((d: any) => d.leave_type_name).filter(Boolean))].join(', ') || "Unknown",
-                    startDate: item.durations?.[0]?.start_date ? new Date(item.durations[0].start_date).toLocaleDateString() : "-",
-                    endDate: item.durations?.[0]?.end_date ? new Date(item.durations[0].end_date).toLocaleDateString() : "-",
-                    duration: `${item.total_hours || 0} Hours`,
-                    reason: item.reason,
-                    status: item.status, // Assuming status comes back correctly
-                    appliedOn: item.created_at ? new Date(item.created_at).toLocaleDateString() : "-",
-                    handoverNotes: item.handover_note,
-                    durations: item.durations ?? [],
-                }));
-                
-                console.log("Mapped data:", mappedData); // Debug log
-                setTableData(mappedData);
-            } catch (error) {
-                console.error("Failed to fetch leaves:", error);
-                toast.error("Could not load your leave history");
-            } finally {
-                setIsLoading(false);
+            if (!staffId) {
+                const currentUser = authService.getCurrentUser();
+                staffId = Number(currentUser?.staff_id || currentUser?.staffId || currentUser?.id) || 1;
             }
-        };
+        } catch {
+            staffId = 1;
+        }
 
-        fetchUserLeaves();
-    }, []);
+        setIsLoading(true);
+        try {
+            const response = await leaveService.getInstance().getAllLeaves(1, 100, undefined, staffId);
+
+            // Handle different response structures
+            const leavesData = response.data || response || [];
+
+            // Check if it's a single object or array
+            const dataArray = Array.isArray(leavesData) ? leavesData : [leavesData];
+
+            // Map API data to LeaveRecord format
+            const mappedData = dataArray.map((item: any) => ({
+                id: item.id,
+                leaveType: [...new Set((item.durations ?? []).map((d: any) => d.leave_type_name).filter(Boolean))].join(', ') || "Unknown",
+                startDate: item.durations?.[0]?.start_date ? new Date(item.durations[0].start_date).toLocaleDateString() : "-",
+                endDate: item.durations?.[0]?.end_date ? new Date(item.durations[0].end_date).toLocaleDateString() : "-",
+                duration: `${item.total_hours || 0} Hours`,
+                reason: item.reason,
+                status: item.status, // Assuming status comes back correctly
+                appliedOn: item.created_at ? new Date(item.created_at).toLocaleDateString() : "-",
+                handoverNotes: item.handover_note,
+                durations: item.durations ?? [],
+            }));
+
+            setTableData(mappedData);
+        } catch (error) {
+            console.error("Failed to fetch leaves:", error);
+            toast.error("Could not load your leave history");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchUserLeaves(); }, []);
 
     const [filterStatus, setFilterStatus] = useState("All");
     const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
     const [selectedLeave, setSelectedLeave] = useState<LeaveRecord | null>(null);
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [cancellingLeave, setCancellingLeave] = useState<LeaveRecord | null>(null);
+    const [cancelReason, setCancelReason] = useState("");
+    const [isCancelling, setIsCancelling] = useState(false);
 
     const toggleDropdown = (id: number) => {
         setOpenDropdownId(openDropdownId === id ? null : id);
@@ -172,6 +169,32 @@ export default function LeaveHistoryTable() {
     const handleEdit = (record: LeaveRecord) => {
         setSelectedLeave(record);
         setIsEditOpen(true);
+    };
+
+    const openCancelModal = (record: LeaveRecord) => {
+        setCancelReason("");
+        setCancellingLeave(record);
+    };
+
+    const closeCancelModal = () => {
+        setCancellingLeave(null);
+        setCancelReason("");
+    };
+
+    const confirmCancel = async () => {
+        if (!cancellingLeave) return;
+        setIsCancelling(true);
+        try {
+            await leaveService.getInstance().cancelLeave(cancellingLeave.id, cancelReason.trim() || undefined);
+            toast.success("Leave request cancelled.");
+            closeCancelModal();
+            fetchUserLeaves();
+        } catch (error: any) {
+            const message = error?.response?.data?.message ?? error?.data?.message ?? error?.message ?? "Failed to cancel leave request.";
+            toast.error(message);
+        } finally {
+            setIsCancelling(false);
+        }
     };
 
     const downloadLeavePDF = (record: LeaveRecord) => {
@@ -352,6 +375,7 @@ export default function LeaveHistoryTable() {
                                                 <PencilIcon className="w-3.5 h-3.5" /> Edit
                                             </button>
                                             <button
+                                                onClick={() => openCancelModal(record)}
                                                 className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-red-100 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10"
                                             >
                                                 <TrashBinIcon className="w-3.5 h-3.5" /> Cancel
@@ -512,7 +536,10 @@ export default function LeaveHistoryTable() {
                                                             <PencilIcon className="w-4 h-4" />
                                                             Edit
                                                         </DropdownItem>
-                                                        <DropdownItem onItemClick={closeDropdown} className="flex gap-2 items-center text-red-500 hover:text-red-700">
+                                                        <DropdownItem
+                                                            onItemClick={() => { closeDropdown(); openCancelModal(record); }}
+                                                            className="flex gap-2 items-center text-red-500 hover:text-red-700"
+                                                        >
                                                             <TrashBinIcon className="w-4 h-4" />
                                                             Cancel
                                                         </DropdownItem>
@@ -605,6 +632,41 @@ export default function LeaveHistoryTable() {
                     />
                 )}
             </Drawer>
+
+            {/* Cancel Confirmation Modal */}
+            {cancellingLeave && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Cancel Leave Request</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                            Are you sure you want to cancel this {cancellingLeave.leaveType} request?
+                        </p>
+                        <textarea
+                            value={cancelReason}
+                            onChange={(e) => setCancelReason(e.target.value)}
+                            rows={3}
+                            placeholder="Reason (optional)..."
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 resize-none mb-5"
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={closeCancelModal}
+                                disabled={isCancelling}
+                                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                Keep Request
+                            </button>
+                            <button
+                                onClick={confirmCancel}
+                                disabled={isCancelling}
+                                className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-60"
+                            >
+                                {isCancelling ? "Cancelling..." : "Cancel Request"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
