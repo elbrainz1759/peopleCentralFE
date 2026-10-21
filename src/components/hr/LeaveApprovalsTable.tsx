@@ -22,6 +22,7 @@ interface LeaveRequest {
     employeeName: string;
     role: string;
     department: string;
+    supervisorName: string;
     leaveType: string;
     startDate: string;
     endDate: string;
@@ -225,6 +226,9 @@ export default function LeaveApprovalsTable() {
                 employeeName: item.employee_name ?? item.staff?.employee_name ?? "—",
                 role: item.employee_designation ?? item.staff?.employment_detail?.job_title ?? "Staff",
                 department: item.department_name ?? item.staff?.employment_detail?.department?.name ?? "Unit",
+                supervisorName: (item.supervisor_name && item.supervisor_name.trim() !== "")
+                    ? item.supervisor_name.trim()
+                    : "—",
                 leaveType: [...new Set((item.durations ?? []).map((d: any) => d.leave_type_name).filter(Boolean))].join(", ")
                     || item.leave_type_name || item.leaveType?.name || "Other",
                 startDate: (item.durations?.[0]?.start_date ?? item.start_date)
@@ -478,6 +482,10 @@ export default function LeaveApprovalsTable() {
                                 </div>
                                 <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
                                     <div className="flex justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Supervisor</span>
+                                        <span>{record.supervisorName}</span>
+                                    </div>
+                                    <div className="flex justify-between">
                                         <span className="font-medium text-gray-600 dark:text-gray-300">Leave Type</span>
                                         <span>{record.leaveType}</span>
                                     </div>
@@ -502,16 +510,16 @@ export default function LeaveApprovalsTable() {
                 <Table>
                     <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                         <TableRow>
-                            {["S/N", "Employee", "Leave Type", "Duration", "Date Applied", "Status", "Action"].map(h => (
+                            {["S/N", "Employee", "Supervisor", "Leave Type", "Duration", "Date Applied", "Status", "Action"].map(h => (
                                 <TableCell key={h} isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 whitespace-nowrap">{h}</TableCell>
                             ))}
                         </TableRow>
                     </TableHeader>
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {isLoading ? (
-                            <TableRow><TableCell colSpan={7} className="py-10 text-center text-gray-400">Loading leave approvals...</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={8} className="py-10 text-center text-gray-400">Loading leave approvals...</TableCell></TableRow>
                         ) : filteredData.length === 0 ? (
-                            <TableRow><TableCell colSpan={7} className="py-10 text-center text-gray-400">No leave requests found.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={8} className="py-10 text-center text-gray-400">No leave requests found.</TableCell></TableRow>
                         ) : (
                             filteredData.map((record, index) => (
                                 <TableRow key={record.id}>
@@ -522,6 +530,7 @@ export default function LeaveApprovalsTable() {
                                             <span className="text-xs text-gray-500 dark:text-gray-400">{record.role}</span>
                                         </div>
                                     </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{record.supervisorName}</TableCell>
                                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{record.leaveType}</TableCell>
                                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{record.duration}</TableCell>
                                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400 whitespace-nowrap">{record.dateCreated}</TableCell>

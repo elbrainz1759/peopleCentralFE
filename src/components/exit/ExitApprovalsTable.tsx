@@ -218,7 +218,7 @@ export default function ExitApprovalsTable() {
                     employeeName: fullName,
                     department: item.department_name || item.department?.name || item.department || emp?.department_name || 'N/A',
                     designation: item.designation_name || item.designation || emp?.designation || emp?.job_title || 'Not Specified',
-                    supervisor: item.supervisor?.name || item.supervisor || 'N/A',
+                    supervisor: item.supervisor_name?.trim() || item.supervisor?.name || item.supervisor || 'N/A',
                     stage: (() => {
                         const s = item.stage || 'N/A';
                         // Derive effective stage from cleared flags when backend hasn't advanced it
@@ -919,6 +919,10 @@ export default function ExitApprovalsTable() {
                                         <span>{interview.designation}</span>
                                     </div>
                                     <div className="flex justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">Supervisor</span>
+                                        <span>{interview.supervisor}</span>
+                                    </div>
+                                    <div className="flex justify-between">
                                         <span className="font-medium text-gray-600 dark:text-gray-300">Location</span>
                                         <span>{interview.location}</span>
                                     </div>
@@ -986,6 +990,9 @@ export default function ExitApprovalsTable() {
                                 Designation
                             </TableCell>
                             <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                Supervisor
+                            </TableCell>
+                            <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                 Location
                             </TableCell>
                             <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
@@ -1006,13 +1013,13 @@ export default function ExitApprovalsTable() {
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {isLoadingInterviews ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="py-10 text-center text-gray-500">
+                                <TableCell colSpan={8} className="py-10 text-center text-gray-500">
                                     Loading exit interviews...
                                 </TableCell>
                             </TableRow>
                         ) : exitInterviews.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="py-10 text-center text-gray-500">
+                                <TableCell colSpan={8} className="py-10 text-center text-gray-500">
                                     No records found for "{currentQueue}"
                                 </TableCell>
                             </TableRow>
@@ -1035,6 +1042,9 @@ export default function ExitApprovalsTable() {
                                 </TableCell>
                                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                                     {interview.designation}
+                                </TableCell>
+                                <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                    {interview.supervisor}
                                 </TableCell>
                                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                                     {interview.location}
