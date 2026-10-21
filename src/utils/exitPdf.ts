@@ -234,7 +234,21 @@ export function generateInterviewPDF(emp: ExitPdfEmployee, details: any) {
     doc.save(`Exit_Interview_${emp.staffId}_${String(emp.employeeName).replace(/\s+/g, "_")}.pdf`);
 }
 
-export function generateClearancePDF(emp: ExitPdfEmployee, details: any, checklistItems: any[]) {
+export interface ExitApprovalSignature {
+    name: string;
+    position: string;
+    dateTime: string;
+}
+
+export interface ExitApprovalTrail {
+    Supervisor?: ExitApprovalSignature;
+    Operations?: ExitApprovalSignature;
+    Finance?: ExitApprovalSignature;
+    HR?: ExitApprovalSignature;
+    HRLead?: ExitApprovalSignature;
+}
+
+export function generateClearancePDF(emp: ExitPdfEmployee, details: any, checklistItems: any[], approvals?: ExitApprovalTrail) {
     const stageOrder = ["Employee", "Supervisor", "Operations", "Finance", "HR", "HR_Final", "HR_Director", "Completed"];
     const currentIdx = stageOrder.indexOf(emp.stage);
     const pastStage = (s: string) => currentIdx > stageOrder.indexOf(s);
@@ -254,18 +268,24 @@ export function generateClearancePDF(emp: ExitPdfEmployee, details: any, checkli
         columnStyles: { 0: labelCol },
     });
 
+    // "Approved By" / "Date & Time" are per-stage digital signatures — who
+    // actually cleared each stage and when, not just a bare "Cleared" label.
+    const sigName = (s?: ExitApprovalSignature) => s ? `${s.name}\n${s.position}` : "—";
+    const sigDate = (s?: ExitApprovalSignature) => s ? s.dateTime : "—";
+
     y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Approval Trail");
     autoTable(doc, {
-        startY: y, head: [["Stage", "Status"]],
+        startY: y, head: [["Stage", "Status", "Approved By", "Date & Time"]],
         body: [
-            ["1. Employee Submission", "Submitted"],
-            ["2. Supervisor (Handover)", pastStage("Supervisor") || emp.handoverStatus === "Accepted" ? "Accepted" : "Pending"],
-            ["3. Operations (Asset Clearance)", pastStage("Operations") || emp.assetsStatus === "Cleared" ? "Cleared" : "Pending"],
-            ["4. Finance (Outstanding Obligations)", pastStage("Finance") || emp.financeStatus === "Cleared" ? "Cleared" : "Pending"],
-            ["5. HR (Final Review & Sign-off)", pastStage("HR") || emp.stage === "Completed" ? "Completed" : "Pending"],
+            ["1. Employee Submission", "Submitted", emp.employeeName, emp.submittedOn],
+            ["2. Supervisor (Handover)", pastStage("Supervisor") || emp.handoverStatus === "Accepted" ? "Accepted" : "Pending", sigName(approvals?.Supervisor), sigDate(approvals?.Supervisor)],
+            ["3. Operations (Asset Clearance)", pastStage("Operations") || emp.assetsStatus === "Cleared" ? "Cleared" : "Pending", sigName(approvals?.Operations), sigDate(approvals?.Operations)],
+            ["4. Finance (Outstanding Obligations)", pastStage("Finance") || emp.financeStatus === "Cleared" ? "Cleared" : "Pending", sigName(approvals?.Finance), sigDate(approvals?.Finance)],
+            ["5. HR (Final Review)", pastStage("HR") ? "Reviewed" : "Pending", sigName(approvals?.HR), sigDate(approvals?.HR)],
+            ["6. HR Lead (Final Sign-off)", emp.stage === "Completed" ? "Completed" : "Pending", sigName(approvals?.HRLead), sigDate(approvals?.HRLead)],
         ],
-        theme: "grid", headStyles, styles: tableStyles,
-        columnStyles: { 0: { cellWidth: 100 } },
+        theme: "grid", headStyles, styles: { ...tableStyles, fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 55 }, 2: { cellWidth: 45 } },
     });
 
     y = sectionTitle(doc, (doc as any).lastAutoTable.finalY + 6, "Clearance Checklist Items");

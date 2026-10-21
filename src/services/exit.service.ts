@@ -266,6 +266,21 @@ export class ExitService {
   }
 
   /**
+   * Full audit trail (every stage transition, including the HR Lead finalize
+   * step, which — unlike the other stages — never writes a row to
+   * exit_interview_clearances and only shows up here).
+   */
+  async getAuditLog(id: number | string): Promise<any> {
+    try {
+      const response = await api.get<any>(`/exit-interviews/${id}/audit-log`);
+      return response;
+    } catch (error) {
+      console.error('ExitService getAuditLog error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * HR final submission
    */
   async finalizeExitInterview(id: number): Promise<any> {

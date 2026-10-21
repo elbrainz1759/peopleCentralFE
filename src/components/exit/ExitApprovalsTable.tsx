@@ -18,7 +18,7 @@ import { ExitService, ChecklistItem as ServiceChecklistItem } from "@/services/e
 import { userService } from "@/services/user.service";
 import { toast } from "react-hot-toast";
 import Button from "../ui/button/Button";
-import { generateInterviewPDF, generateClearancePDF } from "@/utils/exitPdf";
+import { generateInterviewPDF, generateClearancePDF, ExitApprovalTrail, ExitApprovalSignature } from "@/utils/exitPdf";
 
 type QueueType = 'All' | 'HR' | 'Operations' | 'Finance';
 
@@ -689,6 +689,56 @@ export default function ExitApprovalsTable() {
         financeStatus: iv.financeStatus,
     });
 
+    // Resolves a clearance/audit actor's email to the name + position shown
+    // on the signature line — looked up against the already-fetched employee
+    // directory rather than a fresh request per stage.
+    const resolveApprover = (email: string | undefined): { name: string; position: string } => {
+        if (!email) return { name: "N/A", position: "N/A" };
+        const emp = employees.find((e: any) => (e.email || '').toLowerCase() === email.toLowerCase());
+        if (!emp) return { name: email, position: "N/A" };
+        const name = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || email;
+        const position = emp.designation || emp.job_title || "N/A";
+        return { name, position };
+    };
+
+    // Supervisor/Operations/Finance/HR clearances live in
+    // exit_interview_clearances; the HR Lead's final sign-off never writes a
+    // row there (finalize() only writes an audit log entry), so it's pulled
+    // from the audit trail instead.
+    const buildApprovalTrail = async (lookupId: string | number): Promise<ExitApprovalTrail> => {
+        const trail: ExitApprovalTrail = {};
+        try {
+            const statusRes = await exitServiceInstance.getClearanceStatus(lookupId);
+            const clearances = statusRes?.data?.clearances || statusRes?.clearances || [];
+            (['Supervisor', 'Operations', 'Finance', 'HR'] as const).forEach((dept) => {
+                const matches = clearances.filter((c: any) => c.department === dept && c.action === 'Cleared');
+                const last = matches[matches.length - 1];
+                if (last) {
+                    const { name, position } = resolveApprover(last.cleared_by);
+                    trail[dept] = {
+                        name, position,
+                        dateTime: last.cleared_at ? new Date(last.cleared_at).toLocaleString() : "N/A",
+                    } as ExitApprovalSignature;
+                }
+            });
+        } catch { /* clearance history is supplementary — PDF still generates without it */ }
+
+        try {
+            const auditRes = await exitServiceInstance.getAuditLog(lookupId);
+            const logs = auditRes?.data || auditRes || [];
+            const finalizeEntry = [...logs].reverse().find((l: any) => l.to_stage === 'Completed');
+            if (finalizeEntry) {
+                const { name, position } = resolveApprover(finalizeEntry.performed_by);
+                trail.HRLead = {
+                    name, position,
+                    dateTime: finalizeEntry.created_at ? new Date(finalizeEntry.created_at).toLocaleString() : "N/A",
+                };
+            }
+        } catch { /* audit log is supplementary — PDF still generates without it */ }
+
+        return trail;
+    };
+
     const handleDownload = async (interview: ExitInterviewDisplay, type: 'interview' | 'clearance') => {
         setDownloadingId(interview.id);
         try {
@@ -699,7 +749,8 @@ export default function ExitApprovalsTable() {
                 generateInterviewPDF(toEmpInfo(interview), details);
                 toast.success("Exit Interview PDF downloaded.");
             } else {
-                generateClearancePDF(toEmpInfo(interview), details, checklistItems);
+                const approvals = await buildApprovalTrail(lookupId);
+                generateClearancePDF(toEmpInfo(interview), details, checklistItems, approvals);
                 toast.success("Exit Clearance PDF downloaded.");
             }
         } catch {
