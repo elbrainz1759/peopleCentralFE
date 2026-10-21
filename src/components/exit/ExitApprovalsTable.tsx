@@ -19,6 +19,7 @@ import { userService } from "@/services/user.service";
 import { toast } from "react-hot-toast";
 import Button from "../ui/button/Button";
 import { generateInterviewPDF, generateClearancePDF, ExitApprovalTrail, ExitApprovalSignature } from "@/utils/exitPdf";
+import WorkflowBanner, { EXIT_WORKFLOW_STEPS } from "@/components/shared/WorkflowBanner";
 
 type QueueType = 'All' | 'HR' | 'Operations' | 'Finance';
 
@@ -797,37 +798,7 @@ export default function ExitApprovalsTable() {
                 </p>
             </div>
 
-            {/* Workflow Banner — mirrors the Leave Approvals banner, extended to
-                the exit stage machine's extra steps (Supervisor → Operations →
-                Finance → HR → HR Lead). */}
-            <div className="mb-6 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-white/[0.02] p-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Approval Workflow</p>
-                <div className="flex flex-wrap items-center gap-y-3">
-                    {[
-                        { label: "Employee Submits", status: "Submitted", color: "bg-brand-500" },
-                        { label: "Supervisor Clears", status: "Handover", color: "bg-amber-500" },
-                        { label: "Operations Clears", status: "Assets", color: "bg-blue-500" },
-                        { label: "Finance Clears", status: "Obligations", color: "bg-blue-500" },
-                        { label: "HR Reviews", status: "Final Review", color: "bg-purple-500" },
-                        { label: "HR Lead Finalizes", status: "Closed", color: "bg-green-500" },
-                    ].map((step, idx, arr) => (
-                        <React.Fragment key={step.label}>
-                            <div className="flex items-center gap-2 pr-3">
-                                <div className={`flex h-7 w-7 items-center justify-center rounded-full ${step.color} text-white text-xs font-bold flex-shrink-0`}>
-                                    {idx + 1}
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-800 dark:text-white whitespace-nowrap">{step.label}</p>
-                                    <p className="text-xs text-gray-400 whitespace-nowrap">{step.status}</p>
-                                </div>
-                            </div>
-                            {idx < arr.length - 1 && (
-                                <div className="w-6 h-0.5 bg-gray-200 dark:bg-gray-700 flex-shrink-0 mr-3" />
-                            )}
-                        </React.Fragment>
-                    ))}
-                </div>
-            </div>
+            <WorkflowBanner steps={EXIT_WORKFLOW_STEPS} />
 
             <div className="mb-6 flex flex-wrap gap-4 items-center justify-between">
                 {availableQueues.length > 1 ? (

@@ -7,6 +7,7 @@ import {
 } from "../ui/table";
 import { CheckCircleIcon, CloseIcon } from "@/icons";
 import { getAuthUser, hasRole } from "@/utils/authUser";
+import WorkflowBanner, { LEAVE_WORKFLOW_STEPS } from "@/components/shared/WorkflowBanner";
 
 interface ReviewedLeave {
     id: number;
@@ -105,6 +106,7 @@ export default function FinalLeaveApprovalsTable() {
 
     return (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
+            <WorkflowBanner steps={LEAVE_WORKFLOW_STEPS} />
             <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Final Approvals</h3>
                 {items.length > 0 && (
