@@ -56,11 +56,12 @@ export class leaveService {
         }
     }
 
-    async getAllLeaves(page = 1, limit = 10, status?: string, staffId?: number, signal?: AbortSignal): Promise<any> {
+    async getAllLeaves(page = 1, limit = 10, status?: string, staffId?: number, signal?: AbortSignal, scope?: string): Promise<any> {
         try {
             let url = `/leaves?page=${page}&limit=${limit}`;
             if (status && status !== 'All') url += `&status=${status}`;
             if (staffId) url += `&staffId=${staffId}`;
+            if (scope) url += `&scope=${scope}`;
             const response = await api.get<any>(url, signal ? { signal } : undefined);
             return response;
         } catch (error) {

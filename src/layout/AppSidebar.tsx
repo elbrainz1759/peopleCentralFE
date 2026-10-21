@@ -29,15 +29,9 @@ type NavItem = {
 const userNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
+  { icon: <CalenderIcon />, name: "Apply for Leave", path: "/leave/apply" },
+  { icon: <CalenderIcon />, name: "Pending Approvals", path: "/leave/pending-approvals" },
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
-  {
-    icon: <CalenderIcon />,
-    name: "Leave Management",
-    subItems: [
-      { name: "Apply for Leave", path: "/leave/apply" },
-      { name: "Approvals", path: "/leave/approvals" },
-    ],
-  },
   {
     icon: <ListIcon />,
     name: "Exit Management",
@@ -54,6 +48,8 @@ const userNavItems: NavItem[] = [
 const hrNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
+  { icon: <CalenderIcon />, name: "Apply for Leave", path: "/leave/apply" },
+  { icon: <CalenderIcon />, name: "Pending Approvals", path: "/leave/pending-approvals" },
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
   {
     icon: <UserCircleIcon />,
@@ -68,8 +64,8 @@ const hrNavItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "Leave Management",
     subItems: [
-      { name: "Apply for Leave", path: "/leave/apply" },
-      { name: "Approvals", path: "/leave/approvals" },
+      { name: "Final Approvals", path: "/leave/final-approvals" },
+      { name: "All Requests", path: "/leave/all-requests" },
       { name: "Leave Balances", path: "/leave/balances" },
       { name: "Leave Types", path: "/leave/leave-types" },
       { name: "Leave Type Configs", path: "/leave/type-configs" },
@@ -95,13 +91,14 @@ const hrNavItems: NavItem[] = [
 const limitedAdminNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
+  { icon: <CalenderIcon />, name: "Apply for Leave", path: "/leave/apply" },
+  { icon: <CalenderIcon />, name: "Pending Approvals", path: "/leave/pending-approvals" },
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
   {
     icon: <CalenderIcon />,
     name: "Leave Management",
     subItems: [
-      { name: "Apply for Leave", path: "/leave/apply" },
-      { name: "Approvals", path: "/leave/approvals" },
+      { name: "All Requests", path: "/leave/all-requests" },
     ],
   },
   {
@@ -118,6 +115,8 @@ const limitedAdminNavItems: NavItem[] = [
 const superAdminNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
+  { icon: <CalenderIcon />, name: "Apply for Leave", path: "/leave/apply" },
+  { icon: <CalenderIcon />, name: "Pending Approvals", path: "/leave/pending-approvals" },
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
   {
     icon: <UserCircleIcon />,
@@ -137,8 +136,8 @@ const superAdminNavItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "Leave Management",
     subItems: [
-      { name: "Apply for Leave", path: "/leave/apply" },
-      { name: "Approvals", path: "/leave/approvals" },
+      { name: "Final Approvals", path: "/leave/final-approvals" },
+      { name: "All Requests", path: "/leave/all-requests" },
       { name: "Leave Balances", path: "/leave/balances" },
       { name: "Leave Types", path: "/leave/leave-types" },
       { name: "Leave Type Configs", path: "/leave/type-configs" },
