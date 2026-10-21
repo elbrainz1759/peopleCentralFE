@@ -65,7 +65,7 @@ const hrNavItems: NavItem[] = [
     name: "Leave Management",
     subItems: [
       { name: "Final Approvals", path: "/leave/final-approvals" },
-      { name: "All Requests", path: "/leave/all-requests" },
+      { name: "All Leaves", path: "/leave/all-requests" },
       { name: "Leave Balances", path: "/leave/balances" },
       { name: "Leave Types", path: "/leave/leave-types" },
       { name: "Leave Type Configs", path: "/leave/type-configs" },
@@ -77,6 +77,7 @@ const hrNavItems: NavItem[] = [
     subItems: [
       { name: "Exit Request", path: "/exit" },
       { name: "Approvals", path: "/exit/approvals" },
+      { name: "All Exits", path: "/exit/all-requests" },
       { name: "End of Service", path: "/exit/end-of-service" },
       { name: "Checklist", path: "/exit/checklist" },
     ],
@@ -99,7 +100,7 @@ const limitedAdminNavItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "Leave Management",
     subItems: [
-      { name: "All Requests", path: "/leave/all-requests" },
+      { name: "All Leaves", path: "/leave/all-requests" },
     ],
   },
   {
@@ -108,6 +109,7 @@ const limitedAdminNavItems: NavItem[] = [
     subItems: [
       { name: "Exit Request", path: "/exit" },
       { name: "Approvals", path: "/exit/approvals" },
+      { name: "All Exits", path: "/exit/all-requests" },
       { name: "End of Service", path: "/exit/end-of-service" },
     ],
   },
@@ -139,7 +141,7 @@ const superAdminNavItems: NavItem[] = [
     name: "Leave Management",
     subItems: [
       { name: "Final Approvals", path: "/leave/final-approvals" },
-      { name: "All Requests", path: "/leave/all-requests" },
+      { name: "All Leaves", path: "/leave/all-requests" },
       { name: "Leave Balances", path: "/leave/balances" },
       { name: "Leave Types", path: "/leave/leave-types" },
       { name: "Leave Type Configs", path: "/leave/type-configs" },
@@ -151,6 +153,7 @@ const superAdminNavItems: NavItem[] = [
     subItems: [
       { name: "Exit Request", path: "/exit" },
       { name: "Approvals", path: "/exit/approvals" },
+      { name: "All Exits", path: "/exit/all-requests" },
       { name: "End of Service", path: "/exit/end-of-service" },
       { name: "Checklist", path: "/exit/checklist" },
     ],
@@ -167,6 +170,11 @@ const AppSidebar: React.FC = () => {
   const [isRegularUser, setIsRegularUser] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isHRRole, setIsHRRole] = useState(false);
+  // Every flag above defaults to false, which falls through to
+  // superAdminNavItems (the most expansive list) until the effect below
+  // runs — i.e. every account briefly saw the full admin menu on every
+  // refresh. Nothing renders until the role is actually resolved.
+  const [roleResolved, setRoleResolved] = useState(false);
 
   useEffect(() => {
     try {
@@ -195,7 +203,9 @@ const AppSidebar: React.FC = () => {
       setIsHRRole(isHRAdminRole);
       setIsAdmin(isLimitedAdminRole);
       setIsRegularUser(!isSuperAdmin && !isHRAdminRole && !isLimitedAdminRole);
-    } catch { /* ignore */ }
+    } catch { /* ignore */ } finally {
+      setRoleResolved(true);
+    }
   }, []);
 
   const renderMenuItems = (
@@ -409,7 +419,7 @@ const AppSidebar: React.FC = () => {
                 <h2 className="mb-4 text-xs uppercase flex leading-[20px] text-gray-400 justify-start">
                   Menu
                 </h2>
-                {renderMenuItems(currentNavItems, "main")}
+                {roleResolved && renderMenuItems(currentNavItems, "main")}
               </div>
             </div>
           </nav>

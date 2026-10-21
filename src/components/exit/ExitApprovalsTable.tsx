@@ -136,37 +136,39 @@ export default function ExitApprovalsTable() {
 
         const role = authUser?.role?.toLowerCase() || '';
 
-        // Only Operations/Finance/HR(+HR Lead)/Superadmin get full, company-
-        // wide visibility — everyone else (Program, User, any other role)
-        // only ever sees their own exit request plus their direct reports',
-        // via the "All" queue's ownership filter below. Role is the sole
-        // signal here — not department name, which only said where someone
-        // works, not what they're allowed to see.
+        // This page (gated to Operations/Finance/HR/HR Lead/Superadmin —
+        // see isPrivilegedForExitManagement below) is department-exclusive:
+        // once an exit moves past a department's stage, that department no
+        // longer sees it here at all, so the flow has to continue to
+        // whoever owns the next stage rather than everyone being able to
+        // sit on everything. Superadmin alone keeps the "All" cross-
+        // department view, as the break-glass admin role.
         if (role === 'superadmin') {
             setAvailableQueues(['All', 'HR', 'Operations', 'Finance']);
             setCurrentQueue('All');
             return;
         }
         if (role.includes('hr')) {
-            setAvailableQueues(['HR', 'All']);
+            setAvailableQueues(['HR']);
             setCurrentQueue('HR');
             return;
         }
         if (role === 'operations' || role === 'operation' || role.includes('operation')) {
-            setAvailableQueues(['Operations', 'All']);
+            setAvailableQueues(['Operations']);
             setCurrentQueue('Operations');
             return;
         }
         if (role === 'finance' || role.includes('finance')) {
-            setAvailableQueues(['Finance', 'All']);
+            setAvailableQueues(['Finance']);
             setCurrentQueue('Finance');
             return;
         }
 
-        // Everyone else — Program, User, any other role: a single "All"
-        // queue, scoped to their own request and their direct reports'.
-        setAvailableQueues(['All']);
-        setCurrentQueue('All');
+        // Unreachable in practice — this page is gated to the privileged
+        // roles above before it ever renders past the access-restricted
+        // message, but default to the narrowest possible view regardless.
+        setAvailableQueues(['HR']);
+        setCurrentQueue('HR');
     }, [authUser]);
 
     useEffect(() => {
