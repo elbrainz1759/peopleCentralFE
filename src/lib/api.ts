@@ -24,7 +24,7 @@ function clearSessionAndRedirect() {
     }
 }
 
-async function attemptTokenRefresh(): Promise<string | null> {
+async function attemptTokenRefresh(retrying = false): Promise<string | null> {
     const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
     if (!refreshToken) return null;
 
@@ -35,6 +35,9 @@ async function attemptTokenRefresh(): Promise<string | null> {
             body: JSON.stringify({ refreshToken }),
         });
 
+        // A rejected refresh token (expired/invalid/already rotated by
+        // another tab) means retrying won't help — only retry on a network-
+        // level failure, handled in the catch block below.
         if (refreshResponse.ok) {
             const data = await refreshResponse.json();
             const newToken = data.accessToken || data.token;
@@ -58,6 +61,9 @@ async function attemptTokenRefresh(): Promise<string | null> {
         }
     } catch (err) {
         console.error('Failed to refresh token:', err);
+        // A transient network blip at the exact moment the access token
+        // expires shouldn't force a full logout — retry once before giving up.
+        if (!retrying) return attemptTokenRefresh(true);
     }
 
     return null;
