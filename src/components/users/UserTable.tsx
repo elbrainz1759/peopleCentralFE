@@ -338,7 +338,7 @@ export default function UserTable() {
                             <Label>Country</Label>
                             <CustomSelect
                                 value={editForm.countryId}
-                                onChange={(v) => setEditForm(p => ({ ...p, countryId: v }))}
+                                onChange={(v) => setEditForm(p => ({ ...p, countryId: v, locationId: "" }))}
                                 options={countries.map((c: any) => ({ value: c.unique_id, label: c.name }))}
                                 placeholder="Select Country"
                             />
@@ -360,8 +360,10 @@ export default function UserTable() {
                             <CustomSelect
                                 value={editForm.locationId}
                                 onChange={(v) => setEditForm(p => ({ ...p, locationId: v }))}
-                                options={locations.map((l: any) => ({ value: l.unique_id, label: l.name }))}
-                                placeholder="Select Location"
+                                options={locations
+                                    .filter((l: any) => !editForm.countryId || l.country_id === editForm.countryId)
+                                    .map((l: any) => ({ value: l.unique_id, label: l.name }))}
+                                placeholder={editForm.countryId ? "Select Location" : "Select a country first"}
                             />
                         </div>
                         <div>
