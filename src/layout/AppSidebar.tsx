@@ -26,20 +26,19 @@ type NavItem = {
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean; hrOnly?: boolean }[];
 };
 
+// Plain User — no admin queues at all. "Exit Management" (the full multi-
+// department queue: Operations/Finance/HR/HR Lead) and "Leave Management"
+// are both restricted to Operations/Finance/HR/HR Lead/Superadmin below;
+// a plain user's own supervisor duties are covered entirely by the two
+// "Pending ... Approvals" pages, which are ownership-scoped regardless of
+// role (anyone can end up supervising someone).
 const userNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
   { icon: <CalenderIcon />, name: "Apply for Leave", path: "/leave/apply" },
-  { icon: <CalenderIcon />, name: "Pending Approvals", path: "/leave/pending-approvals" },
+  { icon: <CalenderIcon />, name: "Pending Leave Approvals", path: "/leave/pending-approvals" },
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
-  {
-    icon: <ListIcon />,
-    name: "Exit Management",
-    subItems: [
-      { name: "Exit Request", path: "/exit" },
-      { name: "Approvals", path: "/exit/approvals" },
-    ],
-  },
+  { icon: <ListIcon />, name: "Pending Exit Approvals", path: "/exit/pending-approvals" },
 ];
 
 // HR / HR Lead — full back-office access, matching what those roles are
@@ -49,8 +48,9 @@ const hrNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
   { icon: <CalenderIcon />, name: "Apply for Leave", path: "/leave/apply" },
-  { icon: <CalenderIcon />, name: "Pending Approvals", path: "/leave/pending-approvals" },
+  { icon: <CalenderIcon />, name: "Pending Leave Approvals", path: "/leave/pending-approvals" },
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
+  { icon: <ListIcon />, name: "Pending Exit Approvals", path: "/exit/pending-approvals" },
   {
     icon: <UserCircleIcon />,
     name: "HR Administration",
@@ -92,8 +92,9 @@ const limitedAdminNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
   { icon: <CalenderIcon />, name: "Apply for Leave", path: "/leave/apply" },
-  { icon: <CalenderIcon />, name: "Pending Approvals", path: "/leave/pending-approvals" },
+  { icon: <CalenderIcon />, name: "Pending Leave Approvals", path: "/leave/pending-approvals" },
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
+  { icon: <ListIcon />, name: "Pending Exit Approvals", path: "/exit/pending-approvals" },
   {
     icon: <CalenderIcon />,
     name: "Leave Management",
@@ -116,8 +117,9 @@ const superAdminNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <CalenderIcon />, name: "My Leaves", path: "/leave/history" },
   { icon: <CalenderIcon />, name: "Apply for Leave", path: "/leave/apply" },
-  { icon: <CalenderIcon />, name: "Pending Approvals", path: "/leave/pending-approvals" },
+  { icon: <CalenderIcon />, name: "Pending Leave Approvals", path: "/leave/pending-approvals" },
   { icon: <ListIcon />, name: "My Exits", path: "/exit/my-requests" },
+  { icon: <ListIcon />, name: "Pending Exit Approvals", path: "/exit/pending-approvals" },
   {
     icon: <UserCircleIcon />,
     name: "HR Administration",

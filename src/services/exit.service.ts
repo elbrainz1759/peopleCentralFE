@@ -70,11 +70,12 @@ export class ExitService {
   /**
    * Get all exit interviews (for admins)
    */
-  async getAllExitInterviews(page = 1, limit = 20, status?: string, staffId?: number | string): Promise<any> {
+  async getAllExitInterviews(page = 1, limit = 20, status?: string, staffId?: number | string, scope?: string): Promise<any> {
     try {
       let url = `/exit-interviews?page=${page}&limit=${limit}`;
       if (status && status !== 'All') url += `&status=${status}`;
       if (staffId) url += `&staffId=${staffId}`;
+      if (scope) url += `&scope=${scope}`;
       const response = await api.get<any>(url);
       return response;
     } catch (error) {

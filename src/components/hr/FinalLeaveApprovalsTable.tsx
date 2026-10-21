@@ -6,6 +6,7 @@ import {
     Table, TableBody, TableCell, TableHeader, TableRow,
 } from "../ui/table";
 import { CheckCircleIcon, CloseIcon } from "@/icons";
+import { getAuthUser, hasRole } from "@/utils/authUser";
 
 interface ReviewedLeave {
     id: number;
@@ -29,6 +30,10 @@ export default function FinalLeaveApprovalsTable() {
     const [comment, setComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorModal, setErrorModal] = useState<string | null>(null);
+    const [authUser, setAuthUser] = useState<any>(null);
+
+    useEffect(() => { setAuthUser(getAuthUser()); }, []);
+    const isAuthorized = hasRole(authUser, ["HR", "HR Lead", "Superadmin"]);
 
     const fetchItems = async () => {
         setIsLoading(true);
@@ -86,6 +91,17 @@ export default function FinalLeaveApprovalsTable() {
             setIsSubmitting(false);
         }
     };
+
+    if (authUser && !isAuthorized) {
+        return (
+            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-gray-800 dark:bg-white/[0.03]">
+                <p className="text-lg font-semibold text-gray-800 dark:text-white/90">Access Restricted</p>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Final Approvals is only available to HR, HR Lead and Superadmin.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">

@@ -648,6 +648,18 @@ export default function ExitApprovalsTable() {
         return role.includes('hr') || role.includes('admin') || role.includes('superadmin');
     })();
 
+    // This page is the admin multi-department queue (Operations/Finance/HR/
+    // HR Lead/Superadmin) — anyone else's supervisor duties are covered by
+    // the separate Pending Exit Approvals page instead, which the sidebar
+    // already points them to. Mirrors the backend's own isPrivileged set on
+    // GET /exit-interviews.
+    const isPrivilegedForExitManagement = (() => {
+        const role = (authUser?.role || "").toLowerCase();
+        return ['hr', 'hr lead', 'superadmin', 'operation', 'finance'].some(
+            (r) => role === r || role.includes(r),
+        );
+    })();
+
     // HR_Director/HR_Final is the final exit sign-off — exclusive to "HR Lead"
     // and Superadmin, deliberately narrower than isUserHR (which plain "HR"
     // also matches). Mirrors the backend's CLEARANCE_ROLES.HR_Director.
@@ -759,6 +771,18 @@ export default function ExitApprovalsTable() {
             setDownloadingId(null);
         }
     };
+
+    if (authUser && !isPrivilegedForExitManagement) {
+        return (
+            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-gray-800 dark:bg-white/[0.03]">
+                <p className="text-lg font-semibold text-gray-800 dark:text-white/90">Access Restricted</p>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Exit Management is only available to Operations, Finance, HR, HR Lead and Superadmin.
+                    If you need to approve a direct report&apos;s exit, use Pending Exit Approvals instead.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
