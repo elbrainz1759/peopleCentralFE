@@ -72,7 +72,7 @@ const hrNavItems: NavItem[] = [
     name: "Exit Management",
     subItems: [
       { name: "Exit Request", path: "/exit" },
-      { name: "Approvals", path: "/exit/approvals" },
+      { name: "Departmental Approvals", path: "/exit/approvals" },
       { name: "All Exits", path: "/exit/all-requests" },
     ],
   },
@@ -110,7 +110,7 @@ const limitedAdminNavItems: NavItem[] = [
     name: "Exit Management",
     subItems: [
       { name: "Exit Request", path: "/exit" },
-      { name: "Approvals", path: "/exit/approvals" },
+      { name: "Departmental Approvals", path: "/exit/approvals" },
       { name: "All Exits", path: "/exit/all-requests" },
     ],
   },
@@ -145,7 +145,7 @@ const superAdminNavItems: NavItem[] = [
     name: "Exit Management",
     subItems: [
       { name: "Exit Request", path: "/exit" },
-      { name: "Approvals", path: "/exit/approvals" },
+      { name: "Departmental Approvals", path: "/exit/approvals" },
       { name: "All Exits", path: "/exit/all-requests" },
     ],
   },
