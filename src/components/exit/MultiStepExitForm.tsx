@@ -27,7 +27,6 @@ interface ExitFormData {
   handoverNotes: string;
   reasonForLeaving: string;
   otherReason?: string;
-  newEmployer?: string;
   // Step 2 — PDF Q1–Q11
   whyLeaving: string;
   whatWouldPrevent: string;
@@ -77,7 +76,7 @@ export default function MultiStepExitForm() {
   const emptyForm: ExitFormData = {
     departmentId: "", programId: "", locationId: "", countryId: "",
     supervisorId: "", resignationDate: "", handoverNotes: "",
-    reasonForLeaving: "", otherReason: "", newEmployer: "",
+    reasonForLeaving: "", otherReason: "",
     whyLeaving: "", whatWouldPrevent: "", likedMost: "", likedLeast: "",
     supervisorFair: "", supervisorRecognition: "", supervisorComplaints: "",
     supervisorSensitive: "", supervisorFeedback: "", supervisorCommunication: "", supervisorPolicies: "",
@@ -245,7 +244,6 @@ export default function MultiStepExitForm() {
         handoverNotes: formData.handoverNotes || "N/A",
         reasonForLeaving: formData.reasonForLeaving,
         otherReason: formData.otherReason || "N/A",
-        newEmployer: formData.newEmployer || "N/A",
         // Q1–Q4
         whyLeaving: formData.whyLeaving,
         whatWouldPrevent: formData.whatWouldPrevent,
@@ -462,6 +460,7 @@ export default function MultiStepExitForm() {
                       { value: "Further Education", label: "Further Education" },
                       { value: "Personal Reasons", label: "Personal Reasons" },
                       { value: "Retirement", label: "Retirement" },
+                      { value: "End of Contract", label: "End of Contract" },
                       { value: "Other", label: "Other" },
                     ]}
                     placeholder="Select a reason"
@@ -485,20 +484,6 @@ export default function MultiStepExitForm() {
                     />
                   </div>
                 )}
-
-                <div className="space-y-3.5">
-                  <label className="text-sm font-black text-gray-800 dark:text-gray-200 ml-1">
-                    Future Employment (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    name="newEmployer"
-                    value={formData.newEmployer}
-                    onChange={handleInputChange}
-                    className="w-full rounded-2xl border-2 border-gray-100 bg-white dark:bg-gray-950 px-6 py-5 text-gray-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 dark:border-gray-800 transition-all font-bold shadow-sm"
-                    placeholder="New organization or career path..."
-                  />
-                </div>
 
                 <div className="space-y-3.5">
                   <label className="text-sm font-black text-gray-800 dark:text-gray-200 ml-1">
