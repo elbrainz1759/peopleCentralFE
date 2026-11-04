@@ -33,6 +33,14 @@ interface LeaveRecord {
     handoverNotes?: string;
     supervisor?: string;
     durations?: any[];
+    reviewedByName?: string;
+    reviewedByDesignation?: string;
+    dateReviewed?: string;
+    approvedByName?: string;
+    approvedByDesignation?: string;
+    dateApproved?: string;
+    rejectedByName?: string;
+    dateRejected?: string;
 }
 
 const tableData: LeaveRecord[] = [
@@ -131,6 +139,14 @@ export default function LeaveHistoryTable() {
                 appliedOn: item.created_at ? new Date(item.created_at).toLocaleDateString() : "-",
                 handoverNotes: item.handover_note,
                 durations: item.durations ?? [],
+                reviewedByName: item.reviewed_by_name,
+                reviewedByDesignation: item.reviewed_by_designation,
+                dateReviewed: item.date_reviewed,
+                approvedByName: item.approved_by_name,
+                approvedByDesignation: item.approved_by_designation,
+                dateApproved: item.date_approved,
+                rejectedByName: item.rejected_by_name,
+                dateRejected: item.date_rejected,
             }));
 
             setTableData(mappedData);
@@ -256,17 +272,53 @@ export default function LeaveHistoryTable() {
             styles: { fontSize: 10 },
         });
 
+        const fmtDate = (d?: string) => d ? new Date(d).toLocaleString() : "—";
+
+        const reviewerLabel = record.reviewedByName
+            ? `${record.reviewedByName}${record.reviewedByDesignation ? ` (${record.reviewedByDesignation})` : ""}`
+            : "—";
+        const approverLabel = record.approvedByName
+            ? `${record.approvedByName}${record.approvedByDesignation ? ` (${record.approvedByDesignation})` : ""}`
+            : "—";
+        const rejecterLabel = record.rejectedByName || "—";
+
+        // A rejection can land at either stage: if the record was already
+        // reviewed (reviewedByName set) it was HR who rejected it after
+        // review; otherwise the line manager rejected it outright.
+        const wasReviewedBeforeReject = record.status === "Rejected" && !!record.reviewedByName;
+
+        let lineManagerRow: [string, string, string, string];
+        let hrRow: [string, string, string, string];
+
+        if (record.status === "Pending") {
+            lineManagerRow = ["Line Manager Review", "—", "Pending", "—"];
+            hrRow = ["HR Final Approval", "—", "Pending", "—"];
+        } else if (record.status === "Rejected" && !wasReviewedBeforeReject) {
+            lineManagerRow = ["Line Manager Review", rejecterLabel, "Rejected", fmtDate(record.dateRejected)];
+            hrRow = ["HR Final Approval", "—", "Pending", "—"];
+        } else if (record.status === "Rejected" && wasReviewedBeforeReject) {
+            lineManagerRow = ["Line Manager Review", reviewerLabel, "Approved", fmtDate(record.dateReviewed)];
+            hrRow = ["HR Final Approval", rejecterLabel, "Rejected", fmtDate(record.dateRejected)];
+        } else if (record.status === "Reviewed") {
+            lineManagerRow = ["Line Manager Review", reviewerLabel, "Approved", fmtDate(record.dateReviewed)];
+            hrRow = ["HR Final Approval", "—", "Pending", "—"];
+        } else {
+            // Approved
+            lineManagerRow = ["Line Manager Review", reviewerLabel, "Approved", fmtDate(record.dateReviewed)];
+            hrRow = ["HR Final Approval", approverLabel, "Approved", fmtDate(record.dateApproved)];
+        }
+
         const y1 = (doc as any).lastAutoTable?.finalY || 100;
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.text("Approval Trail", 14, y1 + 12);
         autoTable(doc, {
             startY: y1 + 16,
-            head: [["Stage", "Approver", "Status", "Date"]],
+            head: [["Stage", "Approver", "Status", "Date & Time"]],
             body: [
                 ["Employee Submission", employeeName, "Submitted", record.appliedOn],
-                ["Line Manager Review", "Line Manager", record.status === "Pending" ? "Pending" : "Approved", record.status !== "Pending" ? record.appliedOn : "—"],
-                ["HR Final Approval", "HR Department", record.status === "Approved" ? "Approved" : record.status === "Rejected" ? "Rejected" : "Pending", record.status === "Approved" ? record.appliedOn : "—"],
+                lineManagerRow,
+                hrRow,
             ],
             theme: "grid",
             headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
