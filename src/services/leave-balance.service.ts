@@ -48,6 +48,19 @@ export class LeaveBalanceService {
   }
 
   /**
+   * Add a leave balance for a single staff member (current year)
+   */
+  async createLeaveBalance(balance: BulkUploadRequest): Promise<any> {
+    try {
+      const response = await api.post<any>('/leave-balances', balance);
+      return response;
+    } catch (error) {
+      console.error('LeaveBalanceService create error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Bulk upload leave balances
    */
   async bulkUploadLeaveBalances(balances: BulkUploadRequest[]): Promise<any> {

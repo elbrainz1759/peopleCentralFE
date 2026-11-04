@@ -236,8 +236,8 @@ export default function LeaveBalanceBulkUpload({ onSuccess }: { onSuccess?: () =
                   value={balance.staffId}
                   onChange={(v) => updateBalance(index, 'staffId', v)}
                   options={employees.map(emp => ({
-                    value: emp.id,
-                    label: `${emp.first_name} ${emp.last_name} (${emp.staff_id || emp.id})`,
+                    value: emp.staff_id,
+                    label: `${emp.first_name} ${emp.last_name} (${emp.staff_id})`,
                   }))}
                   placeholder={isLoadingEmployees ? "Loading employees..." : "Select Staff"}
                   disabled={isLoadingEmployees}

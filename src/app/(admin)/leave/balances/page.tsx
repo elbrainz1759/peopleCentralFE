@@ -4,6 +4,7 @@ import { leaveBalanceService } from "@/services/leave-balance.service";
 import { userService } from "@/services/user.service";
 import { toast } from "react-hot-toast";
 import LeaveBalanceBulkUpload from "@/components/leave/LeaveBalanceBulkUpload";
+import LeaveBalanceSingleAdd from "@/components/leave/LeaveBalanceSingleAdd";
 import { Drawer } from "@/components/ui/drawer/Drawer";
 import {
   Table,
@@ -51,6 +52,7 @@ export default function LeaveBalanceManagement() {
   const [balances, setBalances] = useState<FlatLeaveBalance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -182,15 +184,26 @@ export default function LeaveBalanceManagement() {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Leave Balance Management</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">Manage employee leave balances and allocations</p>
         </div>
-        <button
-          onClick={() => setIsUploadOpen(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Bulk Upload
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 border border-brand-500 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 rounded-lg text-sm font-medium transition-colors shadow-sm"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Balance
+          </button>
+          <button
+            onClick={() => setIsUploadOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Bulk Upload
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -465,6 +478,13 @@ export default function LeaveBalanceManagement() {
           </div>
         </div>
       )}
+
+      {/* Add Balance Drawer */}
+      <Drawer isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Add Leave Balance">
+        <div className="p-6">
+          <LeaveBalanceSingleAdd onSuccess={() => { setIsAddOpen(false); fetchBalances(1); }} />
+        </div>
+      </Drawer>
 
       {/* Bulk Upload Drawer */}
       <Drawer isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} title="Bulk Upload Leave Balances">
