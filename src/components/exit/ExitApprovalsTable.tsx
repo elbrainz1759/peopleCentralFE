@@ -717,11 +717,22 @@ export default function ExitApprovalsTable() {
     };
 
     // Supervisor/Operations/Finance/HR clearances live in
-    // exit_interview_clearances; the HR Lead's final sign-off never writes a
-    // row there (finalize() only writes an audit log entry), so it's pulled
-    // from the audit trail instead.
+    // exit_interview_clearances — but clearDepartment() only writes a row
+    // there when the stage has checklist items ticked or notes attached, so
+    // a stage cleared with neither (e.g. Supervisor handover, which has no
+    // checklist of its own) leaves no clearance row even though it was
+    // cleared. The audit log always gets an entry regardless, so it's the
+    // fallback for any stage missing a clearance row — and the only source
+    // for the HR Lead's final sign-off, which never writes a clearance row
+    // at all (finalize() only writes an audit log entry).
     const buildApprovalTrail = async (lookupId: string | number): Promise<ExitApprovalTrail> => {
         const trail: ExitApprovalTrail = {};
+        let logs: any[] = [];
+        try {
+            const auditRes = await exitServiceInstance.getAuditLog(lookupId);
+            logs = auditRes?.data || auditRes || [];
+        } catch { /* audit log is supplementary — PDF still generates without it */ }
+
         try {
             const statusRes = await exitServiceInstance.getClearanceStatus(lookupId);
             const clearances = statusRes?.data?.clearances || statusRes?.clearances || [];
@@ -734,22 +745,27 @@ export default function ExitApprovalsTable() {
                         name, position,
                         dateTime: last.cleared_at ? new Date(last.cleared_at).toLocaleString() : "N/A",
                     } as ExitApprovalSignature;
+                    return;
+                }
+                const auditEntry = [...logs].reverse().find((l: any) => l.action === `${dept} clearance submitted`);
+                if (auditEntry) {
+                    const { name, position } = resolveApprover(auditEntry.performed_by);
+                    trail[dept] = {
+                        name, position,
+                        dateTime: auditEntry.created_at ? new Date(auditEntry.created_at).toLocaleString() : "N/A",
+                    } as ExitApprovalSignature;
                 }
             });
         } catch { /* clearance history is supplementary — PDF still generates without it */ }
 
-        try {
-            const auditRes = await exitServiceInstance.getAuditLog(lookupId);
-            const logs = auditRes?.data || auditRes || [];
-            const finalizeEntry = [...logs].reverse().find((l: any) => l.to_stage === 'Completed');
-            if (finalizeEntry) {
-                const { name, position } = resolveApprover(finalizeEntry.performed_by);
-                trail.HRLead = {
-                    name, position,
-                    dateTime: finalizeEntry.created_at ? new Date(finalizeEntry.created_at).toLocaleString() : "N/A",
-                };
-            }
-        } catch { /* audit log is supplementary — PDF still generates without it */ }
+        const finalizeEntry = [...logs].reverse().find((l: any) => l.to_stage === 'Completed');
+        if (finalizeEntry) {
+            const { name, position } = resolveApprover(finalizeEntry.performed_by);
+            trail.HRLead = {
+                name, position,
+                dateTime: finalizeEntry.created_at ? new Date(finalizeEntry.created_at).toLocaleString() : "N/A",
+            };
+        }
 
         return trail;
     };
